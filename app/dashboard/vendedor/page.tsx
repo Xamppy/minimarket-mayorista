@@ -2,8 +2,7 @@ import { createClient } from '../../utils/supabase/server';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
-import SearchBar from './components/SearchBar';
-import VendorPageClient from './components/VendorPageClient';
+import VendorPageWrapper from './components/VendorPageWrapper';
 
 interface Product {
   id: string;
@@ -11,10 +10,21 @@ interface Product {
   image_url: string | null;
   brand_name: string;
   total_stock: number;
+  type_name?: string;
+}
+
+interface ProductType {
+  id: string;
+  name: string;
+}
+
+interface Brand {
+  id: string;
+  name: string;
 }
 
 interface PageProps {
-  searchParams: Promise<{ search?: string }>;
+  searchParams: Promise<{ search?: string; category?: string; brand?: string }>;
 }
 
 export default async function VendedorDashboardPage({ searchParams }: PageProps) {
@@ -30,85 +40,121 @@ export default async function VendedorDashboardPage({ searchParams }: PageProps)
 
   const resolvedSearchParams = await searchParams;
   const searchTerm = resolvedSearchParams.search || '';
+  const categoryFilter = resolvedSearchParams.category || '';
+  const brandFilter = resolvedSearchParams.brand || '';
 
-  // Obtener productos con stock total usando RPC y filtrar por búsqueda
-  let query = supabase.rpc('get_products_with_stock');
+  // Obtener tipos de productos para las categorías
+  const { data: productTypes } = await supabase
+    .from('product_types')
+    .select('id, name')
+    .order('name');
 
-  // Si hay término de búsqueda, filtrar los resultados
+  // Obtener todas las marcas para el filtrado
+  const { data: brands } = await supabase
+    .from('brands')
+    .select('id, name')
+    .order('name');
+
+  // Obtener todos los productos con información relacionada de marcas y tipos (igual que en admin)
+  const { data: products, error: productsError } = await supabase
+    .from('products')
+    .select(`
+      id,
+      name,
+      image_url,
+      brands (
+        name
+      ),
+      product_types (
+        name
+      )
+    `)
+    .order('created_at', { ascending: false });
+
+  if (productsError) {
+    return renderPage(user, [], productsError, searchTerm, categoryFilter, brandFilter, productTypes || [], brands || []);
+  }
+
+  // Obtener stock total para cada producto (igual que en admin)
+  const productsWithStock = await Promise.all(
+    (products || []).map(async (product) => {
+      const { data: stockData } = await supabase
+        .from('stock_entries')
+        .select('current_quantity')
+        .eq('product_id', product.id);
+      
+      const total_stock = stockData?.reduce((sum, entry) => sum + (entry.current_quantity || 0), 0) || 0;
+      
+      return {
+        id: product.id,
+        name: product.name,
+        brand_name: (product.brands as any)?.name || 'Sin marca',
+        type_name: (product.product_types as any)?.name || 'Sin tipo',
+        image_url: product.image_url,
+        total_stock
+      };
+    })
+  );
+
+  let filteredProducts = productsWithStock;
+
+  // Filtrar por búsqueda si hay término
   if (searchTerm.trim()) {
-    // Como la función RPC no permite filtros directos, obtenemos todos los productos
-    // y luego filtramos en el cliente. Para mejor rendimiento, podrías crear
-    // una función RPC que acepte parámetros de búsqueda.
-    const { data: allProducts, error: productsError } = await query;
-    
-    if (productsError) {
-      return renderPage(user, [], productsError, searchTerm);
-    }
-
-    // Filtrar productos por nombre o marca
-    const filteredProducts = allProducts?.filter((product: Product) => 
+    filteredProducts = filteredProducts.filter((product: Product) => 
       product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.brand_name.toLowerCase().includes(searchTerm.toLowerCase())
-    ) || [];
-
-    return renderPage(user, filteredProducts, null, searchTerm);
-  } else {
-    const { data: products, error: productsError } = await query.order('name');
-    return renderPage(user, products || [], productsError, searchTerm);
+    );
   }
+
+  // Filtrar por categoría si hay filtro
+  if (categoryFilter.trim()) {
+    filteredProducts = filteredProducts.filter((product: Product) => 
+      product.type_name?.toLowerCase() === categoryFilter.toLowerCase()
+    );
+  }
+
+  // Filtrar por marca si hay filtro
+  if (brandFilter.trim()) {
+    filteredProducts = filteredProducts.filter((product: Product) => 
+      product.brand_name?.toLowerCase() === brandFilter.toLowerCase()
+    );
+  }
+
+  return renderPage(user, filteredProducts, null, searchTerm, categoryFilter, brandFilter, productTypes || [], brands || []);
 }
 
-function renderPage(user: any, products: Product[], productsError: any, searchTerm: string) {
+function renderPage(
+  user: any, 
+  products: Product[], 
+  productsError: any, 
+  searchTerm: string, 
+  categoryFilter: string,
+  brandFilter: string,
+  productTypes: ProductType[],
+  brands: Brand[]
+) {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-6">
           <h1 className="text-3xl font-bold text-black">Dashboard del Vendedor</h1>
           <p className="text-black mt-2">
             Bienvenido, <strong>{user.email}</strong>
           </p>
         </div>
 
-        {/* Barra de búsqueda */}
-        <div className="mb-6">
-          <Suspense fallback={<div className="h-10 bg-gray-200 rounded-lg animate-pulse"></div>}>
-            <SearchBar />
-          </Suspense>
-        </div>
-
-        {/* Productos */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold text-black">
-              Catálogo de Productos ({products?.length || 0})
-            </h2>
-            {searchTerm && (
-              <div className="text-sm text-black">
-                Resultados para: <span className="font-medium">"{searchTerm}"</span>
-              </div>
-            )}
-          </div>
-          
-          {productsError ? (
-            <div className="text-red-600 bg-red-50 p-4 rounded-md">
-              <p className="font-medium">Error al cargar productos:</p>
-              <p className="text-sm">{productsError.message}</p>
-            </div>
-                      ) : (
-              <VendorPageClient 
-                products={products.map(product => ({
-                  id: product.id,
-                  name: product.name,
-                  brand_name: product.brand_name,
-                  total_stock: product.total_stock,
-                  image_url: product.image_url
-                }))} 
-                searchTerm={searchTerm}
-              />
-            )}
-        </div>
+        {/* Contenido del dashboard */}
+        <VendorPageWrapper
+          products={products}
+          searchTerm={searchTerm}
+          categoryFilter={categoryFilter}
+          brandFilter={brandFilter}
+          productTypes={productTypes}
+          brands={brands}
+          productsError={productsError}
+        />
       </div>
     </div>
   );
-} 
+}
