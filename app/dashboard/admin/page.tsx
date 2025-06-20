@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import ProductForm from './components/ProductForm';
 import AdminPageClient from './components/AdminPageClient';
+import AlertsDashboard from './components/AlertsDashboard';
 
 interface Product {
   id: string;
@@ -166,6 +167,11 @@ export default async function AdminDashboardPage() {
               Tipo de rol: <code className="bg-blue-100 px-1 rounded">{typeof role}</code>
             </p>
           </div>
+        </div>
+
+        {/* Panel de Alertas */}
+        <div className="mb-8">
+          <AlertsDashboard />
         </div>
 
         {/* Formulario para Registrar Producto en Catálogo */}

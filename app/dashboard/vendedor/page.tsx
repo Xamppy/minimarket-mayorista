@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import VendorPageWrapper from './components/VendorPageWrapper';
+import FixedSearchBar from './components/FixedSearchBar';
 
 interface Product {
   id: string;
@@ -134,26 +135,54 @@ function renderPage(
   brands: Brand[]
 ) {
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-black">Dashboard del Vendedor</h1>
-          <p className="text-black mt-2">
-            Bienvenido, <strong>{user.email}</strong>
-          </p>
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* Header sticky con barra de búsqueda integrada */}
+      <div className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm">
+        <div className="px-4 py-3 max-w-7xl mx-auto">
+          {/* Primera fila: Título y estado */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex-1">
+              <h1 className="text-lg md:text-2xl font-bold text-black truncate">
+                Vendedor
+              </h1>
+              <p className="text-xs md:text-sm text-gray-600 truncate">
+                {user.email}
+              </p>
+            </div>
+            <div className="flex items-center space-x-2">
+              {/* Indicador de estado online */}
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-xs text-gray-600 hidden sm:inline">Online</span>
+              </div>
+            </div>
+          </div>
+          
+          {/* Segunda fila: Barra de búsqueda fija */}
+          <div className="w-full relative">
+            <Suspense fallback={
+              <div className="h-10 bg-gray-200 rounded-lg animate-pulse"></div>
+            }>
+              <FixedSearchBar />
+            </Suspense>
+          </div>
         </div>
+      </div>
 
-        {/* Contenido del dashboard */}
-        <VendorPageWrapper
-          products={products}
-          searchTerm={searchTerm}
-          categoryFilter={categoryFilter}
-          brandFilter={brandFilter}
-          productTypes={productTypes}
-          brands={brands}
-          productsError={productsError}
-        />
+      {/* Contenido principal scrolleable */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="px-4 py-4 md:py-6 max-w-7xl mx-auto">
+          {/* Wrapper del contenido */}
+          <VendorPageWrapper
+            products={products}
+            searchTerm={searchTerm}
+            categoryFilter={categoryFilter}
+            brandFilter={brandFilter}
+            productTypes={productTypes}
+            brands={brands}
+            productsError={productsError}
+          />
+        </div>
       </div>
     </div>
   );

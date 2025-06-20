@@ -24,9 +24,9 @@ export default function SellButton({ product, onSell }: SellButtonProps) {
     <button
       onClick={handleClick}
       disabled={product.total_stock <= 0}
-      className={`w-full mt-3 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+      className={`w-full mt-2 md:mt-3 py-3 md:py-2 px-4 md:px-3 rounded-md text-sm md:text-sm font-medium transition-colors min-h-[44px] md:min-h-[auto] ${
         product.total_stock > 0
-          ? 'bg-green-600 hover:bg-green-700 text-white'
+          ? 'bg-green-600 hover:bg-green-700 active:bg-green-800 text-white'
           : 'bg-gray-300 text-gray-500 cursor-not-allowed'
       }`}
     >

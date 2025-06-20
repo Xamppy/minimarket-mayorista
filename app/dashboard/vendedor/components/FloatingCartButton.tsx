@@ -24,16 +24,22 @@ export default function FloatingCartButton() {
 
   return (
     <>
-      {/* Botón flotante */}
+      {/* Botón flotante adaptado al nuevo layout */}
       <button
         onClick={handleOpenCart}
-        className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-lg transition-all duration-200 z-40 flex items-center justify-center"
+        className="fixed bottom-20 right-4 md:bottom-6 md:right-6 bg-blue-600 hover:bg-blue-700 text-white p-3 md:p-4 rounded-full shadow-lg transition-all duration-200 z-40 flex items-center justify-center group"
         title="Abrir Carrito"
       >
-        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="h-5 w-5 md:h-6 md:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
         </svg>
-        <span className="ml-2 text-sm font-medium">Carrito</span>
+        {/* Texto visible solo en desktop */}
+        <span className="ml-2 text-sm font-medium hidden md:inline">Carrito</span>
+        
+        {/* Badge de notificación (para futuro uso) */}
+        <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+          0
+        </div>
       </button>
 
       {/* Modal del carrito */}
