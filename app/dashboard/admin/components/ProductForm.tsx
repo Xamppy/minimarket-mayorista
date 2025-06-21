@@ -16,9 +16,10 @@ interface ProductType {
 interface ProductFormProps {
   brands: Brand[];
   productTypes: ProductType[];
+  onSuccess?: () => void;
 }
 
-export default function ProductForm({ brands, productTypes }: ProductFormProps) {
+export default function ProductForm({ brands, productTypes, onSuccess }: ProductFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -36,6 +37,13 @@ export default function ProductForm({ brands, productTypes }: ProductFormProps) 
       const form = document.getElementById('product-form') as HTMLFormElement;
       if (form) {
         form.reset();
+      }
+      
+      // Llamar callback de éxito si existe (para cerrar modal)
+      if (onSuccess) {
+        setTimeout(() => {
+          onSuccess();
+        }, 1500); // Esperar un poco para mostrar el mensaje de éxito
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido';

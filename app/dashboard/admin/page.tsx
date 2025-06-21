@@ -1,9 +1,7 @@
 import { createClient } from '../../utils/supabase/server';  
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import ProductForm from './components/ProductForm';
-import AdminPageClient from './components/AdminPageClient';
-import AlertsDashboard from './components/AlertsDashboard';
+import AdminDashboard from './components/AdminDashboard';
 
 interface Product {
   id: string;
@@ -35,8 +33,6 @@ interface ProductType {
   id: string;
   name: string;
 }
-
-
 
 export default async function AdminDashboardPage() {
   const cookieStore = cookies();
@@ -144,72 +140,13 @@ export default async function AdminDashboardPage() {
     .order('name') as { data: ProductType[] | null; error: any };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard de Administrador</h1>
-          <p className="text-gray-600 mt-2">
-            Bienvenido, <strong>{user.email}</strong>
-          </p>
-          {/* Información de depuración del rol */}
-          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-            <p className="text-sm text-blue-800">
-              <strong>Debug - Información del usuario:</strong>
-            </p>
-            <p className="text-sm text-blue-700">
-              ID de usuario: <code className="bg-blue-100 px-1 rounded">{user.id}</code>
-            </p>
-            <p className="text-sm text-blue-700">
-              Rol obtenido: <code className="bg-blue-100 px-1 rounded">{role}</code>
-            </p>
-            <p className="text-sm text-blue-700">
-              Tipo de rol: <code className="bg-blue-100 px-1 rounded">{typeof role}</code>
-            </p>
-          </div>
-        </div>
-
-        {/* Panel de Alertas */}
-        <div className="mb-8">
-          <AlertsDashboard />
-        </div>
-
-        {/* Formulario para Registrar Producto en Catálogo */}
-        <div className="mb-8">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              Registrar Producto en Catálogo General
-            </h2>
-            <ProductForm 
-              brands={brands || []}
-              productTypes={productTypes || []}
-            />
-          </div>
-        </div>
-
-        {/* Lista de Productos en Tabla */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          {productsError ? (
-            <div className="text-red-600 bg-red-50 p-4 rounded-md">
-              <p className="font-medium">Error al cargar productos:</p>
-              <p className="text-sm">{productsError.message}</p>
-            </div>
-          ) : (
-            <AdminPageClient
-              initialProducts={productsWithStock.map((product: ProductWithStock) => ({
-                id: product.id,
-                name: product.name,
-                brand_name: product.brand_name,
-                type_name: product.type_name,
-                image_url: product.image_url,
-                total_stock: product.total_stock
-              }))}
-              brands={brands || []}
-              productTypes={productTypes || []}
-            />
-          )}
-        </div>
-      </div>
-    </div>
+    <AdminDashboard
+      user={user}
+      role={role}
+      products={productsWithStock}
+      brands={brands || []}
+      productTypes={productTypes || []}
+      productsError={productsError}
+    />
   );
 } 
