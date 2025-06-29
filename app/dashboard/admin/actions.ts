@@ -79,6 +79,126 @@ export async function addStockEntry(formData: FormData) {
   }
 }
 
+export async function updateStockEntry(formData: FormData) {
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
+
+  // Verificar autenticación
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    redirect('/login');
+  }
+
+  // Obtener datos del formulario
+  const stockEntryId = formData.get('stockEntryId') as string;
+  const quantity = formData.get('quantity') as string;
+  const barcode = formData.get('barcode') as string;
+  const purchasePrice = formData.get('purchasePrice') as string;
+  const unitPrice = formData.get('unitPrice') as string;
+  const boxPrice = formData.get('boxPrice') as string;
+  const expirationDate = formData.get('expirationDate') as string;
+
+  // Validar campos requeridos
+  if (!stockEntryId) {
+    throw new Error('El ID del lote de stock es requerido');
+  }
+
+  if (!quantity || isNaN(parseInt(quantity)) || parseInt(quantity) < 0) {
+    throw new Error('La cantidad debe ser un número mayor o igual a 0');
+  }
+
+  if (!barcode?.trim()) {
+    throw new Error('El código de barras es requerido');
+  }
+
+  if (!purchasePrice || isNaN(parseFloat(purchasePrice)) || parseFloat(purchasePrice) <= 0) {
+    throw new Error('El precio de compra debe ser un número mayor a 0');
+  }
+
+  if (!unitPrice || isNaN(parseFloat(unitPrice)) || parseFloat(unitPrice) <= 0) {
+    throw new Error('El precio de venta unitario debe ser un número mayor a 0');
+  }
+
+  if (!boxPrice || isNaN(parseFloat(boxPrice)) || parseFloat(boxPrice) <= 0) {
+    throw new Error('El precio de venta por caja debe ser un número mayor a 0');
+  }
+
+  try {
+    // Actualizar entrada de stock
+    const { error } = await supabase
+      .from('stock_entries')
+      .update({
+        current_quantity: parseInt(quantity),
+        barcode: barcode.trim(),
+        purchase_price: parseFloat(purchasePrice),
+        sale_price_unit: parseFloat(unitPrice),
+        sale_price_box: parseFloat(boxPrice),
+        expiration_date: expirationDate?.trim() || null
+      })
+      .eq('id', stockEntryId);
+
+    if (error) {
+      console.error('Error al actualizar entrada de stock:', error);
+      throw new Error(`Error al actualizar el lote de stock: ${error.message}`);
+    }
+
+    // Revalidar la página para mostrar los cambios
+    revalidatePath('/dashboard/admin');
+    
+  } catch (error) {
+    console.error('Error en updateStockEntry:', error);
+    throw error;
+  }
+}
+
+export async function deleteStockEntry(stockEntryId: string) {
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
+
+  // Verificar autenticación
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    redirect('/login');
+  }
+
+  if (!stockEntryId) {
+    throw new Error('El ID del lote de stock es requerido');
+  }
+
+  try {
+    // Verificar que la entrada de stock existe
+    const { data: stockEntry, error: fetchError } = await supabase
+      .from('stock_entries')
+      .select('id, current_quantity')
+      .eq('id', stockEntryId)
+      .single();
+
+    if (fetchError || !stockEntry) {
+      throw new Error('El lote de stock no existe');
+    }
+
+    // Eliminar entrada de stock
+    const { error } = await supabase
+      .from('stock_entries')
+      .delete()
+      .eq('id', stockEntryId);
+
+    if (error) {
+      console.error('Error al eliminar entrada de stock:', error);
+      throw new Error(`Error al eliminar el lote de stock: ${error.message}`);
+    }
+
+    // Revalidar la página para mostrar los cambios
+    revalidatePath('/dashboard/admin');
+    
+  } catch (error) {
+    console.error('Error en deleteStockEntry:', error);
+    throw error;
+  }
+}
+
 export async function addProduct(formData: FormData) {
   const cookieStore = cookies();
   const supabase = createClient(cookieStore);

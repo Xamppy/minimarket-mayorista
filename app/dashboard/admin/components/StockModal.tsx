@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import StockEntryForm from './StockEntryForm';
+import { deleteStockEntry } from '../actions';
 
 interface StockEntry {
   id: number;
@@ -27,6 +28,8 @@ export default function StockModal({ isOpen, onClose, productId, productName }: 
   const [stockEntries, setStockEntries] = useState<StockEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [editingStockEntry, setEditingStockEntry] = useState<StockEntry | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const fetchStockEntries = async () => {
     if (!productId) return;
@@ -63,6 +66,35 @@ export default function StockModal({ isOpen, onClose, productId, productName }: 
     fetchStockEntries(); // Refrescar la lista cuando se agregue una nueva entrada
   };
 
+  const handleEditStock = (stockEntry: StockEntry) => {
+    setEditingStockEntry(stockEntry);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingStockEntry(null);
+  };
+
+  const handleDeleteStock = async (stockEntry: StockEntry) => {
+    // Mostrar confirmación antes de eliminar
+    const confirmMessage = `¿Estás seguro de eliminar este lote de ${productName} con ${stockEntry.current_quantity} unidades y código ${stockEntry.barcode}?`;
+    
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    setDeletingId(stockEntry.id.toString());
+    
+    try {
+      await deleteStockEntry(stockEntry.id.toString());
+      await fetchStockEntries(); // Refrescar la lista después de eliminar
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Error al eliminar el lote';
+      alert(`Error: ${errorMessage}`);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
@@ -84,6 +116,16 @@ export default function StockModal({ isOpen, onClose, productId, productName }: 
             productId={productId}
             productName={productName}
             onStockEntryAdded={handleStockEntryAdded}
+            editingStockEntry={editingStockEntry ? {
+              id: editingStockEntry.id.toString(),
+              current_quantity: editingStockEntry.current_quantity,
+              barcode: editingStockEntry.barcode,
+              purchase_price: editingStockEntry.purchase_price,
+              sale_price_unit: editingStockEntry.sale_price_unit,
+              sale_price_box: editingStockEntry.sale_price_box,
+              expiration_date: editingStockEntry.expiration_date
+            } : undefined}
+            onCancelEdit={handleCancelEdit}
           />
         </div>
 
@@ -174,6 +216,9 @@ export default function StockModal({ isOpen, onClose, productId, productName }: 
                     <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
                       Fecha de Vencimiento
                     </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
+                      Acciones
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -216,6 +261,24 @@ export default function StockModal({ isOpen, onClose, productId, productName }: 
                         ) : (
                           <span className="text-gray-400">N/A</span>
                         )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex space-x-3">
+                          <button
+                            onClick={() => handleEditStock(entry)}
+                            disabled={deletingId === entry.id.toString()}
+                            className="text-blue-600 hover:text-blue-800 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            onClick={() => handleDeleteStock(entry)}
+                            disabled={deletingId === entry.id.toString()}
+                            className="text-red-600 hover:text-red-800 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {deletingId === entry.id.toString() ? 'Eliminando...' : 'Eliminar'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
