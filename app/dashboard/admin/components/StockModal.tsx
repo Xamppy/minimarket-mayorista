@@ -26,17 +26,26 @@ interface StockModalProps {
 export default function StockModal({ isOpen, onClose, productId, productName }: StockModalProps) {
   const [stockEntries, setStockEntries] = useState<StockEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const fetchStockEntries = async () => {
     if (!productId) return;
     
     setLoading(true);
+    setError('');
     try {
       const response = await fetch(`/api/stock-entries?productId=${productId}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
+      }
+      
       const data = await response.json();
       setStockEntries(data);
     } catch (error) {
       console.error('Error fetching stock entries:', error);
+      setError(error instanceof Error ? error.message : 'Error al cargar las entradas de stock');
     } finally {
       setLoading(false);
     }
@@ -109,8 +118,33 @@ export default function StockModal({ isOpen, onClose, productId, productName }: 
         <div>
           <h3 className="text-lg font-semibold text-black mb-4">Historial de Entradas de Stock</h3>
           
+          {error && (
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">Error al cargar el stock</h3>
+                  <p className="text-sm text-red-700 mt-1">{error}</p>
+                </div>
+              </div>
+            </div>
+          )}
+          
           {loading ? (
             <p className="text-gray-600">Cargando entradas de stock...</p>
+          ) : error ? (
+            <div className="text-center py-8">
+              <button
+                onClick={fetchStockEntries}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Reintentar
+              </button>
+            </div>
           ) : stockEntries.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">

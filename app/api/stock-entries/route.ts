@@ -6,27 +6,38 @@ export async function GET(request: NextRequest) {
   try {
     const cookieStore = cookies();
     const supabase = createClient(cookieStore);
+    
+    // Verificar autenticación
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    }
+
     const { searchParams } = request.nextUrl;
-    const productId = searchParams.get('productId');
+    const productId = searchParams.get('product_id') || searchParams.get('productId');
 
     if (!productId) {
-      return NextResponse.json({ error: 'Product ID is required' }, { status: 400 });
+      return NextResponse.json({ error: 'product_id o productId es requerido' }, { status: 400 });
     }
 
-    const { data, error } = await supabase
+    // Obtener entradas de stock para el producto específico
+    const { data: stockEntries, error } = await supabase
       .from('stock_entries')
       .select('*')
-      .eq('product_id', parseInt(productId))
-      .order('created_at', { ascending: false });
+      .eq('product_id', productId)
+      .gt('current_quantity', 0) // Solo los que tengan stock
+      .order('created_at', { ascending: true }); // FIFO - más antiguos primero
 
     if (error) {
-      console.error('Error getting stock entries:', error);
-      return NextResponse.json({ error: 'Failed to fetch stock entries' }, { status: 500 });
+      console.error('Error fetching stock entries:', error);
+      return NextResponse.json({ error: 'Error al obtener stock entries' }, { status: 500 });
     }
 
-    return NextResponse.json(data || []);
+    return NextResponse.json(stockEntries || []);
+
   } catch (error) {
     console.error('Error in stock-entries API:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
   }
 } 
