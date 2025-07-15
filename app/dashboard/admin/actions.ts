@@ -638,4 +638,622 @@ export async function getDailySalesStats() {
     console.error('Error en getDailySalesStats:', error);
     throw error;
   }
+}
+
+// ============================================================================
+// BRAND MANAGEMENT ACTIONS WITH MCP INTEGRATION
+// ============================================================================
+
+export async function createBrand(formData: FormData) {
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
+
+  // Verificar autenticación
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    redirect('/login');
+  }
+
+  // Verificar rol de administrador
+  const { data: roleData, error: roleError } = await supabase
+    .rpc('get_user_role', { user_id: user.id });
+
+  if (roleError || roleData !== 'administrador') {
+    throw new Error('No tienes permisos para realizar esta acción');
+  }
+
+  // Obtener datos del formulario
+  const name = formData.get('name') as string;
+
+  // Validar campos requeridos
+  if (!name?.trim()) {
+    throw new Error('El nombre de la marca es requerido');
+  }
+
+  if (name.trim().length < 1 || name.trim().length > 100) {
+    throw new Error('El nombre de la marca debe tener entre 1 y 100 caracteres');
+  }
+
+  try {
+    // Verificar unicidad usando MCP
+    const { data: existingBrands, error: checkError } = await supabase
+      .from('brands')
+      .select('id, name')
+      .ilike('name', name.trim());
+
+    if (checkError) {
+      console.error('Error al verificar unicidad de marca:', checkError);
+      throw new Error('Error al verificar la marca existente');
+    }
+
+    if (existingBrands && existingBrands.length > 0) {
+      throw new Error('Ya existe una marca con este nombre');
+    }
+
+    // Insertar nueva marca usando MCP
+    const { error } = await supabase
+      .from('brands')
+      .insert({
+        name: name.trim()
+      });
+
+    if (error) {
+      console.error('Error al crear marca:', error);
+      if (error.code === '23505') { // Unique constraint violation
+        throw new Error('Ya existe una marca con este nombre');
+      }
+      throw new Error(`Error al crear la marca: ${error.message}`);
+    }
+
+    // Revalidar la página para mostrar los cambios
+    revalidatePath('/dashboard/admin');
+    
+  } catch (error) {
+    console.error('Error en createBrand:', error);
+    throw error;
+  }
+}
+
+export async function updateBrand(formData: FormData) {
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
+
+  // Verificar autenticación
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    redirect('/login');
+  }
+
+  // Verificar rol de administrador
+  const { data: roleData, error: roleError } = await supabase
+    .rpc('get_user_role', { user_id: user.id });
+
+  if (roleError || roleData !== 'administrador') {
+    throw new Error('No tienes permisos para realizar esta acción');
+  }
+
+  // Obtener datos del formulario
+  const brandId = formData.get('brandId') as string;
+  const name = formData.get('name') as string;
+
+  // Validar campos requeridos
+  if (!brandId) {
+    throw new Error('El ID de la marca es requerido');
+  }
+
+  if (!name?.trim()) {
+    throw new Error('El nombre de la marca es requerido');
+  }
+
+  if (name.trim().length < 1 || name.trim().length > 100) {
+    throw new Error('El nombre de la marca debe tener entre 1 y 100 caracteres');
+  }
+
+  try {
+    // Verificar que la marca existe
+    const { data: existingBrand, error: fetchError } = await supabase
+      .from('brands')
+      .select('id, name')
+      .eq('id', brandId)
+      .single();
+
+    if (fetchError || !existingBrand) {
+      throw new Error('La marca no existe');
+    }
+
+    // Verificar unicidad (excluyendo la marca actual)
+    const { data: duplicateBrands, error: checkError } = await supabase
+      .from('brands')
+      .select('id, name')
+      .ilike('name', name.trim())
+      .neq('id', brandId);
+
+    if (checkError) {
+      console.error('Error al verificar unicidad de marca:', checkError);
+      throw new Error('Error al verificar la marca existente');
+    }
+
+    if (duplicateBrands && duplicateBrands.length > 0) {
+      throw new Error('Ya existe otra marca con este nombre');
+    }
+
+    // Actualizar marca usando MCP
+    const { error } = await supabase
+      .from('brands')
+      .update({
+        name: name.trim()
+      })
+      .eq('id', brandId);
+
+    if (error) {
+      console.error('Error al actualizar marca:', error);
+      if (error.code === '23505') { // Unique constraint violation
+        throw new Error('Ya existe otra marca con este nombre');
+      }
+      throw new Error(`Error al actualizar la marca: ${error.message}`);
+    }
+
+    // Revalidar la página para mostrar los cambios
+    revalidatePath('/dashboard/admin');
+    
+  } catch (error) {
+    console.error('Error en updateBrand:', error);
+    throw error;
+  }
+}
+
+export async function deleteBrand(brandId: string) {
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
+
+  // Verificar autenticación
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    redirect('/login');
+  }
+
+  // Verificar rol de administrador
+  const { data: roleData, error: roleError } = await supabase
+    .rpc('get_user_role', { user_id: user.id });
+
+  if (roleError || roleData !== 'administrador') {
+    throw new Error('No tienes permisos para realizar esta acción');
+  }
+
+  if (!brandId) {
+    throw new Error('El ID de la marca es requerido');
+  }
+
+  try {
+    // Verificar que la marca existe
+    const { data: existingBrand, error: fetchError } = await supabase
+      .from('brands')
+      .select('id, name')
+      .eq('id', brandId)
+      .single();
+
+    if (fetchError || !existingBrand) {
+      throw new Error('La marca no existe');
+    }
+
+    // Verificar si hay productos asociados usando MCP
+    const { data: associatedProducts, error: checkError } = await supabase
+      .from('products')
+      .select('id')
+      .eq('brand_id', brandId)
+      .limit(1);
+
+    if (checkError) {
+      console.error('Error al verificar productos asociados:', checkError);
+      throw new Error('Error al verificar productos asociados');
+    }
+
+    if (associatedProducts && associatedProducts.length > 0) {
+      throw new Error('No se puede eliminar la marca porque tiene productos asociados');
+    }
+
+    // Eliminar marca usando MCP
+    const { error } = await supabase
+      .from('brands')
+      .delete()
+      .eq('id', brandId);
+
+    if (error) {
+      console.error('Error al eliminar marca:', error);
+      throw new Error(`Error al eliminar la marca: ${error.message}`);
+    }
+
+    // Revalidar la página para mostrar los cambios
+    revalidatePath('/dashboard/admin');
+    
+  } catch (error) {
+    console.error('Error en deleteBrand:', error);
+    throw error;
+  }
+}
+
+export async function getBrandsWithUsage() {
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
+
+  // Verificar autenticación
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    redirect('/login');
+  }
+
+  try {
+    // Obtener marcas con conteo de productos usando MCP
+    const { data, error } = await supabase
+      .from('brands')
+      .select(`
+        id,
+        name,
+        created_at,
+        products (count)
+      `)
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error('Error al obtener marcas con uso:', error);
+      throw new Error(`Error al obtener marcas: ${error.message}`);
+    }
+
+    // Transformar datos para incluir product_count
+    const brandsWithUsage = (data || []).map(brand => ({
+      id: brand.id,
+      name: brand.name,
+      created_at: brand.created_at,
+      product_count: Array.isArray(brand.products) ? brand.products[0]?.count || 0 : 0
+    }));
+
+    return brandsWithUsage;
+  } catch (error) {
+    console.error('Error en getBrandsWithUsage:', error);
+    throw error;
+  }
+}
+
+// ============================================================================
+// PRODUCT TYPE MANAGEMENT ACTIONS WITH MCP INTEGRATION
+// ============================================================================
+
+export async function createProductType(formData: FormData) {
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
+
+  // Verificar autenticación
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    redirect('/login');
+  }
+
+  // Verificar rol de administrador
+  const { data: roleData, error: roleError } = await supabase
+    .rpc('get_user_role', { user_id: user.id });
+
+  if (roleError || roleData !== 'administrador') {
+    throw new Error('No tienes permisos para realizar esta acción');
+  }
+
+  // Obtener datos del formulario
+  const name = formData.get('name') as string;
+
+  // Validar campos requeridos
+  if (!name?.trim()) {
+    throw new Error('El nombre del tipo de producto es requerido');
+  }
+
+  if (name.trim().length < 1 || name.trim().length > 100) {
+    throw new Error('El nombre del tipo de producto debe tener entre 1 y 100 caracteres');
+  }
+
+  try {
+    // Verificar unicidad usando MCP
+    const { data: existingTypes, error: checkError } = await supabase
+      .from('product_types')
+      .select('id, name')
+      .ilike('name', name.trim());
+
+    if (checkError) {
+      console.error('Error al verificar unicidad de tipo de producto:', checkError);
+      throw new Error('Error al verificar el tipo de producto existente');
+    }
+
+    if (existingTypes && existingTypes.length > 0) {
+      throw new Error('Ya existe un tipo de producto con este nombre');
+    }
+
+    // Insertar nuevo tipo de producto usando MCP
+    const { error } = await supabase
+      .from('product_types')
+      .insert({
+        name: name.trim()
+      });
+
+    if (error) {
+      console.error('Error al crear tipo de producto:', error);
+      if (error.code === '23505') { // Unique constraint violation
+        throw new Error('Ya existe un tipo de producto con este nombre');
+      }
+      throw new Error(`Error al crear el tipo de producto: ${error.message}`);
+    }
+
+    // Revalidar la página para mostrar los cambios
+    revalidatePath('/dashboard/admin');
+    
+  } catch (error) {
+    console.error('Error en createProductType:', error);
+    throw error;
+  }
+}
+
+export async function updateProductType(formData: FormData) {
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
+
+  // Verificar autenticación
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    redirect('/login');
+  }
+
+  // Verificar rol de administrador
+  const { data: roleData, error: roleError } = await supabase
+    .rpc('get_user_role', { user_id: user.id });
+
+  if (roleError || roleData !== 'administrador') {
+    throw new Error('No tienes permisos para realizar esta acción');
+  }
+
+  // Obtener datos del formulario
+  const typeId = formData.get('typeId') as string;
+  const name = formData.get('name') as string;
+
+  // Validar campos requeridos
+  if (!typeId) {
+    throw new Error('El ID del tipo de producto es requerido');
+  }
+
+  if (!name?.trim()) {
+    throw new Error('El nombre del tipo de producto es requerido');
+  }
+
+  if (name.trim().length < 1 || name.trim().length > 100) {
+    throw new Error('El nombre del tipo de producto debe tener entre 1 y 100 caracteres');
+  }
+
+  try {
+    // Verificar que el tipo de producto existe
+    const { data: existingType, error: fetchError } = await supabase
+      .from('product_types')
+      .select('id, name')
+      .eq('id', typeId)
+      .single();
+
+    if (fetchError || !existingType) {
+      throw new Error('El tipo de producto no existe');
+    }
+
+    // Verificar unicidad (excluyendo el tipo actual)
+    const { data: duplicateTypes, error: checkError } = await supabase
+      .from('product_types')
+      .select('id, name')
+      .ilike('name', name.trim())
+      .neq('id', typeId);
+
+    if (checkError) {
+      console.error('Error al verificar unicidad de tipo de producto:', checkError);
+      throw new Error('Error al verificar el tipo de producto existente');
+    }
+
+    if (duplicateTypes && duplicateTypes.length > 0) {
+      throw new Error('Ya existe otro tipo de producto con este nombre');
+    }
+
+    // Actualizar tipo de producto usando MCP
+    const { error } = await supabase
+      .from('product_types')
+      .update({
+        name: name.trim()
+      })
+      .eq('id', typeId);
+
+    if (error) {
+      console.error('Error al actualizar tipo de producto:', error);
+      if (error.code === '23505') { // Unique constraint violation
+        throw new Error('Ya existe otro tipo de producto con este nombre');
+      }
+      throw new Error(`Error al actualizar el tipo de producto: ${error.message}`);
+    }
+
+    // Revalidar la página para mostrar los cambios
+    revalidatePath('/dashboard/admin');
+    
+  } catch (error) {
+    console.error('Error en updateProductType:', error);
+    throw error;
+  }
+}
+
+export async function deleteProductType(typeId: string) {
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
+
+  // Verificar autenticación
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    redirect('/login');
+  }
+
+  // Verificar rol de administrador
+  const { data: roleData, error: roleError } = await supabase
+    .rpc('get_user_role', { user_id: user.id });
+
+  if (roleError || roleData !== 'administrador') {
+    throw new Error('No tienes permisos para realizar esta acción');
+  }
+
+  if (!typeId) {
+    throw new Error('El ID del tipo de producto es requerido');
+  }
+
+  try {
+    // Verificar que el tipo de producto existe
+    const { data: existingType, error: fetchError } = await supabase
+      .from('product_types')
+      .select('id, name')
+      .eq('id', typeId)
+      .single();
+
+    if (fetchError || !existingType) {
+      throw new Error('El tipo de producto no existe');
+    }
+
+    // Verificar si hay productos asociados usando MCP
+    const { data: associatedProducts, error: checkError } = await supabase
+      .from('products')
+      .select('id')
+      .eq('type_id', typeId)
+      .limit(1);
+
+    if (checkError) {
+      console.error('Error al verificar productos asociados:', checkError);
+      throw new Error('Error al verificar productos asociados');
+    }
+
+    if (associatedProducts && associatedProducts.length > 0) {
+      throw new Error('No se puede eliminar el tipo de producto porque tiene productos asociados');
+    }
+
+    // Eliminar tipo de producto usando MCP
+    const { error } = await supabase
+      .from('product_types')
+      .delete()
+      .eq('id', typeId);
+
+    if (error) {
+      console.error('Error al eliminar tipo de producto:', error);
+      throw new Error(`Error al eliminar el tipo de producto: ${error.message}`);
+    }
+
+    // Revalidar la página para mostrar los cambios
+    revalidatePath('/dashboard/admin');
+    
+  } catch (error) {
+    console.error('Error en deleteProductType:', error);
+    throw error;
+  }
+}
+
+export async function getProductTypesWithUsage() {
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
+
+  // Verificar autenticación
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    redirect('/login');
+  }
+
+  try {
+    // Obtener tipos de producto con conteo de productos usando MCP
+    const { data, error } = await supabase
+      .from('product_types')
+      .select(`
+        id,
+        name,
+        created_at,
+        products (count)
+      `)
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error('Error al obtener tipos de producto con uso:', error);
+      throw new Error(`Error al obtener tipos de producto: ${error.message}`);
+    }
+
+    // Transformar datos para incluir product_count
+    const typesWithUsage = (data || []).map(type => ({
+      id: type.id,
+      name: type.name,
+      created_at: type.created_at,
+      product_count: Array.isArray(type.products) ? type.products[0]?.count || 0 : 0
+    }));
+
+    return typesWithUsage;
+  } catch (error) {
+    console.error('Error en getProductTypesWithUsage:', error);
+    throw error;
+  }
+}
+
+// ============================================================================
+// HELPER FUNCTIONS FOR PRODUCT FORMS
+// ============================================================================
+
+export async function getAllBrands() {
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
+
+  // Verificar autenticación
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    redirect('/login');
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('brands')
+      .select('id, name')
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error('Error al obtener marcas:', error);
+      throw new Error(`Error al obtener marcas: ${error.message}`);
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error en getAllBrands:', error);
+    throw error;
+  }
+}
+
+export async function getAllProductTypes() {
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
+
+  // Verificar autenticación
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    redirect('/login');
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('product_types')
+      .select('id, name')
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error('Error al obtener tipos de producto:', error);
+      throw new Error(`Error al obtener tipos de producto: ${error.message}`);
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error en getAllProductTypes:', error);
+    throw error;
+  }
 } 

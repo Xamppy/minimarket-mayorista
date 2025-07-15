@@ -5,6 +5,8 @@ import Link from 'next/link';
 import AdminPageClient from './AdminPageClient';
 import AlertsDashboard from './AlertsDashboard';
 import AddProductModal from './AddProductModal';
+import CategoryManagementModal from './CategoryManagementModal';
+import { getAllBrands, getAllProductTypes } from '../actions';
 
 interface Product {
   id: string;
@@ -43,6 +45,29 @@ export default function AdminDashboard({
   productsError 
 }: AdminDashboardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [currentBrands, setCurrentBrands] = useState(brands);
+  const [currentProductTypes, setCurrentProductTypes] = useState(productTypes);
+
+  // Función para refrescar marcas y tipos después de operaciones de categorías
+  const refreshCategories = async () => {
+    try {
+      const [updatedBrands, updatedTypes] = await Promise.all([
+        getAllBrands(),
+        getAllProductTypes()
+      ]);
+      setCurrentBrands(updatedBrands);
+      setCurrentProductTypes(updatedTypes);
+    } catch (error) {
+      console.error('Error al refrescar categorías:', error);
+    }
+  };
+
+  // Manejar cierre del modal de categorías con refresh
+  const handleCategoryModalClose = () => {
+    setCategoryModalOpen(false);
+    refreshCategories(); // Refrescar datos cuando se cierre el modal
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -91,6 +116,15 @@ export default function AdminDashboard({
                   Ver Reportes
                 </Link>
                 <button
+                  onClick={() => setCategoryModalOpen(true)}
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 cursor-pointer"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                  </svg>
+                  Gestionar Categorías
+                </button>
+                <button
                   onClick={() => setIsModalOpen(true)}
                   className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer"
                 >
@@ -129,8 +163,14 @@ export default function AdminDashboard({
         <AddProductModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
-          brands={brands}
-          types={productTypes}
+          brands={currentBrands}
+          types={currentProductTypes}
+        />
+
+        {/* Modal para Gestión de Categorías */}
+        <CategoryManagementModal
+          isOpen={categoryModalOpen}
+          onClose={handleCategoryModalClose}
         />
       </div>
     </div>

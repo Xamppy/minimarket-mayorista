@@ -6,6 +6,8 @@ Un sistema completo de gestión de inventario desarrollado con **Next.js 15**, *
 
 ### 📊 **Dashboard de Administrador**
 - **Gestión Completa de Productos**: CRUD completo (Crear, Leer, Actualizar, Eliminar)
+- **Gestión de Marcas**: CRUD completo para marcas de productos con validación MCP
+- **Gestión de Tipos de Producto**: CRUD completo para categorías de productos con validación MCP
 - **Control de Stock**: Sistema FIFO para manejo de inventario
 - **Gestión de Entradas**: Registro detallado de compras con precios y fechas de vencimiento
 - **Visualización en Tiempo Real**: Stock total calculado automáticamente
@@ -27,6 +29,7 @@ Un sistema completo de gestión de inventario desarrollado con **Next.js 15**, *
 - **Estilos**: Tailwind CSS
 - **Base de Datos**: Supabase (PostgreSQL)
 - **Autenticación**: Supabase Auth
+- **Integración MCP**: Supabase MCP Server para gestión de esquemas
 - **Deployment**: Vercel (recomendado)
 
 ## 📋 Prerrequisitos
@@ -96,6 +99,32 @@ La aplicación estará disponible en `http://localhost:3000`
 - ✅ **Eliminar Productos**: Confirmación de seguridad + eliminación en cascada
 - ✅ **Visualizar Stock**: Tabla con stock total en tiempo real
 
+#### Gestión de Marcas
+- ✅ **Crear Marcas**: Formulario modal con validación en tiempo real
+- ✅ **Editar Marcas**: Modal de edición con datos pre-cargados
+- ✅ **Validación Avanzada**: Verificación de unicidad y longitud de nombres
+- ✅ **Estados de Carga**: Indicadores visuales durante operaciones MCP
+- ✅ **Listado Completo**: Tabla con todas las marcas y conteo de productos asociados
+- ✅ **Eliminación Segura**: Confirmación y validación antes de eliminar marcas
+- ✅ **Datos en Tiempo Real**: Actualización automática tras operaciones MCP
+
+#### Gestión de Tipos de Producto
+- ✅ **Crear Tipos**: Formulario modal con validación en tiempo real
+- ✅ **Editar Tipos**: Modal de edición con datos pre-cargados
+- ✅ **Validación Avanzada**: Verificación de unicidad y longitud de nombres
+- ✅ **Estados de Carga**: Indicadores visuales durante operaciones MCP
+- ✅ **Listado Completo**: Tabla con todos los tipos y conteo de productos asociados
+- ✅ **Eliminación Segura**: Confirmación y validación antes de eliminar tipos
+- ✅ **Datos en Tiempo Real**: Actualización automática tras operaciones MCP
+
+#### Gestión de Categorías Integrada
+- ✅ **Interfaz con Tabs**: Navegación entre marcas y tipos de producto
+- ✅ **Modal Completo**: Gestión de categorías desde el dashboard principal
+- ✅ **Integración Perfecta**: Acceso directo desde el dashboard de administrador
+- ✅ **Diseño Responsive**: Adaptable a diferentes tamaños de pantalla
+- ✅ **Sincronización MCP**: Nuevas categorías aparecen inmediatamente en formularios de productos
+- ✅ **Actualización Automática**: Los dropdowns se refrescan tras crear/editar categorías
+
 #### Gestión de Inventario
 - ✅ **Agregar Stock**: Formulario con precios y fechas de vencimiento
 - ✅ **Historial de Entradas**: Tabla completa con filtros visuales
@@ -159,6 +188,44 @@ ADD CONSTRAINT fk_product
 FOREIGN KEY (product_id) 
 REFERENCES products(id) 
 ON DELETE CASCADE;
+```
+
+### **Integración MCP de Supabase**
+El proyecto incluye integración con Model Context Protocol (MCP) para gestión avanzada de esquemas de base de datos:
+
+#### Configuración MCP
+- **Servidor**: `@supabase/mcp-server-supabase@latest`
+- **Funcionalidades**: Gestión directa de esquemas, migraciones y consultas
+- **Auto-aprobación**: Configurada para operaciones comunes de base de datos
+
+#### Capacidades MCP Disponibles
+- ✅ **Gestión de Esquemas**: Crear, modificar y eliminar tablas
+- ✅ **Migraciones**: Aplicar cambios de esquema con versionado
+- ✅ **Consultas Directas**: Ejecutar SQL directamente en la base de datos
+- ✅ **Listado de Tablas**: Inspeccionar estructura de base de datos
+- ✅ **Gestión de Extensiones**: Ver y gestionar extensiones de PostgreSQL
+
+#### Configuración en `.kiro/settings/mcp.json`
+```json
+{
+  "mcpServers": {
+    "supabase": {
+      "command": "npx",
+      "args": ["-y", "@supabase/mcp-server-supabase@latest", "--project-ref=tu-project-ref"],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "tu-access-token"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "supabase_query",
+        "supabase_insert",
+        "supabase_update",
+        "supabase_delete",
+        "supabase_schema"
+      ]
+    }
+  }
+}
 ```
 
 ## 📁 Estructura del Proyecto
