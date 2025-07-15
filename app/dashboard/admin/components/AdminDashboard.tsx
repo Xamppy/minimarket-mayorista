@@ -29,7 +29,7 @@ interface ProductType {
 
 interface User {
   id: string;
-  email: string;
+  email?: string;
 }
 
 interface AdminDashboardProps {
