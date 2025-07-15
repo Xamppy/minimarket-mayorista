@@ -46,7 +46,7 @@ export default function CategoryManagementTabs() {
       {/* Tabs */}
       <Tab.Group selectedIndex={selectedIndex} onChange={setSelectedIndex}>
         <Tab.List className="flex space-x-1 rounded-xl bg-blue-900/20 p-1">
-          {tabs.map((tab, index) => (
+          {tabs.map((tab) => (
             <Tab
               key={tab.name}
               className={({ selected }) =>
@@ -68,9 +68,9 @@ export default function CategoryManagementTabs() {
         </Tab.List>
 
         <Tab.Panels className="mt-6">
-          {tabs.map((tab, index) => (
+          {tabs.map((tab, tabIndex) => (
             <Tab.Panel
-              key={index}
+              key={tabIndex}
               className={classNames(
                 'rounded-xl bg-white p-3',
                 'ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2'

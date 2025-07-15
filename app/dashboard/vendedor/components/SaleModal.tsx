@@ -6,9 +6,10 @@ import { formatAsCLP } from '@/lib/formatters';
 interface Product {
   id: string;
   name: string;
+  image_url: string | null;
   brand_name: string;
   total_stock: number;
-  image_url?: string | null;
+  type_name?: string;
 }
 
 interface CartItem {
@@ -18,42 +19,77 @@ interface CartItem {
   price: number;
 }
 
+interface ScannedItem {
+  product: Product;
+  stockEntry: {
+    id: string;
+    sale_price_unit: number;
+    sale_price_box: number;
+    current_quantity: number;
+  };
+}
+
 interface SaleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  product?: Product | null;
+  mode: 'add-to-cart-from-scan' | 'finalize-sale';
+  // Para modo add-to-cart-from-scan
+  scannedItem?: ScannedItem;
+  onItemAddedToCart?: (item: {
+    product: Product;
+    stockEntryId: string;
+    quantity: number;
+    saleFormat: 'unitario' | 'caja';
+    price: number;
+  }) => void;
+  // Para modo finalize-sale  
   cartItems?: CartItem[];
-  onSaleCompleted: () => void;
+  onSaleCompleted?: () => void;
 }
 
 export default function SaleModal({ 
   isOpen, 
   onClose, 
-  product, 
+  mode,
+  scannedItem,
+  onItemAddedToCart,
   cartItems = [], 
   onSaleCompleted 
 }: SaleModalProps) {
   const [quantity, setQuantity] = useState(1);
-  const [saleFormat, setSaleFormat] = useState<'unitario' | 'caja' | 'display' | 'pallet'>('unitario');
+  const [saleFormat, setSaleFormat] = useState<'unitario' | 'caja'>('unitario');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [saleSuccess, setSaleSuccess] = useState<{ success: boolean; saleId?: string }>({ success: false });
 
-  // Determinar si es venta individual o múltiple
-  const isCartSale = cartItems.length > 0;
-  const isSingleSale = product && !isCartSale;
+  // Determinar modo de operación
+  const isAddToCartMode = mode === 'add-to-cart-from-scan';
+  const isFinalizeSaleMode = mode === 'finalize-sale';
 
   if (!isOpen) return null;
 
+  const getPrice = () => {
+    if (!isAddToCartMode || !scannedItem) return 0;
+    
+    switch (saleFormat) {
+      case 'unitario':
+        return scannedItem.stockEntry.sale_price_unit;
+      case 'caja':
+        return scannedItem.stockEntry.sale_price_box;
+      default:
+        return scannedItem.stockEntry.sale_price_unit;
+    }
+  };
+
   const getTotalAmount = () => {
-    if (isCartSale) {
+    if (isFinalizeSaleMode) {
       return cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
     }
-    return 0; // Para venta individual, no mostramos precio aquí
+    return getPrice() * quantity;
   };
 
   const getTotalItems = () => {
-    if (isCartSale) {
+    if (isFinalizeSaleMode) {
       return cartItems.reduce((total, item) => total + item.quantity, 0);
     }
     return quantity;
@@ -65,14 +101,12 @@ export default function SaleModal({
     setError('');
 
     try {
-      if (isCartSale) {
-        // Manejar venta múltiple del carrito
-        await handleCartSale();
-      } else if (isSingleSale) {
-        // Manejar venta individual
-        await handleSingleSale();
+      if (isAddToCartMode) {
+        await handleAddToCart();
+      } else if (isFinalizeSaleMode) {
+        await handleFinalizeSale();
       } else {
-        throw new Error('No hay productos para vender');
+        throw new Error('Modo de operación no válido');
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
@@ -82,7 +116,41 @@ export default function SaleModal({
     }
   };
 
-  const handleCartSale = async () => {
+  const handleAddToCart = async () => {
+    if (!scannedItem || !onItemAddedToCart) {
+      throw new Error('Información del producto no disponible');
+    }
+
+    // Validaciones
+    if (quantity <= 0) {
+      setError('La cantidad debe ser mayor a 0');
+      return;
+    }
+
+    if (quantity > scannedItem.stockEntry.current_quantity) {
+      setError(`Stock insuficiente. Solo hay ${scannedItem.stockEntry.current_quantity} unidades disponibles.`);
+      return;
+    }
+
+    // Llamar al callback para añadir al carrito
+    onItemAddedToCart({
+      product: scannedItem.product,
+      stockEntryId: scannedItem.stockEntry.id,
+      quantity,
+      saleFormat,
+      price: getPrice()
+    });
+
+    // Cerrar modal y resetear
+    resetForm();
+    onClose();
+  };
+
+  const handleFinalizeSale = async () => {
+    if (cartItems.length === 0) {
+      throw new Error('No hay productos en el carrito');
+    }
+
     // Crear múltiples ventas para cada item del carrito
     const salePromises = cartItems.map(async (item) => {
       const formData = new FormData();
@@ -113,40 +181,6 @@ export default function SaleModal({
     setSaleSuccess({ success: true, saleId: firstSaleId });
   };
 
-  const handleSingleSale = async () => {
-    if (!product) throw new Error('No hay producto seleccionado');
-
-    // Validaciones básicas
-    if (quantity <= 0) {
-      setError('La cantidad debe ser mayor a 0');
-      return;
-    }
-
-    if (quantity > product.total_stock) {
-      setError(`Stock insuficiente. Solo hay ${product.total_stock} unidades disponibles.`);
-      return;
-    }
-
-    // Crear FormData para venta individual
-    const formData = new FormData();
-    formData.append('productId', product.id);
-    formData.append('quantity', quantity.toString());
-    formData.append('saleFormat', saleFormat);
-
-    const response = await fetch('/api/sales', {
-      method: 'POST',
-      body: formData,
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      throw new Error(result.error || 'Error al procesar la venta');
-    }
-
-    setSaleSuccess({ success: true, saleId: result.saleId });
-  };
-
   const resetForm = () => {
     setQuantity(1);
     setSaleFormat('unitario');
@@ -169,7 +203,9 @@ export default function SaleModal({
   };
 
   const handleCompleteSale = () => {
-    onSaleCompleted();
+    if (onSaleCompleted) {
+      onSaleCompleted();
+    }
     onClose();
     resetForm();
   };
@@ -179,7 +215,7 @@ export default function SaleModal({
       <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-black">
-            {isCartSale ? 'Finalizar Venta' : 'Vender Producto'}
+            {isAddToCartMode ? 'Añadir al Carrito' : 'Finalizar Venta'}
           </h2>
           <button
             onClick={handleClose}
@@ -192,7 +228,34 @@ export default function SaleModal({
 
         {/* Información del contenido */}
         <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-          {isCartSale ? (
+          {isAddToCartMode && scannedItem ? (
+            /* Información del producto escaneado */
+            <div>
+              <div className="flex items-center mb-3">
+                {scannedItem.product.image_url && (
+                  <img
+                    src={scannedItem.product.image_url}
+                    alt={scannedItem.product.name}
+                    className="w-16 h-16 object-cover rounded-md mr-3"
+                  />
+                )}
+                <div>
+                  <h3 className="font-semibold text-black text-lg">
+                    {scannedItem.product.name}
+                  </h3>
+                  <p className="text-black text-sm">
+                    Marca: {scannedItem.product.brand_name}
+                  </p>
+                </div>
+              </div>
+              <p className="text-black text-sm">
+                Stock disponible: <span className="font-medium">{scannedItem.stockEntry.current_quantity} unidades</span>
+              </p>
+              <p className="text-black text-sm">
+                Precio unitario: <span className="font-medium text-green-600">{formatAsCLP(scannedItem.stockEntry.sale_price_unit)}</span>
+              </p>
+            </div>
+          ) : isFinalizeSaleMode ? (
             /* Resumen del carrito */
             <div>
               <h3 className="font-semibold text-black text-lg mb-3">
@@ -217,22 +280,9 @@ export default function SaleModal({
                 <span className="font-bold text-lg text-black">{formatAsCLP(getTotalAmount())}</span>
               </div>
             </div>
-          ) : isSingleSale ? (
-            /* Información del producto individual */
-            <div>
-              <h3 className="font-semibold text-black text-lg mb-1">
-                {product.name}
-              </h3>
-              <p className="text-black text-sm mb-2">
-                Marca: {product.brand_name}
-              </p>
-              <p className="text-black text-sm">
-                Stock disponible: <span className="font-medium">{product.total_stock} unidades</span>
-              </p>
-            </div>
           ) : (
             <div className="text-center text-gray-500">
-              No hay productos para vender
+              No hay información disponible
             </div>
           )}
         </div>
@@ -249,7 +299,7 @@ export default function SaleModal({
                 ¡Venta Exitosa!
               </h3>
               <p className="text-green-700">
-                {isCartSale 
+                {isFinalizeSaleMode 
                   ? `Se han procesado ${cartItems.length} productos correctamente.`
                   : 'La venta se ha procesado correctamente.'
                 }
@@ -282,11 +332,11 @@ export default function SaleModal({
             </div>
           </div>
         ) : (
-          /* Formulario de venta */
+          /* Formulario */
           <form onSubmit={handleSubmit} className="space-y-4">
-            {isSingleSale && (
+            {isAddToCartMode && (
               <>
-                {/* Cantidad - solo para venta individual */}
+                {/* Cantidad - solo para modo add-to-cart */}
                 <div>
                   <label htmlFor="quantity" className="block text-sm font-medium text-black mb-1">
                     Cantidad *
@@ -297,7 +347,7 @@ export default function SaleModal({
                     value={quantity}
                     onChange={(e) => setQuantity(parseInt(e.target.value) || 0)}
                     min="1"
-                    max={product?.total_stock || 1}
+                    max={scannedItem?.stockEntry.current_quantity || 1}
                     required
                     disabled={loading}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500 text-black"
@@ -305,7 +355,7 @@ export default function SaleModal({
                   />
                 </div>
 
-                {/* Formato de Venta - solo para venta individual */}
+                {/* Formato de Venta - solo para modo add-to-cart */}
                 <div>
                   <label htmlFor="saleFormat" className="block text-sm font-medium text-black mb-1">
                     Formato de Venta *
@@ -313,16 +363,22 @@ export default function SaleModal({
                   <select
                     id="saleFormat"
                     value={saleFormat}
-                    onChange={(e) => setSaleFormat(e.target.value as 'unitario' | 'caja' | 'display' | 'pallet')}
+                    onChange={(e) => setSaleFormat(e.target.value as 'unitario' | 'caja')}
                     required
                     disabled={loading}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500 text-black"
                   >
-                    <option value="unitario">Unitario</option>
-                    <option value="caja">Caja</option>
-                    <option value="display">Display</option>
-                    <option value="pallet">Pallet</option>
+                    <option value="unitario">Unitario - {scannedItem && formatAsCLP(scannedItem.stockEntry.sale_price_unit)}</option>
+                    <option value="caja">Caja - {scannedItem && formatAsCLP(scannedItem.stockEntry.sale_price_box)}</option>
                   </select>
+                </div>
+
+                {/* Total para modo add-to-cart */}
+                <div className="p-3 bg-blue-50 rounded-md">
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium text-black">Subtotal:</span>
+                    <span className="font-bold text-lg text-black">{formatAsCLP(getTotalAmount())}</span>
+                  </div>
                 </div>
               </>
             )}
@@ -346,17 +402,17 @@ export default function SaleModal({
               </button>
               <button
                 type="submit"
-                disabled={loading || (isSingleSale && (quantity <= 0 || quantity > (product?.total_stock || 0))) || (!isSingleSale && !isCartSale)}
+                disabled={loading || (isAddToCartMode && (quantity <= 0 || (scannedItem && quantity > scannedItem.stockEntry.current_quantity)))}
                 className="flex-1 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'Procesando...' : (isCartSale ? 'Confirmar Venta' : 'Confirmar Venta')}
+                {loading ? 'Procesando...' : (isAddToCartMode ? 'Añadir al Carrito' : 'Confirmar Venta')}
               </button>
             </div>
           </form>
         )}
 
         <p className="text-xs text-gray-500 text-center mt-4">
-          {isSingleSale && 'Los campos marcados con * son obligatorios'}
+          {isAddToCartMode && 'Los campos marcados con * son obligatorios'}
         </p>
       </div>
     </div>

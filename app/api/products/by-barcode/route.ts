@@ -29,6 +29,10 @@ export async function GET(request: NextRequest) {
         product_id,
         current_quantity,
         barcode,
+        sale_price_unit,
+        sale_price_box,
+        purchase_price,
+        expiration_date,
         products (
           id,
           name,
@@ -91,6 +95,15 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ 
       product,
+      stockEntry: {
+        id: stockEntry.id,
+        sale_price_unit: stockEntry.sale_price_unit,
+        sale_price_box: stockEntry.sale_price_box,
+        current_quantity: stockEntry.current_quantity,
+        purchase_price: stockEntry.purchase_price,
+        expiration_date: stockEntry.expiration_date,
+        barcode: stockEntry.barcode
+      },
       message: 'Producto encontrado exitosamente'
     });
 

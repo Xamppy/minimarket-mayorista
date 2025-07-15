@@ -1,0 +1,22 @@
+{
+  "enabled": true,
+  "name": "Auto Update README",
+  "description": "Automatically updates the README.md file whenever components are created, modified, or when new functionality is added to the project",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "app/components/**/*.tsx",
+      "app/components/**/*.ts",
+      "app/**/page.tsx",
+      "app/**/layout.tsx",
+      "app/api/**/*.ts",
+      "lib/**/*.ts",
+      "app/utils/**/*.ts"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A component or functionality has been updated in the project. Please analyze the changes and update the README.md file to reflect any new features, components, or functionality that should be documented. Focus on keeping the README current with the project's capabilities, structure, and usage instructions. Make sure to maintain consistency with the existing documentation style and include any new setup steps or usage examples if needed."
+  }
+}

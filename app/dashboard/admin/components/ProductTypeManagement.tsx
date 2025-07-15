@@ -12,10 +12,7 @@ export default function ProductTypeManagement() {
     setRefreshKey(prev => prev + 1);
   };
 
-  const handleCreateSuccess = () => {
-    setCreateModalOpen(false);
-    handleRefresh();
-  };
+  // Removed unused handleCreateSuccess function
 
   return (
     <div className="space-y-6">

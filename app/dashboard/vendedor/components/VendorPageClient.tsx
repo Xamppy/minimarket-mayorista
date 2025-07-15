@@ -64,6 +64,16 @@ export default function VendorPageClient({
   const [isScanning, setIsScanning] = useState(false);
   const [scanError, setScanError] = useState('');
   const [saleModalOpen, setSaleModalOpen] = useState(false);
+  const [saleModalMode, setSaleModalMode] = useState<'add-to-cart-from-scan' | 'finalize-sale'>('finalize-sale');
+  const [scannedProduct, setScannedProduct] = useState<{
+    product: Product;
+    stockEntry: {
+      id: string;
+      sale_price_unit: number;
+      sale_price_box: number;
+      current_quantity: number;
+    };
+  } | undefined>(undefined);
   const scanInputRef = useRef<HTMLInputElement>(null);
   const scanTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastInputTimeRef = useRef<number>(0);
@@ -108,34 +118,33 @@ export default function VendorPageClient({
         throw new Error(data.error || 'Error al buscar producto');
       }
 
-      if (!data.product) {
+      if (!data.product || !data.stockEntry) {
         showError('Producto no encontrado o sin stock disponible');
         return;
       }
 
-      // Obtener información de precios desde stock_entries
-      const stockResponse = await fetch(`/api/stock-entries?product_id=${data.product.id}`);
-      const stockData = await stockResponse.json();
-
-      if (stockData.length === 0) {
-        showError('No hay lotes disponibles para este producto');
-        return;
-      }
-
-      // Tomar el primer lote disponible (FIFO)
-      const stockEntry = stockData.find((entry: any) => entry.current_quantity > 0);
-      if (!stockEntry) {
-        showError('Producto sin stock disponible');
-        return;
-      }
-
-      addToCart(data.product, stockEntry);
+      // Usar directamente el stock entry específico devuelto por la API
+      openAddToCartModal(data.product, data.stockEntry);
     } catch (error) {
       console.error('Error searching by barcode:', error);
       showError(error instanceof Error ? error.message : 'Error al buscar producto');
     } finally {
       setIsScanning(false);
     }
+  };
+
+  const openAddToCartModal = (product: Product, stockEntry: any) => {
+    setScannedProduct({
+      product,
+      stockEntry: {
+        id: stockEntry.id,
+        sale_price_unit: stockEntry.sale_price_unit,
+        sale_price_box: stockEntry.sale_price_box,
+        current_quantity: stockEntry.current_quantity
+      }
+    });
+    setSaleModalMode('add-to-cart-from-scan');
+    setSaleModalOpen(true);
   };
 
   const addToCart = (product: Product, stockEntry: any) => {
@@ -263,12 +272,14 @@ export default function VendorPageClient({
       showError('El carrito está vacío');
       return;
     }
+    setSaleModalMode('finalize-sale');
     setSaleModalOpen(true);
   };
 
   const handleSaleCompleted = () => {
     setCart([]);
     setSaleModalOpen(false);
+    setScannedProduct(undefined);
     router.refresh();
     // Recuperar foco en el campo de escaneo
     setTimeout(() => {
@@ -276,6 +287,44 @@ export default function VendorPageClient({
         scanInputRef.current.focus();
       }
     }, 100);
+  };
+
+  const handleItemAddedToCart = (item: {
+    product: Product;
+    stockEntryId: string;
+    quantity: number;
+    saleFormat: 'unitario' | 'caja';
+    price: number;
+  }) => {
+    setCart(prevCart => {
+      const existingItem = prevCart.find(cartItem => 
+        cartItem.product.id === item.product.id && 
+        cartItem.stockEntryId === item.stockEntryId
+      );
+
+      if (existingItem) {
+        // Incrementar cantidad del item existente
+        return prevCart.map(cartItem =>
+          cartItem.product.id === item.product.id && cartItem.stockEntryId === item.stockEntryId
+            ? { ...cartItem, quantity: cartItem.quantity + item.quantity }
+            : cartItem
+        );
+      } else {
+        // Añadir nuevo item al carrito
+        return [...prevCart, {
+          stockEntryId: item.stockEntryId,
+          product: item.product,
+          quantity: item.quantity,
+          price: item.price
+        }];
+      }
+    });
+
+    // Limpiar producto escaneado y recuperar foco
+    setScannedProduct(undefined);
+    if (scanInputRef.current) {
+      scanInputRef.current.focus();
+    }
   };
 
   const renderQuickSaleContent = () => (
@@ -572,8 +621,10 @@ export default function VendorPageClient({
       <SaleModal
         isOpen={saleModalOpen}
         onClose={() => setSaleModalOpen(false)}
-        product={null} // No usar producto individual
-        cartItems={cart} // Pasar todo el carrito
+        mode={saleModalMode}
+        scannedItem={scannedProduct}
+        onItemAddedToCart={handleItemAddedToCart}
+        cartItems={cart}
         onSaleCompleted={handleSaleCompleted}
       />
     </div>

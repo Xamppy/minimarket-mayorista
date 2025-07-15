@@ -887,29 +887,37 @@ export async function getBrandsWithUsage() {
   }
 
   try {
-    // Obtener marcas con conteo de productos usando MCP
-    const { data, error } = await supabase
+    // Obtener marcas básicas
+    const { data: brands, error: brandsError } = await supabase
       .from('brands')
-      .select(`
-        id,
-        name,
-        created_at,
-        products (count)
-      `)
+      .select('id, name, created_at')
       .order('name', { ascending: true });
 
-    if (error) {
-      console.error('Error al obtener marcas con uso:', error);
-      throw new Error(`Error al obtener marcas: ${error.message}`);
+    if (brandsError) {
+      console.error('Error al obtener marcas:', brandsError);
+      throw new Error(`Error al obtener marcas: ${brandsError.message}`);
     }
 
-    // Transformar datos para incluir product_count
-    const brandsWithUsage = (data || []).map(brand => ({
-      id: brand.id,
-      name: brand.name,
-      created_at: brand.created_at,
-      product_count: Array.isArray(brand.products) ? brand.products[0]?.count || 0 : 0
-    }));
+    // Obtener conteo de productos para cada marca
+    const brandsWithUsage = await Promise.all(
+      (brands || []).map(async (brand) => {
+        const { count, error: countError } = await supabase
+          .from('products')
+          .select('*', { count: 'exact', head: true })
+          .eq('brand_id', brand.id);
+
+        if (countError) {
+          console.error('Error al contar productos para marca:', countError);
+        }
+
+        return {
+          id: brand.id,
+          name: brand.name,
+          created_at: brand.created_at,
+          product_count: count || 0
+        };
+      })
+    );
 
     return brandsWithUsage;
   } catch (error) {
@@ -1165,29 +1173,37 @@ export async function getProductTypesWithUsage() {
   }
 
   try {
-    // Obtener tipos de producto con conteo de productos usando MCP
-    const { data, error } = await supabase
+    // Obtener tipos de producto básicos
+    const { data: productTypes, error: typesError } = await supabase
       .from('product_types')
-      .select(`
-        id,
-        name,
-        created_at,
-        products (count)
-      `)
+      .select('id, name, created_at')
       .order('name', { ascending: true });
 
-    if (error) {
-      console.error('Error al obtener tipos de producto con uso:', error);
-      throw new Error(`Error al obtener tipos de producto: ${error.message}`);
+    if (typesError) {
+      console.error('Error al obtener tipos de producto:', typesError);
+      throw new Error(`Error al obtener tipos de producto: ${typesError.message}`);
     }
 
-    // Transformar datos para incluir product_count
-    const typesWithUsage = (data || []).map(type => ({
-      id: type.id,
-      name: type.name,
-      created_at: type.created_at,
-      product_count: Array.isArray(type.products) ? type.products[0]?.count || 0 : 0
-    }));
+    // Obtener conteo de productos para cada tipo
+    const typesWithUsage = await Promise.all(
+      (productTypes || []).map(async (type) => {
+        const { count, error: countError } = await supabase
+          .from('products')
+          .select('*', { count: 'exact', head: true })
+          .eq('type_id', type.id);
+
+        if (countError) {
+          console.error('Error al contar productos para tipo:', countError);
+        }
+
+        return {
+          id: type.id,
+          name: type.name,
+          created_at: type.created_at,
+          product_count: count || 0
+        };
+      })
+    );
 
     return typesWithUsage;
   } catch (error) {

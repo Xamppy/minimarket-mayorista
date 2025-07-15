@@ -27,13 +27,18 @@ interface ProductType {
   name: string;
 }
 
+interface User {
+  id: string;
+  email: string;
+}
+
 interface AdminDashboardProps {
-  user: any;
+  user: User;
   role: string;
   products: Product[];
   brands: Brand[];
   productTypes: ProductType[];
-  productsError: any;
+  productsError: Error | null;
 }
 
 export default function AdminDashboard({ 
