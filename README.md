@@ -229,7 +229,7 @@ Este proyecto está bajo la Licencia MIT. Ver `LICENSE` para más detalles.
 
 ## 👥 Autores
 
-- **Tu Nombre** - *Desarrollo inicial* - [tu-github](https://github.com/tu-usuario)
+- **Xamppy** - *Desarrollo inicial* - [tu-github](https://github.com/Xamppy)
 
 ## 🙏 Agradecimientos
 
