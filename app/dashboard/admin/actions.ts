@@ -23,6 +23,7 @@ export async function addStockEntry(formData: FormData) {
   const purchasePrice = formData.get('purchasePrice') as string;
   const unitPrice = formData.get('unitPrice') as string;
   const boxPrice = formData.get('boxPrice') as string;
+  const wholesalePrice = formData.get('wholesalePrice') as string;
   const expirationDate = formData.get('expirationDate') as string;
 
   // Validar campos requeridos
@@ -50,6 +51,19 @@ export async function addStockEntry(formData: FormData) {
     throw new Error('El precio de venta por caja debe ser un número mayor a 0');
   }
 
+  // Validar precio mayorista (opcional)
+  let parsedWholesalePrice: number | null = null;
+  if (wholesalePrice && wholesalePrice.trim() !== '') {
+    const wholesalePriceNum = parseFloat(wholesalePrice);
+    if (isNaN(wholesalePriceNum) || wholesalePriceNum <= 0) {
+      throw new Error('El precio mayorista debe ser un número mayor a 0');
+    }
+    if (wholesalePriceNum > 999999.99) {
+      throw new Error('El precio mayorista no puede exceder 999,999.99');
+    }
+    parsedWholesalePrice = Math.round(wholesalePriceNum * 100) / 100; // Round to 2 decimal places
+  }
+
   try {
     // Insertar entrada de stock
     const { error } = await supabase
@@ -62,6 +76,7 @@ export async function addStockEntry(formData: FormData) {
         purchase_price: parseFloat(purchasePrice),
         sale_price_unit: parseFloat(unitPrice),
         sale_price_box: parseFloat(boxPrice),
+        sale_price_wholesale: parsedWholesalePrice,
         expiration_date: expirationDate?.trim() || null
       });
 
@@ -97,6 +112,7 @@ export async function updateStockEntry(formData: FormData) {
   const purchasePrice = formData.get('purchasePrice') as string;
   const unitPrice = formData.get('unitPrice') as string;
   const boxPrice = formData.get('boxPrice') as string;
+  const wholesalePrice = formData.get('wholesalePrice') as string;
   const expirationDate = formData.get('expirationDate') as string;
 
   // Validar campos requeridos
@@ -124,6 +140,19 @@ export async function updateStockEntry(formData: FormData) {
     throw new Error('El precio de venta por caja debe ser un número mayor a 0');
   }
 
+  // Validar precio mayorista (opcional)
+  let parsedWholesalePrice: number | null = null;
+  if (wholesalePrice && wholesalePrice.trim() !== '') {
+    const wholesalePriceNum = parseFloat(wholesalePrice);
+    if (isNaN(wholesalePriceNum) || wholesalePriceNum <= 0) {
+      throw new Error('El precio mayorista debe ser un número mayor a 0');
+    }
+    if (wholesalePriceNum > 999999.99) {
+      throw new Error('El precio mayorista no puede exceder 999,999.99');
+    }
+    parsedWholesalePrice = Math.round(wholesalePriceNum * 100) / 100; // Round to 2 decimal places
+  }
+
   try {
     // Actualizar entrada de stock
     const { error } = await supabase
@@ -134,6 +163,7 @@ export async function updateStockEntry(formData: FormData) {
         purchase_price: parseFloat(purchasePrice),
         sale_price_unit: parseFloat(unitPrice),
         sale_price_box: parseFloat(boxPrice),
+        sale_price_wholesale: parsedWholesalePrice,
         expiration_date: expirationDate?.trim() || null
       })
       .eq('id', stockEntryId);

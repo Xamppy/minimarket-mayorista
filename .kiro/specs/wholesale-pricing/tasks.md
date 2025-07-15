@@ -12,21 +12,21 @@
   - Verify column constraints and indexing for optimal performance
   - _Requirements: 1.3, 4.2, 6.2_
 
-- [-] 2. Update TypeScript interfaces for wholesale pricing
+- [x] 2. Update TypeScript interfaces for wholesale pricing
   - Modify StockEntry interface to include `sale_price_wholesale?: number`
   - Create PricingInfo interface for comprehensive pricing display
   - Update SaleItem interface to include wholesale pricing information
   - Add CartItem interface with price breakdown details
   - _Requirements: 1.1, 2.5, 3.1_
 
-- [ ] 3. Implement wholesale pricing calculation utilities
+- [x] 3. Implement wholesale pricing calculation utilities
   - Create `calculateItemPrice()` function to determine unit price based on quantity
   - Implement `getApplicablePrice()` function for price selection logic
   - Write `formatPricingDisplay()` function for UI pricing information
   - Add validation utilities for wholesale price input
   - _Requirements: 2.1, 2.2, 2.3, 6.1_
 
-- [ ] 4. Enhance stock entry server actions with wholesale pricing
+- [x] 4. Enhance stock entry server actions with wholesale pricing
   - Modify `addStockEntry()` to accept and validate wholesale price input
   - Update `updateStockEntry()` to handle wholesale price modifications
   - Add wholesale price validation (positive number or null)
