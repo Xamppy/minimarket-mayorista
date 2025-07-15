@@ -5,7 +5,11 @@ import Link from 'next/link';
 import AdminPageClient from './AdminPageClient';
 import AlertsDashboard from './AlertsDashboard';
 import AddProductModal from './AddProductModal';
-import CategoryManagementModal from './CategoryManagementModal';
+import dynamic from 'next/dynamic';
+
+const CategoryManagementModal = dynamic(() => import('./CategoryManagementModal'), {
+  ssr: false
+});
 import { getAllBrands, getAllProductTypes } from '../actions';
 
 interface Product {
@@ -41,13 +45,13 @@ interface AdminDashboardProps {
   productsError: Error | null;
 }
 
-export default function AdminDashboard({ 
-  user, 
-  role, 
-  products, 
-  brands, 
-  productTypes, 
-  productsError 
+export default function AdminDashboard({
+  user,
+  role,
+  products,
+  brands,
+  productTypes,
+  productsError
 }: AdminDashboardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
