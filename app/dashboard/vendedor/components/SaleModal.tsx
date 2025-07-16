@@ -188,7 +188,7 @@ export default function SaleModal({
       formData.append('stockEntryId', item.stockEntryId);
       formData.append('quantity', item.quantity.toString());
       formData.append('saleFormat', 'unitario');
-      formData.append('price', item.price.toString());
+      formData.append('price', item.appliedPrice.toString());
 
       const response = await fetch('/api/sales', {
         method: 'POST',
@@ -307,8 +307,8 @@ export default function SaleModal({
                       <span className="text-gray-600 block">{item.product.brand_name}</span>
                     </div>
                     <div className="text-right">
-                      <span className="text-black">{item.quantity}x {formatAsCLP(item.price)}</span>
-                      <div className="font-medium text-black">{formatAsCLP(item.price * item.quantity)}</div>
+                      <span className="text-black">{item.quantity}x {formatAsCLP(item.appliedPrice)}</span>
+                      <div className="font-medium text-black">{formatAsCLP(item.totalPrice)}</div>
                     </div>
                   </div>
                 ))}

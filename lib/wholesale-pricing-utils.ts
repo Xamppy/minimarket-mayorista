@@ -147,7 +147,7 @@ export function formatPricingDisplay(pricingInfo: PricingInfo): {
     wholesale: 'Precio Mayorista'
   };
 
-  const priceText = `$${applicablePrice?.toFixed(2) || '0.00'}`;
+  const priceText = `${applicablePrice?.toFixed(2) || '0.00'}`;
   const priceTypeLabel = priceTypeLabels[priceType];
   
   const savingsText = savings && savings > 0 

@@ -103,7 +103,15 @@
   - Ensure backward compatibility with existing sales data
   - _Requirements: 5.2, 5.4, 6.5_
 
-- [-] 15. Implement comprehensive testing for wholesale pricing
+- [x] 15. Implement comprehensive testing for wholesale pricing
+
+
+
+
+
+
+
+
   - Write unit tests for wholesale pricing calculation functions
   - Create integration tests for stock entry CRUD with wholesale pricing
   - Add end-to-end tests for sales processing with wholesale pricing

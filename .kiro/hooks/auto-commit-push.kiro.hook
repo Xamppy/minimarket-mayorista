@@ -1,7 +1,7 @@
 {
   "enabled": true,
   "name": "Auto Commit & Push",
-  "description": "Automatically commits and pushes changes to the repository whenever a task or feature is completed and approved",
+  "description": "Automatically commits and pushes changes to the repository whenever a task or feature is completed and approved.",
   "version": "1",
   "when": {
     "type": "fileEdited",
@@ -19,6 +19,6 @@
   },
   "then": {
     "type": "askAgent",
-    "prompt": "A task or functionality has been completed. Please review the recent changes and if they represent a completed feature or task that is ready for deployment, create a meaningful commit message and push the changes to the repository. Use git commands to: 1) Stage the changes with 'git add .', 2) Commit with a descriptive message using 'git commit -m \"[message]\"', and 3) Push to the repository with 'git push'. Make sure the commit message clearly describes what was implemented or completed."
+    "prompt": "A task or functionality has been completed. Please review the recent changes and if they represent a completed feature or task that is ready for deployment, create a meaningful commit message and push the changes to the repository. Use git commands to: 1) Stage the changes with 'git add .', 2) Commit with a descriptive message using 'git commit -m \"[message]\"', and 3) Push to the repository with 'git push -u origin main'. Make sure the commit message clearly describes what was implemented or completed."
   }
 }

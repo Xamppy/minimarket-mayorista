@@ -4,17 +4,27 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import CartModal from './CartModal';
 
+interface Product {
+  id: string;
+  name: string;
+  image_url: string | null;
+  brand_name: string;
+  total_stock: number;
+  type_name?: string;
+}
+
 interface CartItem {
+  product: Product;
   stockEntryId: string;
-  product: {
-    id: string;
-    name: string;
-    brand_name: string;
-    total_stock: number;
-    image_url: string | null;
-  };
   quantity: number;
-  price: number;
+  saleFormat: 'unitario' | 'caja' | 'display' | 'pallet';
+  unitPrice: number;
+  boxPrice?: number;
+  wholesalePrice?: number;
+  appliedPrice: number;
+  appliedPriceType: 'unit' | 'box' | 'wholesale';
+  totalPrice: number;
+  savings?: number;
 }
 
 interface FloatingCartButtonProps {
