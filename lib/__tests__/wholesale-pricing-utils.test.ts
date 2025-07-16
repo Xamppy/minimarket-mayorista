@@ -110,7 +110,7 @@ runTest('calculateItemPrice - Wholesale pricing application', () => {
     boxPrice: 9000,
     wholesalePrice: 800
   };
-  
+
   const result = calculateItemPrice(input);
   assertEqual(result.priceType, 'wholesale', 'Should use wholesale price for quantity >= 3');
   assertEqual(result.applicablePrice, 800, 'Should apply wholesale price');
@@ -125,7 +125,7 @@ runTest('calculateItemPrice - Unit pricing for low quantity', () => {
     boxPrice: 9000,
     wholesalePrice: 800
   };
-  
+
   const result = calculateItemPrice(input);
   assertEqual(result.priceType, 'unit', 'Should use unit price for quantity < 3');
   assertEqual(result.applicablePrice, 1000, 'Should apply unit price');
@@ -139,10 +139,10 @@ runTest('calculateItemPrice - Threshold boundary testing', () => {
     unitPrice: 1000,
     wholesalePrice: 800
   };
-  
+
   const result = calculateItemPrice(input);
   assertEqual(result.priceType, 'wholesale', 'Should apply wholesale at exact threshold');
-  
+
   const belowThreshold = calculateItemPrice({ ...input, quantity: WHOLESALE_THRESHOLD - 1 });
   assertEqual(belowThreshold.priceType, 'unit', 'Should not apply wholesale below threshold');
 });
@@ -154,7 +154,7 @@ runTest('calculateItemPrice - Missing wholesale price', () => {
     boxPrice: 9000
     // No wholesale price
   };
-  
+
   const result = calculateItemPrice(input);
   assertEqual(result.priceType, 'unit', 'Should fallback to unit price when no wholesale');
   assertEqual(result.applicablePrice, 1000, 'Should use unit price');
@@ -167,14 +167,14 @@ runTest('calculateItemPrice - Error handling for invalid inputs', () => {
   } catch (error) {
     assertTrue(error instanceof Error, 'Should throw error for invalid quantity');
   }
-  
+
   try {
     calculateItemPrice({ quantity: 10001, unitPrice: 1000 });
     throw new Error('Should have thrown error for excessive quantity');
   } catch (error) {
     assertTrue(error instanceof Error, 'Should throw error for excessive quantity');
   }
-  
+
   try {
     calculateItemPrice({ quantity: 5 }); // No prices
     throw new Error('Should have thrown error for no prices');
@@ -190,7 +190,7 @@ runTest('hasWholesalePrice - Detection logic', () => {
   const withWholesale = createMockStockEntry({ sale_price_wholesale: 800 });
   const withoutWholesale = createMockStockEntry({ sale_price_wholesale: undefined });
   const withZeroWholesale = createMockStockEntry({ sale_price_wholesale: 0 });
-  
+
   assertTrue(hasWholesalePrice(withWholesale), 'Should detect wholesale price');
   assertFalse(hasWholesalePrice(withoutWholesale), 'Should not detect missing wholesale price');
   assertFalse(hasWholesalePrice(withZeroWholesale), 'Should not detect zero wholesale price');
@@ -198,22 +198,22 @@ runTest('hasWholesalePrice - Detection logic', () => {
 
 runTest('shouldApplyWholesalePrice - Application logic', () => {
   const stockEntry = createMockStockEntry();
-  
+
   assertTrue(shouldApplyWholesalePrice(stockEntry, 5), 'Should apply wholesale for quantity >= 3');
   assertFalse(shouldApplyWholesalePrice(stockEntry, 2), 'Should not apply wholesale for quantity < 3');
-  
+
   const noWholesale = createMockStockEntry({ sale_price_wholesale: undefined });
   assertFalse(shouldApplyWholesalePrice(noWholesale, 5), 'Should not apply when no wholesale price');
 });
 
 runTest('getApplicablePrice - Pricing info generation', () => {
   const stockEntry = createMockStockEntry();
-  
+
   const wholesaleInfo = getApplicablePrice(stockEntry, 5);
   assertEqual(wholesaleInfo.priceType, 'wholesale', 'Should return wholesale pricing info');
   assertEqual(wholesaleInfo.applicablePrice, 800, 'Should return correct applicable price');
   assertEqual(wholesaleInfo.savings, 1000, 'Should calculate savings correctly');
-  
+
   const unitInfo = getApplicablePrice(stockEntry, 2);
   assertEqual(unitInfo.priceType, 'unit', 'Should return unit pricing info for low quantity');
   assertEqual(unitInfo.applicablePrice, 1000, 'Should return unit price');
@@ -222,10 +222,10 @@ runTest('getApplicablePrice - Pricing info generation', () => {
 runTest('formatPricingDisplay - UI formatting', () => {
   const pricingInfo = getApplicablePrice(createMockStockEntry(), 5);
   const formatted = formatPricingDisplay(pricingInfo);
-  
+
   assertEqual(formatted.priceText, '800.00', 'Should format price correctly');
   assertEqual(formatted.priceTypeLabel, 'Precio Mayorista', 'Should show correct label');
-  assertTrue(formatted.savingsText?.includes('1000.00'), 'Should show savings text');
+  assertTrue(formatted.savingsText?.includes('1000.00') || false, 'Should show savings text');
 });
 
 // Test Suite 4: Wholesale Pricing Availability Validation
@@ -234,25 +234,25 @@ console.log('\n=== Testing Wholesale Pricing Availability ===');
 runTest('validateWholesalePricingAvailability - Successful wholesale application', () => {
   const stockEntry = createMockStockEntry({ current_quantity: 50 });
   const result = validateWholesalePricingAvailability(stockEntry, 5);
-  
+
   assertTrue(result.canApplyWholesale, 'Should allow wholesale pricing');
   assertEqual(result.priceType, 'wholesale', 'Should indicate wholesale pricing');
-  assertTrue(result.message?.includes('Precio mayorista aplicado'), 'Should show success message');
+  assertTrue(result.message?.includes('Precio mayorista aplicado') || false, 'Should show success message');
 });
 
 runTest('validateWholesalePricingAvailability - Insufficient stock', () => {
   const stockEntry = createMockStockEntry({ current_quantity: 2 });
   const result = validateWholesalePricingAvailability(stockEntry, 5);
-  
+
   assertFalse(result.canApplyWholesale, 'Should not allow wholesale pricing');
   assertEqual(result.priceType, 'unavailable', 'Should indicate unavailable');
-  assertTrue(result.message?.includes('Stock insuficiente'), 'Should show stock error');
+  assertTrue(result.message?.includes('Stock insuficiente') || false, 'Should show stock error');
 });
 
 runTest('validateWholesalePricingAvailability - No wholesale price', () => {
   const stockEntry = createMockStockEntry({ sale_price_wholesale: undefined });
   const result = validateWholesalePricingAvailability(stockEntry, 5);
-  
+
   assertFalse(result.canApplyWholesale, 'Should not allow wholesale pricing');
   assertEqual(result.priceType, 'unit', 'Should fallback to unit pricing');
   assertEqual(result.fallbackPrice, stockEntry.sale_price_unit, 'Should provide fallback price');
@@ -261,68 +261,68 @@ runTest('validateWholesalePricingAvailability - No wholesale price', () => {
 runTest('validateWholesalePricingAvailability - Below threshold', () => {
   const stockEntry = createMockStockEntry();
   const result = validateWholesalePricingAvailability(stockEntry, 2);
-  
+
   assertFalse(result.canApplyWholesale, 'Should not allow wholesale pricing');
   assertEqual(result.priceType, 'unit', 'Should use unit pricing');
-  assertTrue(result.message?.includes('Se requieren al menos'), 'Should show threshold message');
+  assertTrue(result.message?.includes('Se requieren al menos') || false, 'Should show threshold message');
 });
 
 // Test Suite 5: Integration Tests for Complex Scenarios
 console.log('\n=== Testing Complex Integration Scenarios ===');
 
 runTest('Mixed pricing scenarios - Multiple stock entries', () => {
-  const stockEntry1 = createMockStockEntry({ 
-    id: 1, 
+  const stockEntry1 = createMockStockEntry({
+    id: 1,
     sale_price_wholesale: 800,
-    current_quantity: 10 
+    current_quantity: 10
   });
-  const stockEntry2 = createMockStockEntry({ 
-    id: 2, 
+  const stockEntry2 = createMockStockEntry({
+    id: 2,
     sale_price_wholesale: 750,
-    current_quantity: 15 
+    current_quantity: 15
   });
-  
+
   // Test different quantities across entries
   const result1 = getApplicablePrice(stockEntry1, 5);
   const result2 = getApplicablePrice(stockEntry2, 5);
-  
+
   assertEqual(result1.applicablePrice, 800, 'Should apply first entry wholesale price');
   assertEqual(result2.applicablePrice, 750, 'Should apply second entry wholesale price');
-  
+
   // Verify different savings calculations
   assertTrue(result1.savings !== result2.savings, 'Should calculate different savings');
 });
 
 runTest('FIFO compliance with wholesale pricing', () => {
   // Simulate FIFO scenario with different wholesale prices
-  const olderEntry = createMockStockEntry({ 
-    id: 1, 
+  const olderEntry = createMockStockEntry({
+    id: 1,
     sale_price_wholesale: 900,
     created_at: '2025-01-01T00:00:00Z',
     current_quantity: 5
   });
-  const newerEntry = createMockStockEntry({ 
-    id: 2, 
+  const newerEntry = createMockStockEntry({
+    id: 2,
     sale_price_wholesale: 700,
     created_at: '2025-01-02T00:00:00Z',
     current_quantity: 10
   });
-  
+
   // In FIFO, older entry should be consumed first
   const olderResult = getApplicablePrice(olderEntry, 3);
   const newerResult = getApplicablePrice(newerEntry, 3);
-  
+
   assertEqual(olderResult.applicablePrice, 900, 'Should use older entry wholesale price');
   assertEqual(newerResult.applicablePrice, 700, 'Should use newer entry wholesale price');
-  
+
   // Verify that pricing is applied correctly per entry
-  assertTrue(olderResult.applicablePrice > newerResult.applicablePrice, 
+  assertTrue(olderResult.applicablePrice > newerResult.applicablePrice,
     'Should maintain different pricing per entry');
 });
 
 runTest('Edge case - Exact threshold quantities', () => {
   const stockEntry = createMockStockEntry();
-  
+
   // Test exactly at threshold
   const atThreshold = calculateItemPrice({
     quantity: WHOLESALE_THRESHOLD,
@@ -330,7 +330,7 @@ runTest('Edge case - Exact threshold quantities', () => {
     wholesalePrice: 800
   });
   assertEqual(atThreshold.priceType, 'wholesale', 'Should apply wholesale at exact threshold');
-  
+
   // Test just below threshold
   const belowThreshold = calculateItemPrice({
     quantity: WHOLESALE_THRESHOLD - 1,
@@ -346,7 +346,7 @@ runTest('Price calculation with decimal quantities and prices', () => {
     unitPrice: 99.99,
     wholesalePrice: 79.99
   });
-  
+
   assertEqual(result.priceType, 'wholesale', 'Should handle decimal quantities');
   assertEqual(result.totalPrice, 279.965, 'Should calculate decimal totals correctly');
   assertTrue(result.savings > 0, 'Should calculate savings with decimals');
@@ -361,7 +361,7 @@ runTest('Large quantity calculations', () => {
     unitPrice: 10,
     wholesalePrice: 8
   });
-  
+
   assertEqual(result.totalPrice, 8000, 'Should handle large quantities');
   assertEqual(result.savings, 2000, 'Should calculate large savings correctly');
 });
@@ -372,7 +372,7 @@ runTest('Precision handling for currency calculations', () => {
     unitPrice: 33.33,
     wholesalePrice: 29.99
   });
-  
+
   // Verify precision is maintained (allowing for floating point precision)
   assertApproxEqual(result.totalPrice, 89.97, 0.01, 'Should maintain currency precision');
   assertApproxEqual(result.savings, 10.02, 0.01, 'Should calculate precise savings'); // baseTotal - totalPrice = 99.99 - 89.97 = 10.02
@@ -393,4 +393,4 @@ console.log('✅ Integration scenarios covered');
 console.log('✅ FIFO compliance with wholesale pricing validated');
 console.log('✅ Error handling and boundary conditions tested');
 
-export {}; // Make this a module
+export { }; // Make this a module
