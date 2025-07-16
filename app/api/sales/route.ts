@@ -26,13 +26,26 @@ export async function POST(request: NextRequest) {
     const priceString = formData.get('price') as string;
     const specificPrice = priceString ? parseFloat(priceString) : null;
 
-    // Validaciones
+    // Validaciones mejoradas
     if (!productIdString || isNaN(productId) || !quantity || !saleFormat) {
-      return NextResponse.json({ error: 'Faltan datos requeridos' }, { status: 400 });
+      return NextResponse.json({ 
+        error: 'Faltan datos requeridos para procesar la venta',
+        details: 'Se requiere ID del producto, cantidad y formato de venta'
+      }, { status: 400 });
     }
 
     if (quantity <= 0) {
-      return NextResponse.json({ error: 'La cantidad debe ser mayor a 0' }, { status: 400 });
+      return NextResponse.json({ 
+        error: 'La cantidad debe ser mayor a 0',
+        details: `Cantidad recibida: ${quantity}`
+      }, { status: 400 });
+    }
+
+    if (quantity > 1000) {
+      return NextResponse.json({ 
+        error: 'La cantidad es demasiado alta',
+        details: 'La cantidad máxima por venta es 1000 unidades'
+      }, { status: 400 });
     }
 
     // Obtener información del producto
@@ -102,11 +115,19 @@ export async function POST(request: NextRequest) {
         
         const qtyToTake = Math.min(remainingQty, entry.current_quantity);
         
+        // Calcular precio correcto con wholesale pricing mejorado
+        let pricePerUnit = entry.sale_price_unit;
+        if (entry.sale_price_wholesale && 
+            entry.sale_price_wholesale > 0 && 
+            qtyToTake >= 3) {
+          pricePerUnit = entry.sale_price_wholesale;
+        }
+        
         saleItemsToInsert.push({
           sale_id: sale.id,
           stock_entry_id: entry.id,
           quantity_sold: qtyToTake,
-          price_at_sale: entry.sale_price_unit,
+          price_at_sale: pricePerUnit,
           sale_format: saleFormat
         });
         
@@ -157,10 +178,10 @@ export async function POST(request: NextRequest) {
 
 // Función para manejar venta específica por stock entry (carrito)
 async function handleSpecificStockEntry(supabase: any, stockEntryId: number, quantity: number, price: number) {
-  // Obtener el stock entry específico
+  // Obtener el stock entry específico con información de wholesale pricing
   const { data: stockEntry, error: stockError } = await supabase
     .from('stock_entries')
-    .select('id, current_quantity, sale_price_unit')
+    .select('id, current_quantity, sale_price_unit, sale_price_box, sale_price_wholesale')
     .eq('id', stockEntryId)
     .single();
 
@@ -175,6 +196,7 @@ async function handleSpecificStockEntry(supabase: any, stockEntryId: number, qua
     };
   }
 
+  // El precio ya viene calculado desde el carrito con wholesale pricing aplicado
   const totalPrice = price * quantity;
   const stockUpdates = [{
     id: stockEntryId.toString(),
@@ -188,12 +210,12 @@ async function handleSpecificStockEntry(supabase: any, stockEntryId: number, qua
   };
 }
 
-// Función para manejar venta FIFO automática
+// Función para manejar venta FIFO automática con wholesale pricing
 async function handleFIFOStock(supabase: any, productId: number, quantity: number) {
-  // Obtener entradas de stock ordenadas por fecha de vencimiento (FIFO)
+  // Obtener entradas de stock ordenadas por fecha de vencimiento (FIFO) con información de wholesale pricing
   const { data: stockEntries, error: stockError } = await supabase
     .from('stock_entries')
-    .select('id, current_quantity, sale_price_unit, expiration_date, created_at')
+    .select('id, current_quantity, sale_price_unit, sale_price_box, sale_price_wholesale, expiration_date, created_at')
     .eq('product_id', productId)
     .gt('current_quantity', 0)
     .order('expiration_date', { ascending: true })
@@ -217,16 +239,41 @@ async function handleFIFOStock(supabase: any, productId: number, quantity: numbe
     };
   }
 
-  // Calcular precio promedio ponderado
+  // Calcular precio con lógica de wholesale pricing mejorada para escenarios mixtos
   let remainingQuantity = quantity;
   let totalPrice = 0;
   const stockUpdates: { id: string; newQuantity: number }[] = [];
+  const priceBreakdown: { entryId: number; quantity: number; pricePerUnit: number; priceType: string }[] = [];
 
   for (const entry of stockEntries) {
     if (remainingQuantity <= 0) break;
 
     const quantityToTake = Math.min(remainingQuantity, entry.current_quantity);
-    totalPrice += quantityToTake * entry.sale_price_unit;
+    
+    // Aplicar lógica de wholesale pricing POR STOCK ENTRY (no por cantidad total)
+    let pricePerUnit = entry.sale_price_unit;
+    let priceType = 'unit';
+    
+    // Evaluar wholesale pricing para la cantidad específica de este stock entry
+    // Solo aplicar wholesale si este stock entry específico tiene ≥3 unidades disponibles
+    // Y si la cantidad que vamos a tomar es ≥3 unidades
+    if (entry.sale_price_wholesale && 
+        entry.sale_price_wholesale > 0 && 
+        quantityToTake >= 3) {
+      pricePerUnit = entry.sale_price_wholesale;
+      priceType = 'wholesale';
+    }
+    
+    const entryTotal = quantityToTake * pricePerUnit;
+    totalPrice += entryTotal;
+    
+    // Guardar información detallada para debugging y auditoría
+    priceBreakdown.push({
+      entryId: entry.id,
+      quantity: quantityToTake,
+      pricePerUnit,
+      priceType
+    });
     
     stockUpdates.push({
       id: entry.id.toString(),
@@ -235,6 +282,9 @@ async function handleFIFOStock(supabase: any, productId: number, quantity: numbe
 
     remainingQuantity -= quantityToTake;
   }
+
+  // Log para debugging (opcional)
+  console.log('FIFO Price Breakdown:', priceBreakdown);
 
   return {
     stockEntries,

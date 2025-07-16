@@ -55,9 +55,30 @@ export function validateWholesalePrice(price: string | number | null | undefined
 export function calculateItemPrice(input: PriceCalculationInput): PriceCalculationResult {
   const { quantity, unitPrice, boxPrice, wholesalePrice, wholesaleThreshold = WHOLESALE_THRESHOLD } = input;
 
+  // Validaciones mejoradas de entrada
+  if (quantity <= 0) {
+    throw new Error('La cantidad debe ser mayor a 0');
+  }
+
+  if (quantity > 10000) {
+    throw new Error('La cantidad es demasiado alta (máximo 10,000 unidades)');
+  }
+
   // Default to unit price if no pricing is available
   if (!unitPrice && !boxPrice && !wholesalePrice) {
-    throw new Error('Al menos un precio debe estar disponible');
+    throw new Error('Al menos un precio debe estar disponible para calcular el total');
+  }
+
+  if (unitPrice && unitPrice < 0) {
+    throw new Error('El precio unitario no puede ser negativo');
+  }
+
+  if (boxPrice && boxPrice < 0) {
+    throw new Error('El precio por caja no puede ser negativo');
+  }
+
+  if (wholesalePrice && wholesalePrice < 0) {
+    throw new Error('El precio mayorista no puede ser negativo');
   }
 
   const baseUnitPrice = unitPrice || 0;
@@ -68,11 +89,9 @@ export function calculateItemPrice(input: PriceCalculationInput): PriceCalculati
   if (quantity >= wholesaleThreshold && wholesalePrice && wholesalePrice > 0) {
     applicablePrice = wholesalePrice;
     priceType = 'wholesale';
-  } else if (boxPrice && boxPrice > 0) {
-    // Use box price if available and no wholesale applies
-    applicablePrice = boxPrice;
-    priceType = 'box';
   }
+  // Si no se aplica wholesale pricing, mantener el precio unitario por defecto
+  // La lógica de precio de caja se maneja en el componente según el formato de venta
 
   const totalPrice = applicablePrice * quantity;
   const baseTotal = baseUnitPrice * quantity;
@@ -154,4 +173,54 @@ export function hasWholesalePrice(stockEntry: StockEntry): boolean {
  */
 export function shouldApplyWholesalePrice(stockEntry: StockEntry, quantity: number): boolean {
   return hasWholesalePrice(stockEntry) && quantity >= WHOLESALE_THRESHOLD;
+}
+
+/**
+ * Validates if wholesale pricing can be applied and provides user-friendly error messages
+ */
+export function validateWholesalePricingAvailability(
+  stockEntry: StockEntry, 
+  requestedQuantity: number
+): { 
+  canApplyWholesale: boolean; 
+  message?: string; 
+  fallbackPrice?: number;
+  priceType: 'unit' | 'wholesale' | 'unavailable';
+} {
+  // Verificar si hay stock suficiente
+  if (requestedQuantity > stockEntry.current_quantity) {
+    return {
+      canApplyWholesale: false,
+      message: `Stock insuficiente. Solo quedan ${stockEntry.current_quantity} unidades disponibles.`,
+      priceType: 'unavailable'
+    };
+  }
+
+  // Verificar si el producto tiene precio mayorista
+  if (!hasWholesalePrice(stockEntry)) {
+    return {
+      canApplyWholesale: false,
+      message: 'Este producto no tiene precio mayorista disponible.',
+      fallbackPrice: stockEntry.sale_price_unit,
+      priceType: 'unit'
+    };
+  }
+
+  // Verificar si la cantidad cumple el umbral
+  if (requestedQuantity < WHOLESALE_THRESHOLD) {
+    return {
+      canApplyWholesale: false,
+      message: `Se requieren al menos ${WHOLESALE_THRESHOLD} unidades para aplicar precio mayorista. Cantidad actual: ${requestedQuantity}`,
+      fallbackPrice: stockEntry.sale_price_unit,
+      priceType: 'unit'
+    };
+  }
+
+  // Todo está bien para aplicar wholesale pricing
+  return {
+    canApplyWholesale: true,
+    message: `¡Precio mayorista aplicado! Ahorro por unidad: $${((stockEntry.sale_price_unit || 0) - (stockEntry.sale_price_wholesale || 0)).toFixed(2)}`,
+    fallbackPrice: stockEntry.sale_price_wholesale,
+    priceType: 'wholesale'
+  };
 }

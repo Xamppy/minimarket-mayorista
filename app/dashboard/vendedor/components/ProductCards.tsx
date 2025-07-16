@@ -45,6 +45,56 @@ export default function ProductCards({ products, onSaleCompleted }: ProductCards
     handleCloseModal();
   };
 
+  const handleAddToCart = async (product: Product) => {
+    try {
+      // Primero necesitamos obtener la información de precios del producto
+      // Buscaremos el primer stock entry disponible para este producto
+      const response = await fetch(`/api/stock-entries?productId=${product.id}`);
+      
+      if (!response.ok) {
+        throw new Error('Error al obtener información del producto');
+      }
+      
+      const stockEntries = await response.json();
+      
+      if (!stockEntries || stockEntries.length === 0) {
+        alert('No hay stock disponible para este producto');
+        return;
+      }
+      
+      // Tomar el primer stock entry con stock disponible
+      const availableStock = stockEntries.find((entry: any) => entry.current_quantity > 0);
+      
+      if (!availableStock) {
+        alert('No hay stock disponible para este producto');
+        return;
+      }
+      
+      // Crear el evento personalizado para agregar al carrito
+      const cartEvent = new CustomEvent('addToCart', {
+        detail: {
+          product,
+          stockEntry: {
+            id: availableStock.id,
+            sale_price_unit: availableStock.sale_price_unit,
+            sale_price_box: availableStock.sale_price_box,
+            sale_price_wholesale: availableStock.sale_price_wholesale,
+            current_quantity: availableStock.current_quantity
+          }
+        }
+      });
+      
+      window.dispatchEvent(cartEvent);
+      
+      // Mostrar confirmación
+      alert(`${product.name} agregado al carrito`);
+      
+    } catch (error) {
+      console.error('Error al agregar al carrito:', error);
+      alert('Error al agregar el producto al carrito');
+    }
+  };
+
   return (
     <>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-6">
@@ -99,8 +149,21 @@ export default function ProductCards({ products, onSaleCompleted }: ProductCards
                 </span>
               </div>
 
-              {/* Botón de venta */}
-              <SellButton product={product} onSell={handleSell} />
+              {/* Botones de acción */}
+              <div className="space-y-2">
+                <SellButton product={product} onSell={handleSell} />
+                <button
+                  onClick={() => handleAddToCart(product)}
+                  disabled={product.total_stock <= 0}
+                  className={`w-full py-2 px-3 rounded-md text-xs font-medium transition-colors ${
+                    product.total_stock > 0
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+                >
+                  {product.total_stock > 0 ? '+ Carrito' : 'Sin Stock'}
+                </button>
+              </div>
             </div>
           </div>
         ))}

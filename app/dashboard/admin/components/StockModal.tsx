@@ -13,6 +13,7 @@ interface StockEntry {
   purchase_price: number;
   sale_price_unit: number;
   sale_price_box: number;
+  sale_price_wholesale?: number;
   expiration_date: string;
   created_at: string;
 }
@@ -123,6 +124,7 @@ export default function StockModal({ isOpen, onClose, productId, productName }: 
               purchase_price: editingStockEntry.purchase_price,
               sale_price_unit: editingStockEntry.sale_price_unit,
               sale_price_box: editingStockEntry.sale_price_box,
+              sale_price_wholesale: editingStockEntry.sale_price_wholesale,
               expiration_date: editingStockEntry.expiration_date
             } : undefined}
             onCancelEdit={handleCancelEdit}
@@ -214,6 +216,9 @@ export default function StockModal({ isOpen, onClose, productId, productName }: 
                       Precio Venta Caja
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
+                      Precio Mayorista
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
                       Fecha de Vencimiento
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
@@ -246,6 +251,16 @@ export default function StockModal({ isOpen, onClose, productId, productName }: 
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
                         <span className="text-green-600 font-medium">${entry.sale_price_box.toFixed(2)}</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
+                        {entry.sale_price_wholesale ? (
+                          <span className="text-purple-600 font-medium">
+                            ${entry.sale_price_wholesale.toFixed(2)}
+                            <span className="text-xs text-gray-500 ml-1">(3+ unidades)</span>
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">N/A</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
                         {entry.expiration_date ? (

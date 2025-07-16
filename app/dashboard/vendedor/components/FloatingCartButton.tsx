@@ -4,7 +4,32 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import CartModal from './CartModal';
 
-export default function FloatingCartButton() {
+interface CartItem {
+  stockEntryId: string;
+  product: {
+    id: string;
+    name: string;
+    brand_name: string;
+    total_stock: number;
+    image_url: string | null;
+  };
+  quantity: number;
+  price: number;
+}
+
+interface FloatingCartButtonProps {
+  cartItems?: CartItem[];
+  onUpdateQuantity?: (stockEntryId: string, productId: string, newQuantity: number) => void;
+  onRemoveItem?: (stockEntryId: string, productId: string) => void;
+  onSaleCompleted?: () => void;
+}
+
+export default function FloatingCartButton({ 
+  cartItems = [], 
+  onUpdateQuantity, 
+  onRemoveItem, 
+  onSaleCompleted 
+}: FloatingCartButtonProps) {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const router = useRouter();
 
@@ -17,8 +42,12 @@ export default function FloatingCartButton() {
   };
 
   const handleSaleCompleted = () => {
-    // Refrescar la página para actualizar los datos
-    router.refresh();
+    if (onSaleCompleted) {
+      onSaleCompleted();
+    } else {
+      // Fallback al comportamiento anterior
+      router.refresh();
+    }
     setIsCartOpen(false);
   };
 
@@ -46,7 +75,9 @@ export default function FloatingCartButton() {
       <CartModal
         isOpen={isCartOpen}
         onClose={handleCloseCart}
-        initialProduct={null}
+        cartItems={cartItems}
+        onUpdateQuantity={onUpdateQuantity}
+        onRemoveItem={onRemoveItem}
         onSaleCompleted={handleSaleCompleted}
       />
     </>

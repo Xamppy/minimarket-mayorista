@@ -31,6 +31,7 @@ export async function GET(request: NextRequest) {
         barcode,
         sale_price_unit,
         sale_price_box,
+        sale_price_wholesale,
         purchase_price,
         expiration_date,
         products (
@@ -99,6 +100,7 @@ export async function GET(request: NextRequest) {
         id: stockEntry.id,
         sale_price_unit: stockEntry.sale_price_unit,
         sale_price_box: stockEntry.sale_price_box,
+        sale_price_wholesale: stockEntry.sale_price_wholesale,
         current_quantity: stockEntry.current_quantity,
         purchase_price: stockEntry.purchase_price,
         expiration_date: stockEntry.expiration_date,

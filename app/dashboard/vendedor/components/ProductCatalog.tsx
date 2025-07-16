@@ -18,9 +18,10 @@ interface ProductCatalogProps {
   searchTerm: string;
   categoryFilter: string;
   brandFilter: string;
+  onAddToCart?: (product: Product, stockEntry: any) => void;
 }
 
-export default function ProductCatalog({ products, searchTerm, categoryFilter, brandFilter }: ProductCatalogProps) {
+export default function ProductCatalog({ products, searchTerm, categoryFilter, brandFilter, onAddToCart }: ProductCatalogProps) {
   const router = useRouter();
   const [cartModalState, setCartModalState] = useState<{
     isOpen: boolean;
@@ -39,11 +40,49 @@ export default function ProductCatalog({ products, searchTerm, categoryFilter, b
     });
   };
 
-  const handleSellProduct = (product: Product) => {
-    setCartModalState({
-      isOpen: true,
-      selectedProduct: product
-    });
+  const handleSellProduct = async (product: Product) => {
+    if (!onAddToCart) {
+      // Fallback al modal local si no hay función onAddToCart
+      setCartModalState({
+        isOpen: true,
+        selectedProduct: product
+      });
+      return;
+    }
+
+    try {
+      // Obtener información de precios del producto
+      const response = await fetch(`/api/stock-entries?productId=${product.id}`);
+      
+      if (!response.ok) {
+        throw new Error('Error al obtener información del producto');
+      }
+      
+      const stockEntries = await response.json();
+      
+      if (!stockEntries || stockEntries.length === 0) {
+        alert('No hay stock disponible para este producto');
+        return;
+      }
+      
+      // Tomar el primer stock entry con stock disponible
+      const availableStock = stockEntries.find((entry: any) => entry.current_quantity > 0);
+      
+      if (!availableStock) {
+        alert('No hay stock disponible para este producto');
+        return;
+      }
+      
+      // Usar la función onAddToCart pasada desde el componente padre
+      onAddToCart(product, availableStock);
+      
+      // Mostrar confirmación
+      alert(`${product.name} agregado al carrito`);
+      
+    } catch (error) {
+      console.error('Error al agregar al carrito:', error);
+      alert('Error al agregar el producto al carrito');
+    }
   };
 
   const handleCloseCartModal = () => {

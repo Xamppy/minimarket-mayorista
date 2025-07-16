@@ -90,7 +90,7 @@ export default function TicketPage({ params }: PageProps) {
           console.warn('Error fetching seller profile:', profileError);
         }
 
-        // Obtener items de la venta con información completa
+        // Obtener items de la venta con información completa incluyendo wholesale pricing
         const { data: saleItems, error: itemsError } = await supabase
           .from('sale_items')
           .select(`
@@ -98,7 +98,16 @@ export default function TicketPage({ params }: PageProps) {
             quantity_sold,
             price_at_sale,
             sale_format,
-            stock_entry_id
+            stock_entry_id,
+            stock_entries (
+              barcode,
+              sale_price_unit,
+              sale_price_wholesale,
+              products (
+                name,
+                brands (name)
+              )
+            )
           `)
           .eq('sale_id', saleId);
 
@@ -110,58 +119,33 @@ export default function TicketPage({ params }: PageProps) {
 
         console.log('Sale items:', saleItems);
 
-        // Obtener información de productos para cada item
-        const itemsWithProducts = [];
-        for (const item of saleItems || []) {
-          const { data: stockEntry, error: stockError } = await supabase
-            .from('stock_entries')
-            .select(`
-              barcode,
-              product_id
-            `)
-            .eq('id', item.stock_entry_id)
-            .single();
-
-          if (stockError) {
-            console.warn('Error fetching stock entry:', stockError);
-            itemsWithProducts.push({
-              ...item,
-              product_name: 'Producto desconocido',
-              brand_name: 'Sin marca',
-              barcode: 'N/A'
-            });
-            continue;
+        // Procesar items con información de wholesale pricing
+        const itemsWithProducts = (saleItems || []).map((item: any) => {
+          const stockEntry = item.stock_entries;
+          const product = stockEntry?.products;
+          
+          // Determinar si se aplicó wholesale pricing
+          const isWholesale = item.quantity_sold >= 3 && 
+                             stockEntry?.sale_price_wholesale && 
+                             item.price_at_sale === stockEntry.sale_price_wholesale;
+          
+          // Calcular ahorro si se aplicó wholesale pricing
+          let savings = 0;
+          if (isWholesale && stockEntry?.sale_price_unit) {
+            savings = (stockEntry.sale_price_unit - stockEntry.sale_price_wholesale) * item.quantity_sold;
           }
 
-          const { data: product, error: productError } = await supabase
-            .from('products')
-            .select(`
-              name,
-              brand_id
-            `)
-            .eq('id', stockEntry.product_id)
-            .single();
-
-          let brandName = 'Sin marca';
-          if (product && product.brand_id) {
-            const { data: brand } = await supabase
-              .from('brands')
-              .select('name')
-              .eq('id', product.brand_id)
-              .single();
-            
-            if (brand) {
-              brandName = brand.name;
-            }
-          }
-
-          itemsWithProducts.push({
+          return {
             ...item,
             product_name: product?.name || 'Producto desconocido',
-            brand_name: brandName,
-            barcode: stockEntry?.barcode || 'N/A'
-          });
-        }
+            brand_name: product?.brands?.name || 'Sin marca',
+            barcode: stockEntry?.barcode || 'N/A',
+            is_wholesale: isWholesale,
+            unit_price: stockEntry?.sale_price_unit || 0,
+            wholesale_price: stockEntry?.sale_price_wholesale || null,
+            savings: savings
+          };
+        });
 
         // Construir el objeto final
         const fullSaleData = {
@@ -351,7 +335,15 @@ export default function TicketPage({ params }: PageProps) {
               </div>
               <div className="text-xs text-black">
                 Formato: {item.sale_format}
+                {item.is_wholesale && (
+                  <span className="ml-2 font-bold">🎉 MAYORISTA</span>
+                )}
               </div>
+              {item.is_wholesale && item.savings > 0 && (
+                <div className="text-xs text-black font-semibold">
+                  Ahorro: ${item.savings.toFixed(2)}
+                </div>
+              )}
               {index < saleData.sale_items.length - 1 && (
                 <div className="border-b border-dotted border-black my-2"></div>
               )}

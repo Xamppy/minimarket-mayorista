@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { formatAsCLP } from '@/lib/formatters';
+import { calculateItemPrice, getApplicablePrice, formatPricingDisplay } from '@/lib/wholesale-pricing-utils';
 
 interface Product {
   id: string;
@@ -13,10 +14,17 @@ interface Product {
 }
 
 interface CartItem {
-  stockEntryId: string;
   product: Product;
+  stockEntryId: string;
   quantity: number;
-  price: number;
+  saleFormat: 'unitario' | 'caja' | 'display' | 'pallet';
+  unitPrice: number;
+  boxPrice?: number;
+  wholesalePrice?: number;
+  appliedPrice: number;
+  appliedPriceType: 'unit' | 'box' | 'wholesale';
+  totalPrice: number;
+  savings?: number;
 }
 
 interface ScannedItem {
@@ -25,6 +33,7 @@ interface ScannedItem {
     id: string;
     sale_price_unit: number;
     sale_price_box: number;
+    sale_price_wholesale?: number;
     current_quantity: number;
   };
 }
@@ -71,19 +80,40 @@ export default function SaleModal({
   const getPrice = () => {
     if (!isAddToCartMode || !scannedItem) return 0;
     
-    switch (saleFormat) {
-      case 'unitario':
-        return scannedItem.stockEntry.sale_price_unit;
-      case 'caja':
-        return scannedItem.stockEntry.sale_price_box;
-      default:
-        return scannedItem.stockEntry.sale_price_unit;
+    // Para formato unitario, usar lógica de wholesale pricing
+    if (saleFormat === 'unitario') {
+      const calculation = calculateItemPrice({
+        quantity,
+        unitPrice: scannedItem.stockEntry.sale_price_unit,
+        boxPrice: scannedItem.stockEntry.sale_price_box,
+        wholesalePrice: scannedItem.stockEntry.sale_price_wholesale
+      });
+      return calculation.applicablePrice;
     }
+    
+    // Para formato caja, usar precio de caja directamente
+    return scannedItem.stockEntry.sale_price_box;
+  };
+
+  const getPricingInfo = () => {
+    if (!isAddToCartMode || !scannedItem) return null;
+    
+    if (saleFormat === 'unitario') {
+      const calculation = calculateItemPrice({
+        quantity,
+        unitPrice: scannedItem.stockEntry.sale_price_unit,
+        boxPrice: scannedItem.stockEntry.sale_price_box,
+        wholesalePrice: scannedItem.stockEntry.sale_price_wholesale
+      });
+      return calculation;
+    }
+    
+    return null;
   };
 
   const getTotalAmount = () => {
     if (isFinalizeSaleMode) {
-      return cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+      return cartItems.reduce((total, item) => total + (item.totalPrice || 0), 0);
     }
     return getPrice() * quantity;
   };
@@ -251,9 +281,17 @@ export default function SaleModal({
               <p className="text-black text-sm">
                 Stock disponible: <span className="font-medium">{scannedItem.stockEntry.current_quantity} unidades</span>
               </p>
-              <p className="text-black text-sm">
-                Precio unitario: <span className="font-medium text-green-600">{formatAsCLP(scannedItem.stockEntry.sale_price_unit)}</span>
-              </p>
+              <div className="space-y-1">
+                <p className="text-black text-sm">
+                  Precio unitario: <span className="font-medium text-green-600">{formatAsCLP(scannedItem.stockEntry.sale_price_unit)}</span>
+                </p>
+                {scannedItem.stockEntry.sale_price_wholesale && (
+                  <p className="text-black text-sm">
+                    Precio mayorista: <span className="font-medium text-purple-600">{formatAsCLP(scannedItem.stockEntry.sale_price_wholesale)}</span>
+                    <span className="text-xs text-gray-500 ml-1">(3+ unidades)</span>
+                  </p>
+                )}
+              </div>
             </div>
           ) : isFinalizeSaleMode ? (
             /* Resumen del carrito */
@@ -373,12 +411,39 @@ export default function SaleModal({
                   </select>
                 </div>
 
-                {/* Total para modo add-to-cart */}
+                {/* Total para modo add-to-cart con información de wholesale pricing */}
                 <div className="p-3 bg-blue-50 rounded-md">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium text-black">Subtotal:</span>
-                    <span className="font-bold text-lg text-black">{formatAsCLP(getTotalAmount())}</span>
-                  </div>
+                  {(() => {
+                    const pricingInfo = getPricingInfo();
+                    return (
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium text-black">Subtotal:</span>
+                          <span className="font-bold text-lg text-black">{formatAsCLP(getTotalAmount())}</span>
+                        </div>
+                        
+                        {pricingInfo && pricingInfo.priceType === 'wholesale' && pricingInfo.savings > 0 && (
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="text-purple-600 font-medium">
+                              🎉 Precio Mayorista Aplicado
+                            </span>
+                            <span className="text-green-600 font-medium">
+                              Ahorro: {formatAsCLP(pricingInfo.savings)}
+                            </span>
+                          </div>
+                        )}
+                        
+                        {pricingInfo && saleFormat === 'unitario' && (
+                          <div className="text-xs text-gray-600">
+                            Precio por unidad: {formatAsCLP(pricingInfo.applicablePrice)}
+                            {pricingInfo.priceType === 'wholesale' && (
+                              <span className="text-purple-600 ml-1">(mayorista)</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </>
             )}

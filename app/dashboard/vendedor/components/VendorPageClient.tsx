@@ -32,10 +32,17 @@ interface Brand {
 }
 
 interface CartItem {
-  stockEntryId: string;
   product: Product;
+  stockEntryId: string;
   quantity: number;
-  price: number;
+  saleFormat: 'unitario' | 'caja' | 'display' | 'pallet';
+  unitPrice: number;
+  boxPrice?: number;
+  wholesalePrice?: number;
+  appliedPrice: number;
+  appliedPriceType: 'unit' | 'box' | 'wholesale';
+  totalPrice: number;
+  savings?: number;
 }
 
 interface VendorPageClientProps {
@@ -108,6 +115,30 @@ export default function VendorPageClient({
     setScanError(message);
   };
 
+  // Función mejorada para validar disponibilidad de wholesale pricing
+  const validateWholesaleAvailability = (stockEntry: any, requestedQuantity: number) => {
+    // Verificar stock básico
+    if (requestedQuantity > stockEntry.current_quantity) {
+      return {
+        isValid: false,
+        error: `Stock insuficiente. Solo quedan ${stockEntry.current_quantity} unidades disponibles.`
+      };
+    }
+
+    // Verificar si se puede aplicar wholesale pricing
+    if (requestedQuantity >= 3 && stockEntry.sale_price_wholesale) {
+      // Verificar que hay suficiente stock para wholesale
+      if (stockEntry.current_quantity < 3) {
+        return {
+          isValid: true,
+          warning: `Solo quedan ${stockEntry.current_quantity} unidades. No se puede aplicar precio mayorista (requiere mínimo 3 unidades).`
+        };
+      }
+    }
+
+    return { isValid: true };
+  };
+
   const searchProductByBarcode = async (barcode: string) => {
     try {
       setIsScanning(true);
@@ -148,8 +179,11 @@ export default function VendorPageClient({
   };
 
   const addToCart = (product: Product, stockEntry: any) => {
+    // Importar las utilidades de wholesale pricing
+    const { calculateItemPrice } = require('@/lib/wholesale-pricing-utils');
+
     setCart(prevCart => {
-      const existingItem = prevCart.find(item => 
+      const existingItem = prevCart.find(item =>
         item.product.id === product.id && item.stockEntryId === stockEntry.id
       );
 
@@ -159,19 +193,53 @@ export default function VendorPageClient({
           showError(`Stock insuficiente. Solo quedan ${stockEntry.current_quantity} unidades.`);
           return prevCart;
         }
-        // Incrementar cantidad
+
+        // Incrementar cantidad y recalcular precios
+        const newQuantity = existingItem.quantity + 1;
+        const calculation = calculateItemPrice({
+          quantity: newQuantity,
+          unitPrice: existingItem.unitPrice,
+          boxPrice: existingItem.boxPrice,
+          wholesalePrice: existingItem.wholesalePrice
+        });
+
         return prevCart.map(item =>
           item.product.id === product.id && item.stockEntryId === stockEntry.id
-            ? { ...item, quantity: item.quantity + 1 }
+            ? {
+              ...item,
+              quantity: newQuantity,
+              appliedPrice: calculation.applicablePrice,
+              appliedPriceType: calculation.priceType as 'unit' | 'box' | 'wholesale',
+              totalPrice: calculation.totalPrice,
+              savings: calculation.savings
+            }
             : item
         );
       } else {
-        // Añadir nuevo item
-        return [...prevCart, {
-          stockEntryId: stockEntry.id,
+        // Añadir nuevo item con cálculo de wholesale pricing
+        const baseItem = {
           product,
+          stockEntryId: stockEntry.id,
           quantity: 1,
-          price: stockEntry.sale_price_unit || 0
+          saleFormat: 'unitario' as const,
+          unitPrice: stockEntry.sale_price_unit || 0,
+          boxPrice: stockEntry.sale_price_box,
+          wholesalePrice: stockEntry.sale_price_wholesale
+        };
+
+        const calculation = calculateItemPrice({
+          quantity: 1,
+          unitPrice: baseItem.unitPrice,
+          boxPrice: baseItem.boxPrice,
+          wholesalePrice: baseItem.wholesalePrice
+        });
+
+        return [...prevCart, {
+          ...baseItem,
+          appliedPrice: calculation.applicablePrice,
+          appliedPriceType: calculation.priceType as 'unit' | 'box' | 'wholesale',
+          totalPrice: calculation.totalPrice,
+          savings: calculation.savings
         }];
       }
     });
@@ -183,18 +251,37 @@ export default function VendorPageClient({
       return;
     }
 
+    // Importar las utilidades de wholesale pricing
+    const { calculateItemPrice } = require('@/lib/wholesale-pricing-utils');
+
     setCart(prevCart =>
-      prevCart.map(item =>
-        item.product.id === productId && item.stockEntryId === stockEntryId
-          ? { ...item, quantity: newQuantity }
-          : item
-      )
+      prevCart.map(item => {
+        if (item.product.id === productId && item.stockEntryId === stockEntryId) {
+          // Recalcular precios con la nueva cantidad
+          const calculation = calculateItemPrice({
+            quantity: newQuantity,
+            unitPrice: item.unitPrice,
+            boxPrice: item.boxPrice,
+            wholesalePrice: item.wholesalePrice
+          });
+
+          return {
+            ...item,
+            quantity: newQuantity,
+            appliedPrice: calculation.applicablePrice,
+            appliedPriceType: calculation.priceType as 'unit' | 'box' | 'wholesale',
+            totalPrice: calculation.totalPrice,
+            savings: calculation.savings
+          };
+        }
+        return item;
+      })
     );
   };
 
   const removeFromCart = (stockEntryId: string, productId: string) => {
     setCart(prevCart =>
-      prevCart.filter(item => 
+      prevCart.filter(item =>
         !(item.product.id === productId && item.stockEntryId === stockEntryId)
       )
     );
@@ -204,7 +291,7 @@ export default function VendorPageClient({
     const value = e.target.value;
     const currentTime = Date.now();
     const timeSinceLastInput = currentTime - lastInputTimeRef.current;
-    
+
     setScanInput(value);
     lastInputTimeRef.current = currentTime;
 
@@ -226,7 +313,7 @@ export default function VendorPageClient({
       // Establecer timer para procesar automáticamente
       // Tiempo más corto para escáneres, más largo para entrada manual
       const delay = isLikelyScanner ? 200 : 1000;
-      
+
       scanTimerRef.current = setTimeout(() => {
         if (value.trim().length >= 3) { // Mínimo 3 caracteres para procesar
           processBarcode(value.trim());
@@ -264,7 +351,7 @@ export default function VendorPageClient({
   };
 
   const getTotalAmount = () => {
-    return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+    return cart.reduce((total, item) => total + (item.totalPrice || 0), 0);
   };
 
   const handleFinalizeSale = () => {
@@ -296,26 +383,64 @@ export default function VendorPageClient({
     saleFormat: 'unitario' | 'caja';
     price: number;
   }) => {
+    // Importar las utilidades de wholesale pricing
+    const { calculateItemPrice } = require('@/lib/wholesale-pricing-utils');
+
     setCart(prevCart => {
-      const existingItem = prevCart.find(cartItem => 
-        cartItem.product.id === item.product.id && 
+      const existingItem = prevCart.find(cartItem =>
+        cartItem.product.id === item.product.id &&
         cartItem.stockEntryId === item.stockEntryId
       );
 
       if (existingItem) {
-        // Incrementar cantidad del item existente
+        // Incrementar cantidad del item existente y recalcular precios
+        const newQuantity = existingItem.quantity + item.quantity;
+        const calculation = calculateItemPrice({
+          quantity: newQuantity,
+          unitPrice: existingItem.unitPrice,
+          boxPrice: existingItem.boxPrice,
+          wholesalePrice: existingItem.wholesalePrice
+        });
+
         return prevCart.map(cartItem =>
           cartItem.product.id === item.product.id && cartItem.stockEntryId === item.stockEntryId
-            ? { ...cartItem, quantity: cartItem.quantity + item.quantity }
+            ? {
+              ...cartItem,
+              quantity: newQuantity,
+              appliedPrice: calculation.applicablePrice,
+              appliedPriceType: calculation.priceType as 'unit' | 'box' | 'wholesale',
+              totalPrice: calculation.totalPrice,
+              savings: calculation.savings
+            }
             : cartItem
         );
       } else {
-        // Añadir nuevo item al carrito
-        return [...prevCart, {
-          stockEntryId: item.stockEntryId,
+        // Añadir nuevo item al carrito con estructura completa
+        // Nota: Esta función recibe precio simple, necesitamos obtener información completa
+        // Por ahora, usar valores por defecto hasta que se implemente completamente
+        const baseItem = {
           product: item.product,
+          stockEntryId: item.stockEntryId,
           quantity: item.quantity,
-          price: item.price
+          saleFormat: item.saleFormat,
+          unitPrice: item.price,
+          boxPrice: undefined,
+          wholesalePrice: undefined
+        };
+
+        const calculation = calculateItemPrice({
+          quantity: item.quantity,
+          unitPrice: item.price,
+          boxPrice: undefined,
+          wholesalePrice: undefined
+        });
+
+        return [...prevCart, {
+          ...baseItem,
+          appliedPrice: calculation.applicablePrice,
+          appliedPriceType: calculation.priceType as 'unit' | 'box' | 'wholesale',
+          totalPrice: calculation.totalPrice,
+          savings: calculation.savings
         }];
       }
     });
@@ -441,8 +566,8 @@ export default function VendorPageClient({
                     {/* Imagen del producto */}
                     <div className="w-12 h-12 bg-gray-100 rounded-lg flex-shrink-0 overflow-hidden">
                       {item.product.image_url ? (
-                        <img 
-                          src={item.product.image_url} 
+                        <img
+                          src={item.product.image_url}
                           alt={item.product.name}
                           className="w-full h-full object-cover"
                         />
@@ -459,8 +584,20 @@ export default function VendorPageClient({
                     <div className="flex-1 min-w-0">
                       <h4 className="text-sm font-medium text-black truncate">{item.product.name}</h4>
                       <p className="text-xs text-gray-600">{item.product.brand_name}</p>
-                      <p className="text-sm font-medium text-black">{formatAsCLP(item.price)}</p>
-                      
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium text-black">
+                          {formatAsCLP(item.appliedPrice)}
+                          {item.appliedPriceType === 'wholesale' && (
+                            <span className="text-xs text-purple-600 ml-1">🎉 Mayorista</span>
+                          )}
+                        </p>
+                        {item.savings && item.savings > 0 && (
+                          <p className="text-xs text-green-600">
+                            Ahorro: {formatAsCLP(item.savings)}
+                          </p>
+                        )}
+                      </div>
+
                       {/* Controles de cantidad */}
                       <div className="flex items-center space-x-2 mt-2">
                         <button
@@ -491,10 +628,10 @@ export default function VendorPageClient({
                           </svg>
                         </button>
                       </div>
-                      
+
                       {/* Subtotal */}
                       <p className="text-sm font-semibold text-black mt-1">
-                        Subtotal: {formatAsCLP(item.price * item.quantity)}
+                        Subtotal: {formatAsCLP(item.totalPrice)}
                       </p>
                     </div>
                   </div>
@@ -510,7 +647,7 @@ export default function VendorPageClient({
                 <span className="text-lg font-semibold text-black">Total:</span>
                 <span className="text-xl font-bold text-black">{formatAsCLP(getTotalAmount())}</span>
               </div>
-              
+
               <button
                 onClick={handleFinalizeSale}
                 className="w-full py-4 px-4 bg-green-600 text-white rounded-lg shadow-sm text-lg font-semibold hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
@@ -528,7 +665,7 @@ export default function VendorPageClient({
     switch (activeTab) {
       case 'scanner':
         return renderQuickSaleContent();
-      
+
       case 'sales':
         return (
           <div className="space-y-6 p-4">
@@ -537,11 +674,11 @@ export default function VendorPageClient({
               <div className="flex items-center space-x-3">
                 <div className="p-2 bg-green-100 rounded-lg">
                   <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round" 
-                      strokeWidth={2} 
-                      d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" 
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
                     />
                   </svg>
                 </div>
@@ -553,18 +690,18 @@ export default function VendorPageClient({
                 </div>
               </div>
             </div>
-            
+
             <SalesHistory />
           </div>
         );
-      
+
       case 'catalog':
       default:
         return (
           <div className="space-y-6 p-4">
             {/* Categorías de Productos */}
             <Suspense fallback={<div className="h-32 bg-gray-200 rounded-lg animate-pulse"></div>}>
-              <ProductCategories 
+              <ProductCategories
                 productTypes={productTypes}
                 products={products}
               />
@@ -572,7 +709,7 @@ export default function VendorPageClient({
 
             {/* Filtrado por Marcas */}
             <Suspense fallback={<div className="h-32 bg-gray-200 rounded-lg animate-pulse"></div>}>
-              <ProductBrands 
+              <ProductBrands
                 brands={brands}
                 products={products}
               />
@@ -589,11 +726,12 @@ export default function VendorPageClient({
 
             {/* Catálogo de productos */}
             <Suspense fallback={<div className="h-64 bg-gray-200 rounded-lg animate-pulse"></div>}>
-              <ProductCatalog 
+              <ProductCatalog
                 products={products}
                 searchTerm={searchTerm}
                 categoryFilter={categoryFilter}
                 brandFilter={brandFilter}
+                onAddToCart={addToCart}
               />
             </Suspense>
           </div>
@@ -615,7 +753,14 @@ export default function VendorPageClient({
       <MobileNavBar activeTab={activeTab} onTabChange={setActiveTab} />
 
       {/* Botón flotante del carrito (solo visible en catalog) */}
-      {activeTab === 'catalog' && <FloatingCartButton />}
+      {activeTab === 'catalog' && (
+        <FloatingCartButton
+          cartItems={cart}
+          onUpdateQuantity={updateCartItemQuantity}
+          onRemoveItem={removeFromCart}
+          onSaleCompleted={handleSaleCompleted}
+        />
+      )}
 
       {/* Modal de venta */}
       <SaleModal

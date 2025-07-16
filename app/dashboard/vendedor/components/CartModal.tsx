@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { calculateItemPrice } from '@/lib/wholesale-pricing-utils';
+import { formatAsCLP } from '@/lib/formatters';
 
 interface Product {
   id: string;
@@ -13,8 +15,16 @@ interface Product {
 
 interface CartItem {
   product: Product;
+  stockEntryId: string;
   quantity: number;
   saleFormat: 'unitario' | 'caja' | 'display' | 'pallet';
+  unitPrice: number;
+  boxPrice?: number;
+  wholesalePrice?: number;
+  appliedPrice: number;
+  appliedPriceType: 'unit' | 'box' | 'wholesale';
+  totalPrice: number;
+  savings?: number;
 }
 
 interface CartModalProps {
@@ -22,10 +32,24 @@ interface CartModalProps {
   onClose: () => void;
   onSaleCompleted: () => void;
   initialProduct?: Product | null;
+  // Props para carrito compartido
+  cartItems?: CartItem[];
+  onUpdateQuantity?: (stockEntryId: string, productId: string, newQuantity: number) => void;
+  onRemoveItem?: (stockEntryId: string, productId: string) => void;
 }
 
-export default function CartModal({ isOpen, onClose, onSaleCompleted, initialProduct }: CartModalProps) {
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+export default function CartModal({ 
+  isOpen, 
+  onClose, 
+  onSaleCompleted, 
+  initialProduct,
+  cartItems: externalCartItems,
+  onUpdateQuantity,
+  onRemoveItem
+}: CartModalProps) {
+  // Usar carrito externo si está disponible, sino usar estado interno
+  const cartItems = externalCartItems || [];
+  const isUsingExternalCart = !!externalCartItems;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [saleSuccess, setSaleSuccess] = useState<{ success: boolean; saleId?: string }>({ success: false });
@@ -34,65 +58,116 @@ export default function CartModal({ isOpen, onClose, onSaleCompleted, initialPro
   // Agregar producto inicial al carrito cuando se abre el modal
   useEffect(() => {
     if (isOpen && initialProduct && !cartItems.some(item => item.product.id === initialProduct.id)) {
-      const newItem: CartItem = {
-        product: initialProduct,
-        quantity: 1,
-        saleFormat: 'unitario'
-      };
-      setCartItems([newItem]);
+      // Por ahora, no agregamos automáticamente productos al carrito
+      // porque necesitamos obtener la información de precios primero
+      // TODO: Implementar obtención de precios del producto inicial
     }
   }, [isOpen, initialProduct]);
 
+  // El listener de eventos ya no es necesario porque usamos props del carrito compartido
+
   if (!isOpen) return null;
 
-  const addToCart = (product: Product) => {
-    const existingItem = cartItems.find(item => item.product.id === product.id);
-    
-    if (existingItem) {
-      // Si ya existe, incrementar cantidad
-      setCartItems(cartItems.map(item => 
-        item.product.id === product.id 
-          ? { ...item, quantity: Math.min(item.quantity + 1, product.total_stock) }
-          : item
-      ));
-    } else {
-      // Si no existe, agregar nuevo item
-      const newItem: CartItem = {
-        product,
-        quantity: 1,
-        saleFormat: 'unitario'
+  // Función para calcular precios de un item del carrito
+  const calculateCartItemPricing = (
+    quantity: number,
+    saleFormat: 'unitario' | 'caja' | 'display' | 'pallet',
+    unitPrice: number,
+    boxPrice?: number,
+    wholesalePrice?: number
+  ) => {
+    if (saleFormat === 'unitario') {
+      const calculation = calculateItemPrice({
+        quantity,
+        unitPrice,
+        boxPrice,
+        wholesalePrice
+      });
+      
+      return {
+        appliedPrice: calculation.applicablePrice,
+        appliedPriceType: calculation.priceType as 'unit' | 'box' | 'wholesale',
+        totalPrice: calculation.totalPrice,
+        savings: calculation.savings
       };
-      setCartItems([...cartItems, newItem]);
+    } else if (saleFormat === 'caja' && boxPrice) {
+      return {
+        appliedPrice: boxPrice,
+        appliedPriceType: 'box' as const,
+        totalPrice: boxPrice * quantity,
+        savings: 0
+      };
+    } else {
+      // Fallback a precio unitario
+      return {
+        appliedPrice: unitPrice,
+        appliedPriceType: 'unit' as const,
+        totalPrice: unitPrice * quantity,
+        savings: 0
+      };
     }
+  };
+
+  // Función para actualizar precios de un item existente
+  const updateCartItemPricing = (item: CartItem): CartItem => {
+    const pricing = calculateCartItemPricing(
+      item.quantity,
+      item.saleFormat,
+      item.unitPrice,
+      item.boxPrice,
+      item.wholesalePrice
+    );
+
+    return {
+      ...item,
+      ...pricing
+    };
+  };
+
+  const addToCart = (product: Product, stockEntry?: any) => {
+    // Esta función ya no es necesaria porque el carrito se maneja en VendorPageClient
+    // Solo se mantiene para compatibilidad con el botón de prueba
+    console.log('addToCart llamado en CartModal (no implementado para carrito externo):', product.name);
   };
 
   const removeFromCart = (productId: string) => {
-    setCartItems(cartItems.filter(item => item.product.id !== productId));
+    if (isUsingExternalCart && onRemoveItem) {
+      // Encontrar el item para obtener el stockEntryId
+      const item = cartItems.find(item => item.product.id === productId);
+      if (item) {
+        onRemoveItem(item.stockEntryId, productId);
+      }
+    }
+    // Si no hay carrito externo, no hacer nada (el carrito está vacío)
   };
 
   const updateQuantity = (productId: string, newQuantity: number) => {
-    if (newQuantity <= 0) {
-      removeFromCart(productId);
-      return;
+    if (isUsingExternalCart && onUpdateQuantity) {
+      // Encontrar el item para obtener el stockEntryId
+      const item = cartItems.find(item => item.product.id === productId);
+      if (item) {
+        onUpdateQuantity(item.stockEntryId, productId, newQuantity);
+      }
     }
-
-    setCartItems(cartItems.map(item => 
-      item.product.id === productId 
-        ? { ...item, quantity: Math.min(newQuantity, item.product.total_stock) }
-        : item
-    ));
+    // Si no hay carrito externo, no hacer nada
   };
 
   const updateSaleFormat = (productId: string, newFormat: 'unitario' | 'caja' | 'display' | 'pallet') => {
-    setCartItems(cartItems.map(item => 
-      item.product.id === productId 
-        ? { ...item, saleFormat: newFormat }
-        : item
-    ));
+    // Esta funcionalidad no está implementada en el carrito externo aún
+    // TODO: Implementar actualización de formato de venta en VendorPageClient
+    console.log('updateSaleFormat no implementado para carrito externo:', productId, newFormat);
   };
 
   const getTotalItems = () => {
     return cartItems.reduce((total, item) => total + item.quantity, 0);
+  };
+
+  const getTotalPrice = () => {
+    return cartItems.reduce((total, item) => total + (item.totalPrice || 0), 0);
+  };
+
+  const getTotalSavings = () => {
+    return cartItems.reduce((total, item) => total + (item.savings || 0), 0);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -149,7 +224,7 @@ export default function CartModal({ isOpen, onClose, onSaleCompleted, initialPro
   };
 
   const resetCart = () => {
-    setCartItems([]);
+    // Ya no manejamos el estado del carrito aquí, se maneja en VendorPageClient
     setError('');
     setSaleSuccess({ success: false });
   };
@@ -242,13 +317,41 @@ export default function CartModal({ isOpen, onClose, onSaleCompleted, initialPro
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-black">Productos en el carrito:</h3>
-                  <button
-                    onClick={() => setShowAddProduct(!showAddProduct)}
-                    className="text-sm bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 transition-colors"
-                    disabled={loading}
-                  >
-                    + Agregar Producto
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setShowAddProduct(!showAddProduct)}
+                      className="text-sm bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 transition-colors"
+                      disabled={loading}
+                    >
+                      + Agregar Producto
+                    </button>
+                    
+                    {/* Botón de prueba para wholesale pricing */}
+                    <button
+                      onClick={() => {
+                        const testProduct: Product = {
+                          id: 'test-wholesale',
+                          name: 'Producto de Prueba Mayorista',
+                          brand_name: 'Marca Test',
+                          total_stock: 100,
+                          image_url: null
+                        };
+                        
+                        const testStockEntry = {
+                          id: 'test-stock-1',
+                          sale_price_unit: 1000,
+                          sale_price_box: 10000,
+                          sale_price_wholesale: 800
+                        };
+                        
+                        addToCart(testProduct, testStockEntry);
+                      }}
+                      className="text-sm bg-purple-600 text-white px-3 py-1 rounded-md hover:bg-purple-700 transition-colors"
+                      disabled={loading}
+                    >
+                      🧪 Prueba Mayorista
+                    </button>
+                  </div>
                 </div>
                 
                 {cartItems.map((item) => (
@@ -311,6 +414,42 @@ export default function CartModal({ isOpen, onClose, onSaleCompleted, initialPro
                         </select>
                       </div>
                     </div>
+
+                    {/* Información de precios y totales */}
+                    <div className="mt-4 p-3 bg-blue-50 rounded-md">
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-700">
+                            Precio por unidad:
+                            {item.appliedPriceType === 'wholesale' && (
+                              <span className="ml-1 text-purple-600 font-medium">🎉 Mayorista</span>
+                            )}
+                          </span>
+                          <span className="font-medium text-black">
+                            {formatAsCLP(item.appliedPrice)}
+                            {item.appliedPriceType === 'wholesale' && (
+                              <span className="text-xs text-gray-500 ml-1">(3+ unidades)</span>
+                            )}
+                          </span>
+                        </div>
+                        
+                        {item.savings && item.savings > 0 && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-green-600">Ahorro total:</span>
+                            <span className="font-medium text-green-600">
+                              {formatAsCLP(item.savings)}
+                            </span>
+                          </div>
+                        )}
+                        
+                        <div className="flex justify-between items-center border-t border-blue-200 pt-2">
+                          <span className="font-medium text-black">Subtotal:</span>
+                          <span className="font-bold text-lg text-black">
+                            {formatAsCLP(item.totalPrice)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -321,6 +460,41 @@ export default function CartModal({ isOpen, onClose, onSaleCompleted, initialPro
                 </svg>
                 <p>El carrito está vacío</p>
                 <p className="text-sm">Agrega productos desde el catálogo</p>
+              </div>
+            )}
+
+            {/* Resumen total del carrito */}
+            {cartItems.length > 0 && (
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <h3 className="font-semibold text-black text-lg mb-3">Resumen de la Compra</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-700">Total de productos:</span>
+                    <span className="font-medium text-black">{getTotalItems()} unidades</span>
+                  </div>
+                  
+                  {getTotalSavings() > 0 && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-green-600">🎉 Ahorro total por precios mayoristas:</span>
+                      <span className="font-medium text-green-600">
+                        {formatAsCLP(getTotalSavings())}
+                      </span>
+                    </div>
+                  )}
+                  
+                  <div className="flex justify-between items-center border-t border-green-300 pt-2">
+                    <span className="font-bold text-black text-lg">Total a pagar:</span>
+                    <span className="font-bold text-xl text-black">
+                      {formatAsCLP(getTotalPrice())}
+                    </span>
+                  </div>
+                  
+                  {getTotalSavings() > 0 && (
+                    <p className="text-xs text-green-600 text-center">
+                      ¡Has ahorrado {formatAsCLP(getTotalSavings())} con precios mayoristas!
+                    </p>
+                  )}
+                </div>
               </div>
             )}
 
@@ -348,7 +522,7 @@ export default function CartModal({ isOpen, onClose, onSaleCompleted, initialPro
                   disabled={loading || cartItems.length === 0}
                   className="flex-1 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? 'Procesando...' : `Confirmar Venta (${getTotalItems()} productos)`}
+                  {loading ? 'Procesando...' : `Confirmar Venta - ${formatAsCLP(getTotalPrice())}`}
                 </button>
               )}
             </div>

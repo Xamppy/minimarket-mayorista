@@ -14,6 +14,7 @@ interface StockEntryFormProps {
     purchase_price: number;
     sale_price_unit: number;
     sale_price_box: number;
+    sale_price_wholesale?: number;
     expiration_date?: string;
   };
   onCancelEdit?: () => void;
@@ -29,6 +30,7 @@ export default function StockEntryForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [wholesalePriceError, setWholesalePriceError] = useState('');
   const isEditing = !!editingStockEntry;
 
   useEffect(() => {
@@ -41,6 +43,9 @@ export default function StockEntryForm({
         (form.elements.namedItem('purchasePrice') as HTMLInputElement).value = editingStockEntry.purchase_price.toString();
         (form.elements.namedItem('unitPrice') as HTMLInputElement).value = editingStockEntry.sale_price_unit.toString();
         (form.elements.namedItem('boxPrice') as HTMLInputElement).value = editingStockEntry.sale_price_box.toString();
+        if (editingStockEntry.sale_price_wholesale) {
+          (form.elements.namedItem('wholesalePrice') as HTMLInputElement).value = editingStockEntry.sale_price_wholesale.toString();
+        }
         if (editingStockEntry.expiration_date) {
           (form.elements.namedItem('expirationDate') as HTMLInputElement).value = editingStockEntry.expiration_date;
         }
@@ -98,8 +103,59 @@ export default function StockEntryForm({
   const handleCancel = () => {
     setError('');
     setSuccess('');
+    setWholesalePriceError('');
     if (onCancelEdit) {
       onCancelEdit();
+    }
+  };
+
+  // Validación en tiempo real del precio mayorista
+  const validateWholesalePriceInput = () => {
+    const form = document.getElementById('stock-entry-form') as HTMLFormElement;
+    if (!form) return;
+
+    const wholesalePrice = (form.elements.namedItem('wholesalePrice') as HTMLInputElement)?.value;
+    const unitPrice = (form.elements.namedItem('unitPrice') as HTMLInputElement)?.value;
+    const purchasePrice = (form.elements.namedItem('purchasePrice') as HTMLInputElement)?.value;
+
+    // Limpiar error anterior
+    setWholesalePriceError('');
+
+    // Si no hay precio mayorista, no validar
+    if (!wholesalePrice || wholesalePrice.trim() === '') {
+      return;
+    }
+
+    const wholesalePriceNum = parseFloat(wholesalePrice);
+    const unitPriceNum = parseFloat(unitPrice);
+    const purchasePriceNum = parseFloat(purchasePrice);
+
+    // Validaciones básicas
+    if (isNaN(wholesalePriceNum) || wholesalePriceNum <= 0) {
+      setWholesalePriceError('El precio mayorista debe ser un número mayor a 0');
+      return;
+    }
+
+    if (wholesalePriceNum > 999999.99) {
+      setWholesalePriceError('El precio mayorista no puede exceder $999,999.99');
+      return;
+    }
+
+    // Validaciones de lógica de negocio (solo si los otros precios están disponibles)
+    if (unitPriceNum && wholesalePriceNum >= unitPriceNum) {
+      setWholesalePriceError('El precio mayorista debe ser menor al precio unitario para ofrecer un descuento');
+      return;
+    }
+
+    if (purchasePriceNum && wholesalePriceNum <= purchasePriceNum) {
+      setWholesalePriceError('El precio mayorista debe ser mayor al precio de compra para mantener rentabilidad');
+      return;
+    }
+
+    if (purchasePriceNum && wholesalePriceNum < purchasePriceNum * 1.05) {
+      const minimumPrice = (purchasePriceNum * 1.05).toFixed(2);
+      setWholesalePriceError(`El precio mayorista debe ser al menos $${minimumPrice} para mantener un margen mínimo del 5%`);
+      return;
     }
   };
 
@@ -199,6 +255,46 @@ export default function StockEntryForm({
               placeholder="0.00"
             />
           </div>
+        </div>
+
+        {/* Precio Mayorista */}
+        <div>
+          <label htmlFor="wholesalePrice" className="block text-sm font-medium text-gray-700 mb-1">
+            Precio Mayorista (opcional)
+            <span className="text-xs text-gray-500 ml-2">
+              💡 Se aplica automáticamente para compras de 3+ unidades
+            </span>
+          </label>
+          <input
+            type="number"
+            id="wholesalePrice"
+            name="wholesalePrice"
+            min="0"
+            step="0.01"
+            disabled={loading}
+            onChange={validateWholesalePriceInput}
+            onBlur={validateWholesalePriceInput}
+            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900 ${
+              wholesalePriceError 
+                ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
+                : 'border-gray-300 focus:ring-indigo-500'
+            }`}
+            placeholder="0.00 (opcional - para ventas de 3+ unidades)"
+          />
+          
+          {/* Mensaje de error específico para precio mayorista */}
+          {wholesalePriceError && (
+            <p className="text-xs text-red-600 mt-1">
+              ⚠️ {wholesalePriceError}
+            </p>
+          )}
+          
+          {/* Mensaje de ayuda (solo si no hay error) */}
+          {!wholesalePriceError && (
+            <p className="text-xs text-gray-500 mt-1">
+              Si se especifica, este precio se aplicará automáticamente cuando el cliente compre 3 o más unidades del producto.
+            </p>
+          )}
         </div>
 
         {/* Fecha de Vencimiento */}
