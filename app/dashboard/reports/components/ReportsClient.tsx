@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { getSalesReport, getTopSellingProducts, getRecentSales, getDailySalesStats } from '../../admin/actions';
 import { formatAsCLP } from '../../../../lib/formatters';
+import { safeEmailInitial, formatSafeEmail, validateSaleData, SafeRecentSale } from '../../../../lib/safe-data-utils';
 import DailySalesChart from './DailySalesChart';
 
 interface SalesReport {
@@ -25,7 +26,7 @@ interface RecentSale {
   id: string;
   total_amount: number;
   created_at: string;
-  seller_email: string;
+  seller_email: string | null;
 }
 
 interface DailySalesData {
@@ -42,7 +43,9 @@ export default function ReportsClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchReports = async (period: 'day' | 'week' | 'month') => {
+  const fetchReports = async (period: 'day' | 'week' | 'month', retryCount = 0) => {
+    const maxRetries = 2;
+    
     try {
       setLoading(true);
       setError(null);
@@ -54,13 +57,55 @@ export default function ReportsClient() {
         getDailySalesStats()
       ]);
       
+      // Validate and sanitize data before setting state
       setSalesReport(salesData as SalesReport);
       setTopProducts(topProductsData as TopProduct[]);
-      setRecentSales(recentSalesData as RecentSale[]);
+      
+      // Validate recent sales data to prevent runtime errors
+      const validatedSales = Array.isArray(recentSalesData) 
+        ? recentSalesData.map(validateSaleData)
+        : [];
+      setRecentSales(validatedSales as RecentSale[]);
+      
       setDailySalesData(dailySalesStats as DailySalesData[]);
+      
+      // Log data quality issues for debugging
+      const invalidSales = recentSalesData?.filter((sale: any) => !sale?.seller_email) || [];
+      if (invalidSales.length > 0) {
+        console.warn(`Found ${invalidSales.length} sales with missing seller information`, invalidSales);
+      }
+      
+      // Log successful data fetch
+      console.info(`Reports data loaded successfully for period: ${period}`);
+      
     } catch (err) {
-      console.error('Error al cargar reportes:', err);
-      setError(err instanceof Error ? err.message : 'Error desconocido');
+      console.error(`Error al cargar reportes (intento ${retryCount + 1}/${maxRetries + 1}):`, err);
+      
+      // Retry logic for transient errors
+      if (retryCount < maxRetries && err instanceof Error) {
+        const isRetryableError = err.message.includes('network') || 
+                                err.message.includes('timeout') ||
+                                err.message.includes('fetch');
+        
+        if (isRetryableError) {
+          console.info(`Reintentando carga de reportes en 2 segundos...`);
+          setTimeout(() => {
+            fetchReports(period, retryCount + 1);
+          }, 2000);
+          return;
+        }
+      }
+      
+      // Set error state for non-retryable errors or after max retries
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido al cargar reportes';
+      setError(errorMessage);
+      
+      // Log final error state
+      console.error('Error final al cargar reportes:', {
+        period,
+        retryCount,
+        error: errorMessage
+      });
     } finally {
       setLoading(false);
     }
@@ -314,12 +359,28 @@ export default function ReportsClient() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       <div className="flex items-center">
-                        <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center mr-3">
-                          <span className="text-xs font-medium text-gray-700">
-                            {sale.seller_email.charAt(0).toUpperCase()}
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${
+                          sale.seller_email 
+                            ? 'bg-blue-100 text-blue-700' 
+                            : 'bg-gray-200 text-gray-500'
+                        }`}>
+                          <span className="text-xs font-medium">
+                            {safeEmailInitial(sale.seller_email)}
                           </span>
                         </div>
-                        {sale.seller_email}
+                        <div className="flex flex-col">
+                          <span className="font-medium">
+                            {formatSafeEmail(sale.seller_email)}
+                          </span>
+                          {!sale.seller_email && (
+                            <span className="text-xs text-amber-600 flex items-center">
+                              <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                              </svg>
+                              Sin info del vendedor
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600">

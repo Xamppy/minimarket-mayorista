@@ -87,21 +87,11 @@ export default function AdminDashboard({
           <p className="text-gray-600 mt-2">
             Bienvenido, <strong>{user.email}</strong>
           </p>
-          {/* Información de depuración del rol */}
-          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-            <p className="text-sm text-blue-800">
-              <strong>Debug - Información del usuario:</strong>
-            </p>
-            <p className="text-sm text-blue-700">
-              ID de usuario: <code className="bg-blue-100 px-1 rounded">{user.id}</code>
-            </p>
-            <p className="text-sm text-blue-700">
-              Rol obtenido: <code className="bg-blue-100 px-1 rounded">{role}</code>
-            </p>
-            <p className="text-sm text-blue-700">
-              Tipo de rol: <code className="bg-blue-100 px-1 rounded">{typeof role}</code>
-            </p>
-          </div>
+        </div>
+
+        {/* Panel de Alertas */}
+        <div className="mb-8">
+          <AlertsDashboard />
         </div>
 
         {/* Encabezado de Acciones */}
@@ -145,11 +135,6 @@ export default function AdminDashboard({
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Panel de Alertas */}
-        <div className="mb-8">
-          <AlertsDashboard />
         </div>
 
         {/* Lista de Productos en Tabla */}

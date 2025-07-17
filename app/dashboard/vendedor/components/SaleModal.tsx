@@ -379,18 +379,71 @@ export default function SaleModal({
                   <label htmlFor="quantity" className="block text-sm font-medium text-black mb-1">
                     Cantidad *
                   </label>
-                  <input
-                    type="number"
-                    id="quantity"
-                    value={quantity}
-                    onChange={(e) => setQuantity(parseInt(e.target.value) || 0)}
-                    min="1"
-                    max={scannedItem?.stockEntry.current_quantity || 1}
-                    required
-                    disabled={loading}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500 text-black"
-                    placeholder="1"
-                  />
+                  <div className="flex items-center space-x-3">
+                    {/* Botón de disminuir */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (quantity > 1) {
+                          setQuantity(quantity - 1);
+                        }
+                      }}
+                      disabled={loading || quantity <= 1}
+                      className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                      </svg>
+                    </button>
+
+                    {/* Input de cantidad */}
+                    <input
+                      type="number"
+                      id="quantity"
+                      value={quantity === 0 ? '' : quantity}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === '') {
+                          setQuantity(0); // Permitir campo vacío temporalmente
+                        } else {
+                          const numValue = parseInt(value);
+                          if (!isNaN(numValue) && numValue >= 0) {
+                            setQuantity(numValue);
+                          }
+                        }
+                      }}
+                      min="1"
+                      max={scannedItem?.stockEntry.current_quantity || 1}
+                      required
+                      disabled={loading}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500 text-black text-center"
+                      placeholder="1"
+                    />
+
+                    {/* Botón de aumentar */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const maxQuantity = scannedItem?.stockEntry.current_quantity || 1;
+                        if (quantity < maxQuantity) {
+                          setQuantity(quantity + 1);
+                        }
+                      }}
+                      disabled={loading || quantity >= (scannedItem?.stockEntry.current_quantity || 1)}
+                      className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Información de stock disponible */}
+                  {scannedItem && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Stock disponible: {scannedItem.stockEntry.current_quantity} unidades
+                    </p>
+                  )}
                 </div>
 
                 {/* Formato de Venta - solo para modo add-to-cart */}

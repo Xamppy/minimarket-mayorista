@@ -55,9 +55,24 @@ export function validateWholesalePrice(price: string | number | null | undefined
 export function calculateItemPrice(input: PriceCalculationInput): PriceCalculationResult {
   const { quantity, unitPrice, boxPrice, wholesalePrice, wholesaleThreshold = WHOLESALE_THRESHOLD } = input;
 
-  // Validaciones mejoradas de entrada
-  if (quantity <= 0) {
-    throw new Error('La cantidad debe ser mayor a 0');
+  // Validaciones mejoradas de entrada - permitir 0 para estados temporales de input
+  if (quantity < 0) {
+    throw new Error('La cantidad no puede ser negativa');
+  }
+  
+  // Si la cantidad es 0, devolver valores por defecto sin error (para estados temporales de input)
+  if (quantity === 0) {
+    return {
+      applicablePrice: unitPrice || 0,
+      priceType: 'unit' as const,
+      totalPrice: 0,
+      savings: 0,
+      breakdown: {
+        basePrice: unitPrice || 0,
+        discountedPrice: unitPrice || 0,
+        quantity: 0
+      }
+    };
   }
 
   if (quantity > 10000) {

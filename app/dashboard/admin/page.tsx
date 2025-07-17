@@ -2,6 +2,7 @@ import { createClient } from '../../utils/supabase/server';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import AdminDashboard from './components/AdminDashboard';
+import AdminErrorBoundary from './components/AdminErrorBoundary';
 
 interface Product {
   id: string;
@@ -140,13 +141,15 @@ export default async function AdminDashboardPage() {
     .order('name') as { data: ProductType[] | null; error: any };
 
   return (
-    <AdminDashboard
-      user={user}
-      role={role}
-      products={productsWithStock}
-      brands={brands || []}
-      productTypes={productTypes || []}
-      productsError={productsError}
-    />
+    <AdminErrorBoundary>
+      <AdminDashboard
+        user={user}
+        role={role}
+        products={productsWithStock}
+        brands={brands || []}
+        productTypes={productTypes || []}
+        productsError={productsError}
+      />
+    </AdminErrorBoundary>
   );
 } 

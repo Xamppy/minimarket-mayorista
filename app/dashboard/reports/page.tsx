@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import ReportsClient from './components/ReportsClient';
+import ReportsErrorBoundary from './components/ReportsErrorBoundary';
 
 export default async function ReportsPage() {
   const cookieStore = cookies();
@@ -87,7 +88,9 @@ export default async function ReportsPage() {
         </div>
 
         {/* Componente Cliente con los reportes */}
-        <ReportsClient />
+        <ReportsErrorBoundary>
+          <ReportsClient />
+        </ReportsErrorBoundary>
       </div>
     </div>
   );

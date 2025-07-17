@@ -692,12 +692,31 @@ export async function getRecentSales(limit: number = 10) {
     // Procesar ventas con información de wholesale pricing
     const salesWithDetails = await Promise.all(
       (data || []).map(async (sale) => {
-        // Obtener información del vendedor
+        // Obtener email del vendedor usando la función RPC
+        let sellerEmail = null;
+        let sellerName = 'Vendedor desconocido';
+        
+        try {
+          const { data: emailData, error: emailError } = await supabase
+            .rpc('get_user_email_by_id', { user_id: sale.seller_id });
+          
+          if (!emailError && emailData) {
+            sellerEmail = emailData;
+          }
+        } catch (error) {
+          console.warn('Error al obtener email del vendedor:', error);
+        }
+        
+        // También obtener información del perfil si existe
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('full_name')
           .eq('id', sale.seller_id)
           .single();
+          
+        if (profile?.full_name) {
+          sellerName = profile.full_name;
+        }
 
         // Calcular estadísticas de wholesale pricing para esta venta
         let totalWholesaleItems = 0;
@@ -737,7 +756,8 @@ export async function getRecentSales(limit: number = 10) {
 
         return {
           ...sale,
-          seller_name: profile?.full_name || 'Vendedor desconocido',
+          seller_email: sellerEmail,
+          seller_name: sellerName,
           items: processedItems,
           wholesale_stats: {
             has_wholesale_pricing: hasWholesalePricing,
@@ -1416,7 +1436,7 @@ export async function getAllProductTypes() {
   }
 } 
 // ======
-======================================================================
+// ======================================================================
 // FUNCIONES PARA REPORTES DE WHOLESALE PRICING
 // ============================================================================
 
