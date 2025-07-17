@@ -172,7 +172,8 @@ export default function ProductCards({ products, onSaleCompleted }: ProductCards
       <SaleModal
         isOpen={modalState.isOpen}
         onClose={handleCloseModal}
-        product={modalState.selectedProduct}
+        mode="finalize-sale"
+        cartItems={[]}
         onSaleCompleted={handleSaleCompleted}
       />
     </>

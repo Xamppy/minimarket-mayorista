@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import CartModal from './CartModal';
+import StockEntrySelectionModal from './StockEntrySelectionModal';
+import { StockEntry } from '@/lib/cart-types';
 
 interface Product {
   id: string;
@@ -31,6 +33,14 @@ export default function ProductCatalog({ products, searchTerm, categoryFilter, b
     selectedProduct: null
   });
 
+  const [stockSelectionModal, setStockSelectionModal] = useState<{
+    isOpen: boolean;
+    selectedProduct: Product | null;
+  }>({
+    isOpen: false,
+    selectedProduct: null
+  });
+
   const handleSaleCompleted = () => {
     // Refrescar la página para actualizar los datos
     router.refresh();
@@ -50,39 +60,42 @@ export default function ProductCatalog({ products, searchTerm, categoryFilter, b
       return;
     }
 
-    try {
-      // Obtener información de precios del producto
-      const response = await fetch(`/api/stock-entries?productId=${product.id}`);
-      
-      if (!response.ok) {
-        throw new Error('Error al obtener información del producto');
-      }
-      
-      const stockEntries = await response.json();
-      
-      if (!stockEntries || stockEntries.length === 0) {
-        alert('No hay stock disponible para este producto');
-        return;
-      }
-      
-      // Tomar el primer stock entry con stock disponible
-      const availableStock = stockEntries.find((entry: any) => entry.current_quantity > 0);
-      
-      if (!availableStock) {
-        alert('No hay stock disponible para este producto');
-        return;
-      }
-      
-      // Usar la función onAddToCart pasada desde el componente padre
-      onAddToCart(product, availableStock);
-      
-      // Mostrar confirmación
-      alert(`${product.name} agregado al carrito`);
-      
-    } catch (error) {
-      console.error('Error al agregar al carrito:', error);
-      alert('Error al agregar el producto al carrito');
-    }
+    // Abrir modal de selección de stock entry
+    setStockSelectionModal({
+      isOpen: true,
+      selectedProduct: product
+    });
+  };
+
+  const handleStockEntrySelected = (stockEntry: StockEntry, _quantity: number, _saleFormat: 'unitario' | 'caja') => {
+    if (!stockSelectionModal.selectedProduct || !onAddToCart) return;
+
+    // Convertir StockEntry a formato compatible con onAddToCart
+    const stockEntryForCart = {
+      id: stockEntry.id,
+      sale_price_unit: stockEntry.sale_price_unit,
+      sale_price_box: stockEntry.sale_price_box,
+      sale_price_wholesale: stockEntry.sale_price_wholesale,
+      current_quantity: stockEntry.current_quantity,
+      barcode: stockEntry.barcode,
+      expiration_date: stockEntry.expiration_date
+    };
+
+    // Llamar a onAddToCart con la información del stock entry seleccionado
+    onAddToCart(stockSelectionModal.selectedProduct, stockEntryForCart);
+
+    // Cerrar modal
+    setStockSelectionModal({
+      isOpen: false,
+      selectedProduct: null
+    });
+  };
+
+  const handleCloseStockSelectionModal = () => {
+    setStockSelectionModal({
+      isOpen: false,
+      selectedProduct: null
+    });
   };
 
   const handleCloseCartModal = () => {
@@ -188,6 +201,16 @@ export default function ProductCatalog({ products, searchTerm, categoryFilter, b
         initialProduct={cartModalState.selectedProduct}
         onSaleCompleted={handleSaleCompleted}
       />
+
+      {/* Modal de selección de stock entry */}
+      {stockSelectionModal.selectedProduct && (
+        <StockEntrySelectionModal
+          isOpen={stockSelectionModal.isOpen}
+          onClose={handleCloseStockSelectionModal}
+          product={stockSelectionModal.selectedProduct}
+          onStockEntrySelected={handleStockEntrySelected}
+        />
+      )}
     </>
   );
 } 

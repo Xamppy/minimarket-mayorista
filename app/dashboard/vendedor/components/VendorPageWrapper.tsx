@@ -102,7 +102,15 @@ export default function VendorPageWrapper({
                 <p className="text-sm">{productsError.message}</p>
               </div>
             ) : (
-              <VendorPageClient />
+              <VendorPageClient
+                products={products}
+                searchTerm={searchTerm}
+                categoryFilter={categoryFilter}
+                brandFilter={brandFilter}
+                productTypes={productTypes}
+                brands={brands}
+                productsError={productsError}
+              />
             )}
 
             {/* Indicador de búsqueda activa en modo scanner */}

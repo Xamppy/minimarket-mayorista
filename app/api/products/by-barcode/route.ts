@@ -22,7 +22,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Buscar en stock_entries por código de barras y obtener información del producto
-    const { data: stockEntry, error: stockError } = await supabase
+    // Implementar FIFO: seleccionar el stock entry con fecha de vencimiento más próxima
+    const { data: stockEntries, error: stockError } = await supabase
       .from('stock_entries')
       .select(`
         id,
@@ -34,6 +35,7 @@ export async function GET(request: NextRequest) {
         sale_price_wholesale,
         purchase_price,
         expiration_date,
+        created_at,
         products (
           id,
           name,
@@ -48,7 +50,8 @@ export async function GET(request: NextRequest) {
       `)
       .eq('barcode', barcode.trim())
       .gt('current_quantity', 0) // Solo productos con stock disponible
-      .single();
+      .order('expiration_date', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: true });
 
     if (stockError) {
       // Si no se encuentra, devolver null en lugar de error
@@ -62,6 +65,16 @@ export async function GET(request: NextRequest) {
       console.error('Error searching by barcode:', stockError);
       return NextResponse.json({ error: 'Error al buscar producto' }, { status: 500 });
     }
+
+    if (!stockEntries || stockEntries.length === 0) {
+      return NextResponse.json({ 
+        product: null, 
+        message: 'No se encontró producto con ese código de barras' 
+      });
+    }
+
+    // Seleccionar el primer stock entry (FIFO - más próximo a vencer o más antiguo)
+    const stockEntry = stockEntries[0];
 
     if (!stockEntry || !stockEntry.products) {
       return NextResponse.json({ 

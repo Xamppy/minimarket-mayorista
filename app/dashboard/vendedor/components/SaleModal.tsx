@@ -2,7 +2,9 @@
 
 import { useState } from 'react';
 import { formatAsCLP } from '@/lib/formatters';
-import { calculateItemPrice, getApplicablePrice, formatPricingDisplay } from '@/lib/wholesale-pricing-utils';
+import { calculateUnifiedPricing } from '@/lib/unified-pricing-service';
+import { StockEntry } from '@/lib/cart-types';
+import WholesalePricingIndicator from './WholesalePricingIndicator';
 
 interface Product {
   id: string;
@@ -35,6 +37,9 @@ interface ScannedItem {
     sale_price_box: number;
     sale_price_wholesale?: number;
     current_quantity: number;
+    expiration_date?: string | null;
+    barcode?: string;
+    purchase_price?: number;
   };
 }
 
@@ -80,35 +85,52 @@ export default function SaleModal({
   const getPrice = () => {
     if (!isAddToCartMode || !scannedItem) return 0;
     
-    // Para formato unitario, usar lógica de wholesale pricing
-    if (saleFormat === 'unitario') {
-      const calculation = calculateItemPrice({
-        quantity,
-        unitPrice: scannedItem.stockEntry.sale_price_unit,
-        boxPrice: scannedItem.stockEntry.sale_price_box,
-        wholesalePrice: scannedItem.stockEntry.sale_price_wholesale
-      });
-      return calculation.applicablePrice;
-    }
+    // Crear stock entry para el cálculo unificado
+    const stockEntry: StockEntry = {
+      id: scannedItem.stockEntry.id,
+      product_id: scannedItem.product.id,
+      barcode: '',
+      current_quantity: scannedItem.stockEntry.current_quantity,
+      initial_quantity: scannedItem.stockEntry.current_quantity,
+      expiration_date: null,
+      created_at: new Date().toISOString(),
+      purchase_price: 0,
+      sale_price_unit: scannedItem.stockEntry.sale_price_unit,
+      sale_price_box: scannedItem.stockEntry.sale_price_box,
+      sale_price_wholesale: scannedItem.stockEntry.sale_price_wholesale || null
+    };
     
-    // Para formato caja, usar precio de caja directamente
-    return scannedItem.stockEntry.sale_price_box;
+    const pricingInfo = calculateUnifiedPricing(stockEntry, quantity, saleFormat);
+    return pricingInfo.appliedPrice;
   };
 
   const getPricingInfo = () => {
     if (!isAddToCartMode || !scannedItem) return null;
     
-    if (saleFormat === 'unitario') {
-      const calculation = calculateItemPrice({
-        quantity,
-        unitPrice: scannedItem.stockEntry.sale_price_unit,
-        boxPrice: scannedItem.stockEntry.sale_price_box,
-        wholesalePrice: scannedItem.stockEntry.sale_price_wholesale
-      });
-      return calculation;
-    }
+    // Crear stock entry para el cálculo unificado
+    const stockEntry: StockEntry = {
+      id: scannedItem.stockEntry.id,
+      product_id: scannedItem.product.id,
+      barcode: '',
+      current_quantity: scannedItem.stockEntry.current_quantity,
+      initial_quantity: scannedItem.stockEntry.current_quantity,
+      expiration_date: null,
+      created_at: new Date().toISOString(),
+      purchase_price: 0,
+      sale_price_unit: scannedItem.stockEntry.sale_price_unit,
+      sale_price_box: scannedItem.stockEntry.sale_price_box,
+      sale_price_wholesale: scannedItem.stockEntry.sale_price_wholesale || null
+    };
     
-    return null;
+    const pricingInfo = calculateUnifiedPricing(stockEntry, quantity, saleFormat);
+    
+    // Convertir a formato compatible con la UI existente
+    return {
+      applicablePrice: pricingInfo.appliedPrice,
+      priceType: pricingInfo.priceType,
+      totalPrice: pricingInfo.totalPrice,
+      savings: pricingInfo.savings
+    };
   };
 
   const getTotalAmount = () => {
@@ -278,10 +300,110 @@ export default function SaleModal({
                   </p>
                 </div>
               </div>
-              <p className="text-black text-sm">
-                Stock disponible: <span className="font-medium">{scannedItem.stockEntry.current_quantity} unidades</span>
-              </p>
-              <div className="space-y-1">
+              
+              {/* Stock Entry Details */}
+              <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                <h4 className="text-sm font-medium text-blue-800 mb-2">📦 Información del Lote</h4>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <p className="text-gray-600">Lote ID:</p>
+                    <p className="font-medium text-black">#{String(scannedItem.stockEntry.id).slice(-6)}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600">Stock disponible:</p>
+                    <p className="font-medium text-black">{scannedItem.stockEntry.current_quantity} unidades</p>
+                  </div>
+                  {scannedItem.stockEntry.barcode && (
+                    <div>
+                      <p className="text-gray-600">Código de barras:</p>
+                      <p className="font-medium text-black">{scannedItem.stockEntry.barcode}</p>
+                    </div>
+                  )}
+                  {scannedItem.stockEntry.expiration_date && (
+                    <div>
+                      <p className="text-gray-600">Fecha de vencimiento:</p>
+                      <p className={`font-medium ${(() => {
+                        const expirationDate = new Date(scannedItem.stockEntry.expiration_date!);
+                        const today = new Date();
+                        const diffDays = Math.ceil((expirationDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                        if (diffDays <= 0) return 'text-red-600';
+                        if (diffDays <= 7) return 'text-orange-600';
+                        if (diffDays <= 30) return 'text-yellow-600';
+                        return 'text-green-600';
+                      })()}`}>
+                        {new Date(scannedItem.stockEntry.expiration_date).toLocaleDateString('es-CL')}
+                      </p>
+                      <p className={`text-xs ${(() => {
+                        const expirationDate = new Date(scannedItem.stockEntry.expiration_date!);
+                        const today = new Date();
+                        const diffDays = Math.ceil((expirationDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                        if (diffDays <= 0) return 'text-red-600';
+                        if (diffDays <= 7) return 'text-orange-600';
+                        if (diffDays <= 30) return 'text-yellow-600';
+                        return 'text-green-600';
+                      })()}`}>
+                        {(() => {
+                          const expirationDate = new Date(scannedItem.stockEntry.expiration_date!);
+                          const today = new Date();
+                          const diffDays = Math.ceil((expirationDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                          if (diffDays <= 0) return 'Vencido';
+                          if (diffDays === 1) return 'Vence mañana';
+                          return `Vence en ${diffDays} días`;
+                        })()}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Expiration Warning */}
+              {scannedItem.stockEntry.expiration_date && (() => {
+                const expirationDate = new Date(scannedItem.stockEntry.expiration_date);
+                const today = new Date();
+                const diffDays = Math.ceil((expirationDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                
+                if (diffDays <= 7) {
+                  return (
+                    <div className={`mt-3 p-3 rounded-lg ${
+                      diffDays <= 0 ? 'bg-red-50 border border-red-200' : 
+                      diffDays <= 3 ? 'bg-orange-50 border border-orange-200' : 
+                      'bg-yellow-50 border border-yellow-200'
+                    }`}>
+                      <div className="flex items-center">
+                        <svg className={`w-5 h-5 mr-2 ${
+                          diffDays <= 0 ? 'text-red-600' : 
+                          diffDays <= 3 ? 'text-orange-600' : 
+                          'text-yellow-600'
+                        }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                        </svg>
+                        <div>
+                          <p className={`text-sm font-medium ${
+                            diffDays <= 0 ? 'text-red-800' : 
+                            diffDays <= 3 ? 'text-orange-800' : 
+                            'text-yellow-800'
+                          }`}>
+                            {diffDays <= 0 ? '⚠️ Producto Vencido' : 
+                             diffDays === 1 ? '⚠️ Vence Mañana' : 
+                             `⚠️ Vence en ${diffDays} días`}
+                          </p>
+                          <p className={`text-xs ${
+                            diffDays <= 0 ? 'text-red-600' : 
+                            diffDays <= 3 ? 'text-orange-600' : 
+                            'text-yellow-600'
+                          }`}>
+                            Verifique la fecha de vencimiento antes de vender
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
+              {/* Pricing Information */}
+              <div className="mt-3 space-y-1">
                 <p className="text-black text-sm">
                   Precio unitario: <span className="font-medium text-green-600">{formatAsCLP(scannedItem.stockEntry.sale_price_unit)}</span>
                 </p>
@@ -292,6 +414,20 @@ export default function SaleModal({
                   </p>
                 )}
               </div>
+
+              {/* Wholesale Pricing Indicator */}
+              {scannedItem.stockEntry.sale_price_wholesale && (
+                <div className="mt-3">
+                  <WholesalePricingIndicator
+                    unitPrice={scannedItem.stockEntry.sale_price_unit}
+                    wholesalePrice={scannedItem.stockEntry.sale_price_wholesale}
+                    currentQuantity={quantity}
+                    wholesaleThreshold={3}
+                    size="medium"
+                    showSavings={true}
+                  />
+                </div>
+              )}
             </div>
           ) : isFinalizeSaleMode ? (
             /* Resumen del carrito */

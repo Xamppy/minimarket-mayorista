@@ -20,7 +20,8 @@
         "mcp_supabase_get_project_url",
         "mcp_supabase_get_anon_key",
         "execute_sql",
-        "apply_migration"
+        "apply_migration",
+        "list_tables"
       ]
     }
   }
