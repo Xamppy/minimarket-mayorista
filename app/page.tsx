@@ -43,10 +43,10 @@ export default function HomePage() {
 
             {/* Texto de Branding */}
             <h1 className="text-3xl lg:text-4xl font-bold mb-4">
-              MiniMarket Pro
+              Distribuidora Don Ale
             </h1>
             <p className="text-xl lg:text-2xl font-light mb-2 text-blue-100">
-              Sistema de Gestión Mayorista
+              Sistema de venta Mayorista
             </p>
             <p className="text-blue-200 text-sm lg:text-base">
               Controla tu inventario, ventas y reportes desde una sola plataforma
@@ -87,7 +87,7 @@ export default function HomePage() {
       {/* Footer minimalista */}
       <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
         <p className="text-xs text-gray-500 text-center">
-          © 2024 MiniMarket Pro. Sistema de gestión empresarial.
+          © 2025 Distribuidora Don Ale. Sistema de venta mayorista.
         </p>
       </div>
     </div>
