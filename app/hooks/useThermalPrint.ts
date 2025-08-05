@@ -6,9 +6,9 @@ import { useEffect, useCallback, useState } from 'react';
 import { 
   THERMAL_PRINT_CONFIG, 
   generateThermalPrintCSS, 
-  getBrowserPrintCapabilities,
-  type ThermalPrintConfig 
+  getBrowserPrintCapabilities
 } from '../utils/thermal-printer';
+import type { ThermalPrintConfig } from '../types/thermal-print';
 import type { PrintCapabilities } from '../types/thermal-print';
 
 interface UseThermalPrintOptions {

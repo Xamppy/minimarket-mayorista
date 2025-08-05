@@ -3,7 +3,9 @@
  * Can be used as a component or for server-side rendering
  */
 
-import { generateThermalPrintCSS, THERMAL_PRINT_CONFIG, type ThermalPrintConfig } from '../utils/thermal-printer';
+import * as React from 'react';
+import { generateThermalPrintCSS, THERMAL_PRINT_CONFIG } from '../utils/thermal-printer';
+import type { ThermalPrintConfig } from '../types/thermal-print';
 
 interface ThermalPrintStylesProps {
   config?: ThermalPrintConfig;
