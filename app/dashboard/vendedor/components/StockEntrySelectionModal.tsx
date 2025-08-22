@@ -413,7 +413,7 @@ export default function StockEntrySelectionModal({
                       )}
                       
                       <div className="text-xs text-gray-600">
-                        Precio por unidad: {formatAsCLP(pricingInfo.appliedPrice)}
+                        Precio por unidad: <span style={{color: '#000000'}}>{formatAsCLP(pricingInfo.appliedPrice)}</span>
                         {pricingInfo.priceType === 'wholesale' && (
                           <span className="text-purple-600 ml-1">(mayorista)</span>
                         )}

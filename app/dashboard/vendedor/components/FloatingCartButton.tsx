@@ -29,6 +29,7 @@ interface CartItem {
 
 interface FloatingCartButtonProps {
   cartItems?: CartItem[];
+  totalItems?: number;
   onUpdateQuantity?: (stockEntryId: string, productId: string, newQuantity: number) => void;
   onRemoveItem?: (stockEntryId: string, productId: string) => void;
   onSaleCompleted?: () => void;
@@ -36,6 +37,7 @@ interface FloatingCartButtonProps {
 
 export default function FloatingCartButton({ 
   cartItems = [], 
+  totalItems = 0,
   onUpdateQuantity, 
   onRemoveItem, 
   onSaleCompleted 
@@ -75,10 +77,12 @@ export default function FloatingCartButton({
         {/* Texto visible solo en desktop */}
         <span className="ml-2 text-sm font-medium hidden md:inline">Carrito</span>
         
-        {/* Badge de notificación (para futuro uso) */}
-        <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-          0
-        </div>
+        {/* Badge de notificación con cantidad de productos */}
+        {totalItems > 0 && (
+          <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center animate-pulse">
+            {totalItems > 99 ? '99+' : totalItems}
+          </div>
+        )}
       </button>
 
       {/* Modal del carrito */}

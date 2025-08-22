@@ -377,6 +377,10 @@ export default function VendorPageClient({
     return cart.reduce((total, item) => total + (item.totalPrice || 0), 0);
   };
 
+  const getTotalItems = () => {
+    return cart.reduce((total, item) => total + item.quantity, 0);
+  };
+
   const handleFinalizeSale = () => {
     if (cart.length === 0) {
       showError('El carrito está vacío');
@@ -663,7 +667,7 @@ export default function VendorPageClient({
                       <div className="space-y-1 mt-2">
                         <div className="flex items-center justify-between">
                           <p className="text-sm font-medium text-black">
-                            {formatAsCLP(item.appliedPrice)}
+                            <span style={{color: '#000000'}}>{formatAsCLP(item.appliedPrice)}</span>
                             {item.appliedPriceType === 'wholesale' && (
                               <span className="text-xs text-purple-600 ml-1">🎉 Mayorista</span>
                             )}
@@ -844,6 +848,7 @@ export default function VendorPageClient({
       {activeTab === 'catalog' && (
         <FloatingCartButton
           cartItems={cart}
+          totalItems={getTotalItems()}
           onUpdateQuantity={updateCartItemQuantity}
           onRemoveItem={removeFromCart}
           onSaleCompleted={handleSaleCompleted}

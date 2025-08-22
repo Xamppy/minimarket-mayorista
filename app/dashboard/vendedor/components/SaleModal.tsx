@@ -460,15 +460,15 @@ export default function SaleModal({
                       <span className="text-gray-600 block">{item.product.brand_name}</span>
                     </div>
                     <div className="text-right">
-                      <span className="text-black">{item.quantity}x {formatAsCLP(item.appliedPrice)}</span>
-                      <div className="font-medium text-black">{formatAsCLP(item.totalPrice)}</div>
+                      <span className="text-black">{item.quantity}x <span style={{color: '#000000'}}>{formatAsCLP(item.appliedPrice)}</span></span>
+                      <div className="font-medium text-black" style={{color: '#000000'}}>{formatAsCLP(item.totalPrice)}</div>
                     </div>
                   </div>
                 ))}
               </div>
               <div className="border-t border-gray-300 mt-3 pt-3 flex justify-between items-center">
                 <span className="font-semibold text-black">Total ({getTotalItems()} items):</span>
-                <span className="font-bold text-lg text-black">{formatAsCLP(getTotalAmount())}</span>
+                <span className="font-bold text-lg text-black" style={{color: '#000000'}}>{formatAsCLP(getTotalAmount())}</span>
               </div>
             </div>
           ) : (
@@ -640,7 +640,7 @@ export default function SaleModal({
                         
                         {pricingInfo && saleFormat === 'unitario' && (
                           <div className="text-xs text-gray-600">
-                            Precio por unidad: {formatAsCLP(pricingInfo.applicablePrice)}
+                            Precio por unidad: <span style={{color: '#000000'}}>{formatAsCLP(pricingInfo.applicablePrice)}</span>
                             {pricingInfo.priceType === 'wholesale' && (
                               <span className="text-purple-600 ml-1">(mayorista)</span>
                             )}

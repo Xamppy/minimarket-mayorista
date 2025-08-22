@@ -400,32 +400,32 @@ export default function CartModal({
                     <div className="mt-4 p-3 bg-blue-50 rounded-md">
                       <div className="space-y-2">
                         <div className="flex justify-between items-center">
-                          <span className="text-sm text-gray-700">
+                          <span className="text-sm text-black" style={{color: '#000000 !important'}}>
                             Precio por unidad:
-                            {item.appliedPriceType === 'wholesale' && (
+                            {item.appliedPriceType === 'wholesale' ? (
                               <span className="ml-1 text-purple-600 font-medium">🎉 Mayorista</span>
-                            )}
+                            ) : null}
                           </span>
-                          <span className="font-medium text-black">
+                          <span className="font-medium text-black" style={{color: '#000000 !important'}}>
                             {formatAsCLP(item.appliedPrice)}
-                            {item.appliedPriceType === 'wholesale' && (
+                            {item.appliedPriceType === 'wholesale' ? (
                               <span className="text-xs text-gray-500 ml-1">(3+ unidades)</span>
-                            )}
+                            ) : null}
                           </span>
                         </div>
                         
-                        {item.savings && item.savings > 0 && (
+                        {item.savings && item.savings > 0 ? (
                           <div className="flex justify-between items-center">
                             <span className="text-sm text-green-600">Ahorro total:</span>
                             <span className="font-medium text-green-600">
                               {formatAsCLP(item.savings)}
                             </span>
                           </div>
-                        )}
+                        ) : null}
                         
                         <div className="flex justify-between items-center border-t border-blue-200 pt-2">
-                          <span className="font-medium text-black">Subtotal:</span>
-                          <span className="font-bold text-lg text-black">
+                          <span className="font-medium text-black" style={{color: '#000000 !important'}}>Subtotal:</span>
+                          <span className="font-bold text-lg text-black" style={{color: '#000000 !important'}}>
                             {formatAsCLP(item.totalPrice)}
                           </span>
                         </div>
@@ -447,11 +447,11 @@ export default function CartModal({
             {/* Resumen total del carrito */}
             {cartItems.length > 0 && (
               <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                <h3 className="font-semibold text-black text-lg mb-3">Resumen de la Compra</h3>
+                <h3 className="font-semibold text-black text-lg mb-3" style={{color: '#000000 !important'}}>Resumen de la Compra</h3>
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-700">Total de productos:</span>
-                    <span className="font-medium text-black">{getTotalItems()} unidades</span>
+                    <span className="text-black" style={{color: '#000000 !important'}}>Total de productos:</span>
+                    <span className="font-medium text-black" style={{color: '#000000 !important'}}>{getTotalItems()} unidades</span>
                   </div>
                   
                   {getTotalSavings() > 0 && (
@@ -464,8 +464,8 @@ export default function CartModal({
                   )}
                   
                   <div className="flex justify-between items-center border-t border-green-300 pt-2">
-                    <span className="font-bold text-black text-lg">Total a pagar:</span>
-                    <span className="font-bold text-xl text-black">
+                    <span className="font-bold text-black text-lg" style={{color: '#000000 !important'}}>Total a pagar:</span>
+                    <span className="font-bold text-xl text-black" style={{color: '#000000 !important'}}>
                       {formatAsCLP(getTotalPrice())}
                     </span>
                   </div>
