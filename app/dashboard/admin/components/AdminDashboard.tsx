@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import AdminPageClient from './AdminPageClient';
 import AlertsDashboard from './AlertsDashboard';
@@ -58,6 +58,21 @@ export default function AdminDashboard({
   const [currentBrands, setCurrentBrands] = useState(brands);
   const [currentProductTypes, setCurrentProductTypes] = useState(productTypes);
 
+  // Sincronizar estados con props cuando cambien
+  useEffect(() => {
+    setCurrentBrands(brands);
+  }, [brands]);
+
+  useEffect(() => {
+    setCurrentProductTypes(productTypes);
+  }, [productTypes]);
+
+  // Debug: Log de los datos iniciales
+  console.log('AdminDashboard - Marcas iniciales:', brands);
+  console.log('AdminDashboard - Tipos iniciales:', productTypes);
+  console.log('AdminDashboard - Estado currentBrands:', currentBrands);
+  console.log('AdminDashboard - Estado currentProductTypes:', currentProductTypes);
+
   // Función para refrescar marcas y tipos después de operaciones de categorías
   const refreshCategories = async () => {
     try {
@@ -85,7 +100,7 @@ export default function AdminDashboard({
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Dashboard de Administrador</h1>
           <p className="text-gray-600 mt-2">
-            Bienvenido, <strong>{user.email}</strong>
+            Bienvenido, <strong>{user?.email || 'Usuario'}</strong>
           </p>
         </div>
 
@@ -114,6 +129,7 @@ export default function AdminDashboard({
                   </svg>
                   Ver Reportes
                 </Link>
+
                 <button
                   onClick={() => setCategoryModalOpen(true)}
                   className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 cursor-pointer"
@@ -156,7 +172,12 @@ export default function AdminDashboard({
         {/* Modal para Añadir Producto */}
         <AddProductModal
           isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
+          onClose={() => {
+            console.log('Cerrando modal de añadir producto');
+            console.log('Marcas disponibles:', currentBrands);
+            console.log('Tipos disponibles:', currentProductTypes);
+            setIsModalOpen(false);
+          }}
           brands={currentBrands}
           types={currentProductTypes}
         />
@@ -169,4 +190,4 @@ export default function AdminDashboard({
       </div>
     </div>
   );
-} 
+}

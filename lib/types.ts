@@ -1,14 +1,14 @@
 // Database Types for Wholesale Pricing Feature
 
 export interface StockEntry {
-  id: number;
-  product_id: number;
+  id: string;
+  product_id: string;
   barcode?: string;
   initial_quantity: number;
   current_quantity: number;
   purchase_price?: number;
   sale_price_unit?: number;
-  sale_price_box?: number;
+
   sale_price_wholesale?: number; // New wholesale price field
   expiration_date?: string;
   created_at: string;
@@ -16,35 +16,34 @@ export interface StockEntry {
 
 export interface PricingInfo {
   unitPrice?: number;
-  boxPrice?: number;
   wholesalePrice?: number;
   applicablePrice: number;
-  priceType: 'unit' | 'box' | 'wholesale';
+  priceType: 'unit' | 'wholesale';
   savings?: number; // Amount saved when using wholesale pricing
 }
 
 export interface SaleItem {
-  id: number;
-  sale_id: number;
-  stock_entry_id: number;
+  id: string;
+  sale_id: string;
+  stock_entry_id: string;
   quantity_sold: number;
   price_at_sale: number;
-  sale_format: 'unitario' | 'caja' | 'display' | 'pallet';
+  sale_format: 'unitario' | 'display' | 'pallet';
   // Extended for wholesale pricing
-  applied_price_type?: 'unit' | 'box' | 'wholesale';
+  applied_price_type?: 'unit' | 'wholesale';
   wholesale_savings?: number;
 }
 
 export interface CartItem {
-  stockEntryId: number;
+  stockEntryId: string;
   productName: string;
   barcode?: string;
   quantity: number;
   unitPrice: number;
-  boxPrice?: number;
+
   wholesalePrice?: number;
   appliedPrice: number;
-  appliedPriceType: 'unit' | 'box' | 'wholesale';
+  appliedPriceType: 'unit' | 'wholesale';
   totalPrice: number;
   savings?: number; // Savings from wholesale pricing
   priceBreakdown: {
@@ -55,7 +54,7 @@ export interface CartItem {
 }
 
 export interface Product {
-  id: number;
+  id: string;
   name: string;
   brand_id?: number;
   type_id?: number;
@@ -64,7 +63,7 @@ export interface Product {
 }
 
 export interface Sale {
-  id: number;
+  id: string;
   seller_id: string;
   total_amount: number;
   created_at: string;
@@ -77,14 +76,13 @@ export interface Sale {
 export interface PriceCalculationInput {
   quantity: number;
   unitPrice?: number;
-  boxPrice?: number;
   wholesalePrice?: number;
   wholesaleThreshold?: number; // Default: 3 units
 }
 
 export interface PriceCalculationResult {
   applicablePrice: number;
-  priceType: 'unit' | 'box' | 'wholesale';
+  priceType: 'unit' | 'wholesale';
   totalPrice: number;
   savings: number;
   breakdown: {
@@ -101,7 +99,7 @@ export interface StockEntryFormData {
   barcode: string;
   purchasePrice: string;
   unitPrice: string;
-  boxPrice: string;
+
   wholesalePrice?: string; // New field for wholesale pricing
   expirationDate?: string;
 }

@@ -119,20 +119,20 @@ export default function EditProductModal({
 
           {/* Marca */}
           <div>
-            <label htmlFor="edit-brandId" className="block text-sm font-medium text-black mb-1">
+            <label htmlFor="edit-brand_name" className="block text-sm font-medium text-black mb-1">
               Marca *
             </label>
             <select
-              id="edit-brandId"
-              name="brandId"
+              id="edit-brand_name"
+              name="brand_name"
               required
               disabled={loading}
-              defaultValue={selectedBrand?.id || ''}
+              defaultValue={product.brand_name || ''}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-black"
             >
               <option value="">Selecciona una marca</option>
               {brands.map((brand) => (
-                <option key={brand.id} value={brand.id}>
+                <option key={brand.id} value={brand.name}>
                   {brand.name}
                 </option>
               ))}
@@ -141,12 +141,12 @@ export default function EditProductModal({
 
           {/* Tipo de producto */}
           <div>
-            <label htmlFor="edit-typeId" className="block text-sm font-medium text-black mb-1">
+            <label htmlFor="edit-product_type_id" className="block text-sm font-medium text-black mb-1">
               Tipo de Producto *
             </label>
             <select
-              id="edit-typeId"
-              name="typeId"
+              id="edit-product_type_id"
+              name="product_type_id"
               required
               disabled={loading}
               defaultValue={selectedType?.id || ''}
@@ -216,4 +216,4 @@ export default function EditProductModal({
       </div>
     </div>
   );
-} 
+}

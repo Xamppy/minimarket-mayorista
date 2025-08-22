@@ -1,27 +1,21 @@
 {
   "mcpServers": {
-    "supabase": {
-      "command": "npx",
+    "postgresql": {
+      "command": "node",
       "args": [
-        "-y",
-        "@supabase/mcp-server-supabase@latest",
-        "--project-ref=klouefzcbkfyavlmwfhd",
-        "--access-token=sbp_aa28d7041b2916c044ea6ca3c8fdc87d6104c9d3"
+        "./postgresql-mcp-server/dist/index.js"
       ],
       "env": {
-        "SUPABASE_ACCESS_TOKEN": "${SUPABASE_ACCESS_TOKEN}"
+        "DATABASE_URL": "${DATABASE_URL}"
       },
       "disabled": false,
       "autoApprove": [
-        "mcp_supabase_list_tables",
-        "mcp_supabase_execute_sql",
-        "mcp_supabase_apply_migration",
-        "mcp_supabase_list_migrations",
-        "mcp_supabase_get_project_url",
-        "mcp_supabase_get_anon_key",
-        "execute_sql",
-        "apply_migration",
-        "list_tables"
+        "list_tables",
+        "execute_query",
+        "get_table_schema",
+        "insert_data",
+        "update_data",
+        "delete_data"
       ]
     }
   }

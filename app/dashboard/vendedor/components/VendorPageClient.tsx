@@ -36,12 +36,12 @@ interface CartItem {
   product: Product;
   stockEntryId: string;
   quantity: number;
-  saleFormat: 'unitario' | 'caja' | 'display' | 'pallet';
+  saleFormat: 'unitario' | 'display' | 'pallet';
   unitPrice: number;
-  boxPrice?: number;
+
   wholesalePrice?: number;
   appliedPrice: number;
-  appliedPriceType: 'unit' | 'box' | 'wholesale';
+  appliedPriceType: 'unit' | 'wholesale';
   totalPrice: number;
   savings?: number;
   // Enhanced stock entry information
@@ -84,7 +84,7 @@ export default function VendorPageClient({
     stockEntry: {
       id: string;
       sale_price_unit: number;
-      sale_price_box: number;
+    
       sale_price_wholesale?: number;
       current_quantity: number;
       expiration_date?: string | null;
@@ -159,7 +159,7 @@ export default function VendorPageClient({
       stockEntry: {
         id: stockEntry.id,
         sale_price_unit: stockEntry.sale_price_unit,
-        sale_price_box: stockEntry.sale_price_box,
+  
         sale_price_wholesale: stockEntry.sale_price_wholesale,
         current_quantity: stockEntry.current_quantity,
         expiration_date: stockEntry.expiration_date,
@@ -199,7 +199,7 @@ export default function VendorPageClient({
           created_at: new Date().toISOString(),
           purchase_price: 0,
           sale_price_unit: existingItem.unitPrice,
-          sale_price_box: existingItem.boxPrice || 0,
+  
           sale_price_wholesale: existingItem.wholesalePrice || null
         };
         
@@ -211,7 +211,7 @@ export default function VendorPageClient({
               ...item,
               quantity: newQuantity,
               appliedPrice: pricingInfo.appliedPrice,
-              appliedPriceType: pricingInfo.priceType as 'unit' | 'box' | 'wholesale',
+              appliedPriceType: pricingInfo.priceType as 'unit' | 'wholesale',
               totalPrice: pricingInfo.totalPrice,
               savings: pricingInfo.savings
             }
@@ -225,7 +225,7 @@ export default function VendorPageClient({
           quantity: 1,
           saleFormat: 'unitario' as const,
           unitPrice: stockEntry.sale_price_unit || 0,
-          boxPrice: stockEntry.sale_price_box,
+
           wholesalePrice: stockEntry.sale_price_wholesale
         };
 
@@ -240,7 +240,7 @@ export default function VendorPageClient({
           created_at: new Date().toISOString(),
           purchase_price: 0,
           sale_price_unit: baseItem.unitPrice,
-          sale_price_box: baseItem.boxPrice || 0,
+
           sale_price_wholesale: baseItem.wholesalePrice || null
         };
         
@@ -249,7 +249,7 @@ export default function VendorPageClient({
         return [...prevCart, {
           ...baseItem,
           appliedPrice: pricingInfo.appliedPrice,
-          appliedPriceType: pricingInfo.priceType as 'unit' | 'box' | 'wholesale',
+          appliedPriceType: pricingInfo.priceType as 'unit' | 'wholesale',
           totalPrice: pricingInfo.totalPrice,
           savings: pricingInfo.savings,
           stockEntry: {
@@ -282,7 +282,7 @@ export default function VendorPageClient({
             created_at: new Date().toISOString(),
             purchase_price: 0,
             sale_price_unit: item.unitPrice,
-            sale_price_box: item.boxPrice || 0,
+    
             sale_price_wholesale: item.wholesalePrice || null
           };
           
@@ -292,7 +292,7 @@ export default function VendorPageClient({
             ...item,
             quantity: newQuantity,
             appliedPrice: pricingInfo.appliedPrice,
-            appliedPriceType: pricingInfo.priceType as 'unit' | 'box' | 'wholesale',
+            appliedPriceType: pricingInfo.priceType as 'unit' | 'wholesale',
             totalPrice: pricingInfo.totalPrice,
             savings: pricingInfo.savings
           };
@@ -403,7 +403,7 @@ export default function VendorPageClient({
     product: Product;
     stockEntryId: string;
     quantity: number;
-    saleFormat: 'unitario' | 'caja';
+    saleFormat: 'unitario';
     price: number;
   }) => {
 
@@ -428,7 +428,7 @@ export default function VendorPageClient({
           created_at: new Date().toISOString(),
           purchase_price: 0,
           sale_price_unit: existingItem.unitPrice,
-          sale_price_box: existingItem.boxPrice || 0,
+  
           sale_price_wholesale: existingItem.wholesalePrice || null
         };
         
@@ -440,7 +440,7 @@ export default function VendorPageClient({
               ...cartItem,
               quantity: newQuantity,
               appliedPrice: pricingInfo.appliedPrice,
-              appliedPriceType: pricingInfo.priceType as 'unit' | 'box' | 'wholesale',
+              appliedPriceType: pricingInfo.priceType as 'unit' | 'wholesale',
               totalPrice: pricingInfo.totalPrice,
               savings: pricingInfo.savings
             }
@@ -454,7 +454,7 @@ export default function VendorPageClient({
           quantity: item.quantity,
           saleFormat: item.saleFormat,
           unitPrice: item.price,
-          boxPrice: undefined,
+
           wholesalePrice: undefined
         };
 
@@ -469,7 +469,7 @@ export default function VendorPageClient({
           created_at: new Date().toISOString(),
           purchase_price: 0,
           sale_price_unit: item.price,
-          sale_price_box: 0,
+
           sale_price_wholesale: null
         };
         
@@ -478,7 +478,7 @@ export default function VendorPageClient({
         return [...prevCart, {
           ...baseItem,
           appliedPrice: pricingInfo.appliedPrice,
-          appliedPriceType: pricingInfo.priceType as 'unit' | 'box' | 'wholesale',
+          appliedPriceType: pricingInfo.priceType as 'unit' | 'wholesale',
           totalPrice: pricingInfo.totalPrice,
           savings: pricingInfo.savings
         }];
@@ -862,4 +862,4 @@ export default function VendorPageClient({
       />
     </div>
   );
-} 
+}

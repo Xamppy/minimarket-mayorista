@@ -17,12 +17,12 @@ interface CartItem {
   product: Product;
   stockEntryId: string;
   quantity: number;
-  saleFormat: 'unitario' | 'caja' | 'display' | 'pallet';
+  saleFormat: 'unitario' | 'display' | 'pallet';
   unitPrice: number;
-  boxPrice?: number;
+
   wholesalePrice?: number;
   appliedPrice: number;
-  appliedPriceType: 'unit' | 'box' | 'wholesale';
+  appliedPriceType: 'unit' | 'wholesale';
   totalPrice: number;
   savings?: number;
 }
@@ -71,41 +71,22 @@ export default function CartModal({
   // Función para calcular precios de un item del carrito
   const calculateCartItemPricing = (
     quantity: number,
-    saleFormat: 'unitario' | 'caja' | 'display' | 'pallet',
+    saleFormat: 'unitario' | 'display' | 'pallet',
     unitPrice: number,
-    boxPrice?: number,
     wholesalePrice?: number
   ) => {
-    if (saleFormat === 'unitario') {
-      const calculation = calculateItemPrice({
-        quantity,
-        unitPrice,
-        boxPrice,
-        wholesalePrice
-      });
-      
-      return {
-        appliedPrice: calculation.applicablePrice,
-        appliedPriceType: calculation.priceType as 'unit' | 'box' | 'wholesale',
-        totalPrice: calculation.totalPrice,
-        savings: calculation.savings
-      };
-    } else if (saleFormat === 'caja' && boxPrice) {
-      return {
-        appliedPrice: boxPrice,
-        appliedPriceType: 'box' as const,
-        totalPrice: boxPrice * quantity,
-        savings: 0
-      };
-    } else {
-      // Fallback a precio unitario
-      return {
-        appliedPrice: unitPrice,
-        appliedPriceType: 'unit' as const,
-        totalPrice: unitPrice * quantity,
-        savings: 0
-      };
-    }
+    const calculation = calculateItemPrice({
+      quantity,
+      unitPrice,
+      wholesalePrice
+    });
+    
+    return {
+      appliedPrice: calculation.applicablePrice,
+      appliedPriceType: calculation.priceType as 'unit' | 'wholesale',
+      totalPrice: calculation.totalPrice,
+      savings: calculation.savings
+    };
   };
 
   // Función para actualizar precios de un item existente
@@ -114,7 +95,7 @@ export default function CartModal({
       item.quantity,
       item.saleFormat,
       item.unitPrice,
-      item.boxPrice,
+
       item.wholesalePrice
     );
 
@@ -152,7 +133,7 @@ export default function CartModal({
     // Si no hay carrito externo, no hacer nada
   };
 
-  const updateSaleFormat = (productId: string, newFormat: 'unitario' | 'caja' | 'display' | 'pallet') => {
+  const updateSaleFormat = (productId: string, newFormat: 'unitario' | 'display' | 'pallet') => {
     // Esta funcionalidad no está implementada en el carrito externo aún
     // TODO: Implementar actualización de formato de venta en VendorPageClient
     console.log('updateSaleFormat no implementado para carrito externo:', productId, newFormat);
@@ -340,7 +321,7 @@ export default function CartModal({
                         const testStockEntry = {
                           id: 'test-stock-1',
                           sale_price_unit: 1000,
-                          sale_price_box: 10000,
+                  
                           sale_price_wholesale: 800
                         };
                         
@@ -408,7 +389,7 @@ export default function CartModal({
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500 text-black"
                         >
                           <option value="unitario">Unitario</option>
-                          <option value="caja">Caja</option>
+    
                           <option value="display">Display</option>
                           <option value="pallet">Pallet</option>
                         </select>
@@ -531,4 +512,4 @@ export default function CartModal({
       </div>
     </div>
   );
-} 
+}

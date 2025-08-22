@@ -2,12 +2,12 @@
 
 ## Overview
 
-This design document outlines the implementation of brand and product type management functionality for the MiniMarket Pro system. The feature will allow administrators to create, read, update, and delete brands (marcas) and product types (tipos) that serve as categorization options for products. The design leverages the existing Next.js 15 App Router architecture, Supabase database, and established UI patterns.
+This design document outlines the implementation of brand and product type management functionality for the MiniMarket Pro system. The feature will allow administrators to create, read, update, and delete brands (marcas) and product types (tipos) that serve as categorization options for products. The design leverages the existing Next.js 15 App Router architecture, PostgreSQL database, and established UI patterns.
 
 ## Architecture
 
 ### Database Layer
-The system already has `brands` and `product_types` tables in the Supabase database, as evidenced by the existing queries in the admin dashboard. The current schema includes:
+The system already has `brands` and `product_types` tables in the PostgreSQL database, as evidenced by the existing queries in the admin dashboard. The current schema includes:
 
 **Brands Table:**
 - `id`: Primary key (integer)
@@ -189,7 +189,7 @@ async function getProductTypesWithUsage(): Promise<CategoryWithUsage[]>
 
 ### Data Validation
 - Server-side validation for all inputs
-- SQL injection prevention through Supabase client
+- SQL injection prevention through parameterized queries
 - XSS prevention through proper data sanitization
 
 ### Database Constraints

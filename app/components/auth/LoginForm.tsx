@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '../../utils/supabase/client';
 
 export default function LoginForm() {
   const [email, setEmail] = useState('');
@@ -17,51 +16,38 @@ export default function LoginForm() {
     setError('');
 
     try {
-      const supabase = createClient();
-      
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password: password,
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          password: password,
+        }),
       });
 
-      if (error) {
-        throw error;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al iniciar sesión');
       }
 
-      if (data.user) {
-        // Obtener el rol del usuario
-        const { data: roleData, error: roleError } = await supabase.rpc('get_user_role', { 
-          user_id: data.user.id 
-        });
-
-        if (roleError) {
-          console.error('Error al obtener rol:', roleError);
-          // Si hay error obteniendo el rol, redirigir a una página por defecto
-          router.push('/dashboard/vendedor');
-          return;
-        }
-
-        // Redirigir según el rol
-        if (roleData === 'administrador') {
-          router.push('/dashboard/admin');
-        } else {
-          router.push('/dashboard/vendedor');
-        }
+      // El token se guarda automáticamente en las cookies por la API
+      // Redirigir según el rol
+      if (data.user.rol === 'administrador') {
+        router.push('/admin');
+      } else {
+        router.push('/dashboard/vendedor');
       }
+      
+      // Recargar la página para actualizar el estado de autenticación
+      router.refresh();
     } catch (err) {
       console.error('Error de autenticación:', err);
       
       if (err instanceof Error) {
-        // Personalizar mensajes de error en español
-        if (err.message.includes('Invalid login credentials')) {
-          setError('Credenciales incorrectas. Verifica tu email y contraseña.');
-        } else if (err.message.includes('Email not confirmed')) {
-          setError('Por favor confirma tu email antes de iniciar sesión.');
-        } else if (err.message.includes('Too many requests')) {
-          setError('Demasiados intentos. Espera unos minutos antes de intentar nuevamente.');
-        } else {
-          setError('Error al iniciar sesión. Inténtalo nuevamente.');
-        }
+        setError(err.message);
       } else {
         setError('Error desconocido. Inténtalo nuevamente.');
       }
@@ -159,4 +145,4 @@ export default function LoginForm() {
       </div>
     </div>
   );
-} 
+}

@@ -4,12 +4,21 @@ import { useState, useEffect } from 'react';
 import { formatAsCLP } from '@/lib/formatters';
 import { calculateUnifiedPricing, getWholesalePricingInfo, validateQuantity } from '@/lib/unified-pricing-service';
 import { Product, StockEntry } from '@/lib/cart-types';
+import { authenticatedFetch } from '../../../utils/auth/api';
+
+// Función para prevenir cambios de valor en inputs numéricos al hacer scroll
+const preventScrollChange = (e: WheelEvent) => {
+  const target = e.target as HTMLInputElement;
+  if (target.type === 'number' && document.activeElement === target) {
+    e.preventDefault();
+  }
+};
 
 interface StockEntrySelectionModalProps {
   isOpen: boolean;
   onClose: () => void;
   product: Product;
-  onStockEntrySelected: (stockEntry: StockEntry, quantity: number, saleFormat: 'unitario' | 'caja') => void;
+  onStockEntrySelected: (stockEntry: StockEntry, quantity: number, saleFormat: 'unitario') => void;
 }
 
 export default function StockEntrySelectionModal({
@@ -21,15 +30,23 @@ export default function StockEntrySelectionModal({
   const [stockEntries, setStockEntries] = useState<StockEntry[]>([]);
   const [selectedStockEntry, setSelectedStockEntry] = useState<StockEntry | null>(null);
   const [quantity, setQuantity] = useState(1);
-  const [saleFormat, setSaleFormat] = useState<'unitario' | 'caja'>('unitario');
+  const [saleFormat, setSaleFormat] = useState<'unitario'>('unitario');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   // Fetch stock entries when modal opens
   useEffect(() => {
+    // Agregar event listener para prevenir cambios de scroll en inputs numéricos
+    document.addEventListener('wheel', preventScrollChange, { passive: false });
+
     if (isOpen && product.id) {
       fetchStockEntries();
     }
+
+    // Cleanup function para remover el event listener
+    return () => {
+      document.removeEventListener('wheel', preventScrollChange);
+    };
   }, [isOpen, product.id]);
 
   const fetchStockEntries = async () => {
@@ -38,7 +55,7 @@ export default function StockEntrySelectionModal({
       setError('');
       
       console.log('Fetching stock entries for product:', product.id);
-      const response = await fetch(`/api/products/${product.id}/stock-entries`);
+      const response = await authenticatedFetch(`/api/products/${product.id}/stock-entries`);
       console.log('Response status:', response.status);
       
       const data = await response.json();
@@ -348,11 +365,10 @@ export default function StockEntrySelectionModal({
                   <select
                     id="saleFormat"
                     value={saleFormat}
-                    onChange={(e) => setSaleFormat(e.target.value as 'unitario' | 'caja')}
+                    onChange={(e) => setSaleFormat(e.target.value as 'unitario')}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
                   >
                     <option value="unitario">Unitario - {formatAsCLP(selectedStockEntry.sale_price_unit)}</option>
-                    <option value="caja">Caja - {formatAsCLP(selectedStockEntry.sale_price_box)}</option>
                   </select>
                 </div>
 

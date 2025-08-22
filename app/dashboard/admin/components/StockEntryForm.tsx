@@ -3,6 +3,14 @@
 import { useState, useEffect } from 'react';
 import { addStockEntry, updateStockEntry } from '../actions';
 
+// Función para prevenir cambios de valor en inputs numéricos al hacer scroll
+const preventScrollChange = (e: WheelEvent) => {
+  const target = e.target as HTMLInputElement;
+  if (target.type === 'number' && document.activeElement === target) {
+    e.preventDefault();
+  }
+};
+
 interface StockEntryFormProps {
   productId: string;
   productName?: string;
@@ -11,10 +19,10 @@ interface StockEntryFormProps {
     id: string;
     current_quantity: number;
     barcode: string;
-    purchase_price: number;
-    sale_price_unit: number;
-    sale_price_box: number;
-    sale_price_wholesale?: number;
+    purchase_price: number | string | null;
+    sale_price_unit: number | string | null;
+
+    sale_price_wholesale?: number | string | null;
     expiration_date?: string;
   };
   onCancelEdit?: () => void;
@@ -34,17 +42,20 @@ export default function StockEntryForm({
   const isEditing = !!editingStockEntry;
 
   useEffect(() => {
+    // Agregar event listener para prevenir cambios de scroll en inputs numéricos
+    document.addEventListener('wheel', preventScrollChange, { passive: false });
+
     // Pre-llenar el formulario cuando se esté editando
     if (editingStockEntry) {
       const form = document.getElementById('stock-entry-form') as HTMLFormElement;
       if (form) {
         (form.elements.namedItem('quantity') as HTMLInputElement).value = editingStockEntry.current_quantity.toString();
         (form.elements.namedItem('barcode') as HTMLInputElement).value = editingStockEntry.barcode;
-        (form.elements.namedItem('purchasePrice') as HTMLInputElement).value = editingStockEntry.purchase_price.toString();
-        (form.elements.namedItem('unitPrice') as HTMLInputElement).value = editingStockEntry.sale_price_unit.toString();
-        (form.elements.namedItem('boxPrice') as HTMLInputElement).value = editingStockEntry.sale_price_box.toString();
+        (form.elements.namedItem('purchasePrice') as HTMLInputElement).value = (editingStockEntry.purchase_price ?? 0).toString();
+        (form.elements.namedItem('unitPrice') as HTMLInputElement).value = (editingStockEntry.sale_price_unit ?? 0).toString();
+
         if (editingStockEntry.sale_price_wholesale) {
-          (form.elements.namedItem('wholesalePrice') as HTMLInputElement).value = editingStockEntry.sale_price_wholesale.toString();
+          (form.elements.namedItem('wholesalePrice') as HTMLInputElement).value = (editingStockEntry.sale_price_wholesale ?? 0).toString();
         }
         if (editingStockEntry.expiration_date) {
           (form.elements.namedItem('expirationDate') as HTMLInputElement).value = editingStockEntry.expiration_date;
@@ -57,6 +68,11 @@ export default function StockEntryForm({
         form.reset();
       }
     }
+
+    // Cleanup function para remover el event listener
+    return () => {
+      document.removeEventListener('wheel', preventScrollChange);
+    };
   }, [editingStockEntry]);
 
   const handleSubmit = async (formData: FormData) => {
@@ -166,26 +182,41 @@ export default function StockEntryForm({
         {productName && <span className="text-gray-600 font-normal"> - {productName}</span>}
       </h3>
       
-      <form id="stock-entry-form" action={handleSubmit} className="space-y-4">
-        {/* Cantidad */}
-        <div>
-          <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 mb-1">
-            Cantidad *
-          </label>
-          <input
-            type="number"
-            id="quantity"
-            name="quantity"
-            required
-            min="1"
-            step="1"
-            disabled={loading}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900"
-            placeholder="Ej: 50"
-          />
+      <form id="stock-entry-form" action={handleSubmit} className="space-y-3">
+        {/* Primera fila: Cantidad y Fecha de Vencimiento */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 mb-1">
+              Cantidad *
+            </label>
+            <input
+              type="number"
+              id="quantity"
+              name="quantity"
+              required
+              min="1"
+              step="1"
+              disabled={loading}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900 text-center"
+              placeholder="50"
+            />
+          </div>
+          
+          <div className="md:col-span-2">
+            <label htmlFor="expirationDate" className="block text-sm font-medium text-gray-700 mb-1">
+              Fecha de Vencimiento (opcional)
+            </label>
+            <input
+              type="date"
+              id="expirationDate"
+              name="expirationDate"
+              disabled={loading}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900"
+            />
+          </div>
         </div>
 
-        {/* Código de Barras */}
+        {/* Segunda fila: Código de Barras */}
         <div>
           <label htmlFor="barcode" className="block text-sm font-medium text-gray-700 mb-1">
             Código de Barras *
@@ -201,29 +232,28 @@ export default function StockEntryForm({
           />
         </div>
 
-        {/* Precio de Compra */}
-        <div>
-          <label htmlFor="purchasePrice" className="block text-sm font-medium text-gray-700 mb-1">
-            Precio de Compra *
-          </label>
-          <input
-            type="number"
-            id="purchasePrice"
-            name="purchasePrice"
-            required
-            min="0"
-            step="0.01"
-            disabled={loading}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900"
-            placeholder="0.00"
-          />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Precio de Venta Unitario */}
+        {/* Tercera fila: Precios */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <label htmlFor="purchasePrice" className="block text-sm font-medium text-gray-700 mb-1">
+              Precio Compra *
+            </label>
+            <input
+              type="number"
+              id="purchasePrice"
+              name="purchasePrice"
+              required
+              min="0"
+              step="0.01"
+              disabled={loading}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900"
+              placeholder="0.00"
+            />
+          </div>
+          
           <div>
             <label htmlFor="unitPrice" className="block text-sm font-medium text-gray-700 mb-1">
-              Precio de Venta Unitario *
+              Precio Unitario *
             </label>
             <input
               type="number"
@@ -237,79 +267,43 @@ export default function StockEntryForm({
               placeholder="0.00"
             />
           </div>
-
-          {/* Precio de Venta por Caja */}
+          
           <div>
-            <label htmlFor="boxPrice" className="block text-sm font-medium text-gray-700 mb-1">
-              Precio de Venta por Caja *
+            <label htmlFor="wholesalePrice" className="block text-sm font-medium text-gray-700 mb-1">
+              Precio Mayorista
+              <span className="text-xs text-gray-500 ml-1">(3+ unid.)</span>
             </label>
             <input
               type="number"
-              id="boxPrice"
-              name="boxPrice"
-              required
+              id="wholesalePrice"
+              name="wholesalePrice"
               min="0"
               step="0.01"
               disabled={loading}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900"
-              placeholder="0.00"
+              onChange={validateWholesalePriceInput}
+              onBlur={validateWholesalePriceInput}
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900 ${
+                wholesalePriceError 
+                  ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
+                  : 'border-gray-300 focus:ring-indigo-500'
+              }`}
+              placeholder="Opcional"
             />
           </div>
         </div>
 
-        {/* Precio Mayorista */}
-        <div>
-          <label htmlFor="wholesalePrice" className="block text-sm font-medium text-gray-700 mb-1">
-            Precio Mayorista (opcional)
-            <span className="text-xs text-gray-500 ml-2">
-              💡 Se aplica automáticamente para compras de 3+ unidades
-            </span>
-          </label>
-          <input
-            type="number"
-            id="wholesalePrice"
-            name="wholesalePrice"
-            min="0"
-            step="0.01"
-            disabled={loading}
-            onChange={validateWholesalePriceInput}
-            onBlur={validateWholesalePriceInput}
-            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900 ${
-              wholesalePriceError 
-                ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
-                : 'border-gray-300 focus:ring-indigo-500'
-            }`}
-            placeholder="0.00 (opcional - para ventas de 3+ unidades)"
-          />
-          
-          {/* Mensaje de error específico para precio mayorista */}
-          {wholesalePriceError && (
-            <p className="text-xs text-red-600 mt-1">
-              ⚠️ {wholesalePriceError}
-            </p>
-          )}
-          
-          {/* Mensaje de ayuda (solo si no hay error) */}
-          {!wholesalePriceError && (
-            <p className="text-xs text-gray-500 mt-1">
-              Si se especifica, este precio se aplicará automáticamente cuando el cliente compre 3 o más unidades del producto.
-            </p>
-          )}
-        </div>
-
-        {/* Fecha de Vencimiento */}
-        <div>
-          <label htmlFor="expirationDate" className="block text-sm font-medium text-gray-700 mb-1">
-            Fecha de Vencimiento (opcional)
-          </label>
-          <input
-            type="date"
-            id="expirationDate"
-            name="expirationDate"
-            disabled={loading}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900"
-          />
-        </div>
+        {/* Mensajes de error y ayuda para precio mayorista */}
+        {wholesalePriceError && (
+          <div className="text-red-600 text-xs bg-red-50 p-2 rounded-md">
+            ⚠️ {wholesalePriceError}
+          </div>
+        )}
+        
+        {!wholesalePriceError && (
+          <div className="text-xs text-gray-500 bg-blue-50 p-2 rounded-md">
+            💡 El precio mayorista se aplica automáticamente para compras de 3+ unidades
+          </div>
+        )}
 
         {/* Mensajes de error y éxito */}
         {error && (
@@ -352,4 +346,4 @@ export default function StockEntryForm({
       </form>
     </div>
   );
-} 
+}

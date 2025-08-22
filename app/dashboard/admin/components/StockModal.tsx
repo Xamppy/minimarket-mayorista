@@ -3,17 +3,18 @@
 import { useState, useEffect } from 'react';
 import StockEntryForm from './StockEntryForm';
 import { deleteStockEntry } from '../actions';
+import { authenticatedFetch } from '../../../utils/auth/api';
 
 interface StockEntry {
-  id: number;
-  product_id: number;
+  id: string;
+  product_id: string;
   initial_quantity: number;
   current_quantity: number;
   barcode: string;
-  purchase_price: number;
-  sale_price_unit: number;
-  sale_price_box: number;
-  sale_price_wholesale?: number;
+  purchase_price: number | string | null;
+  sale_price_unit: number | string | null;
+
+  sale_price_wholesale?: number | string | null;
   expiration_date: string;
   created_at: string;
 }
@@ -38,7 +39,7 @@ export default function StockModal({ isOpen, onClose, productId, productName }: 
     setLoading(true);
     setError('');
     try {
-      const response = await fetch(`/api/stock-entries?productId=${productId}`);
+      const response = await authenticatedFetch(`/api/stock-entries?productId=${productId}`);
       
       if (!response.ok) {
         const errorData = await response.json();
@@ -46,7 +47,7 @@ export default function StockModal({ isOpen, onClose, productId, productName }: 
       }
       
       const data = await response.json();
-      setStockEntries(data);
+      setStockEntries(data.stock_entries || data);
     } catch (error) {
       console.error('Error fetching stock entries:', error);
       setError(error instanceof Error ? error.message : 'Error al cargar las entradas de stock');
@@ -123,7 +124,7 @@ export default function StockModal({ isOpen, onClose, productId, productName }: 
               barcode: editingStockEntry.barcode,
               purchase_price: editingStockEntry.purchase_price,
               sale_price_unit: editingStockEntry.sale_price_unit,
-              sale_price_box: editingStockEntry.sale_price_box,
+
               sale_price_wholesale: editingStockEntry.sale_price_wholesale,
               expiration_date: editingStockEntry.expiration_date
             } : undefined}
@@ -139,13 +140,13 @@ export default function StockModal({ isOpen, onClose, productId, productName }: 
               <div className="text-center">
                 <p className="text-sm text-gray-600">Stock Total Actual</p>
                 <p className="text-2xl font-bold text-green-600">
-                  {stockEntries.reduce((sum, entry) => sum + entry.current_quantity, 0)} unidades
+                  {stockEntries.reduce((sum: number, entry: StockEntry) => sum + entry.current_quantity, 0)} unidades
                 </p>
               </div>
               <div className="text-center">
                 <p className="text-sm text-gray-600">Stock Inicial Total</p>
                 <p className="text-2xl font-bold text-blue-600">
-                  {stockEntries.reduce((sum, entry) => sum + entry.initial_quantity, 0)} unidades
+                  {stockEntries.reduce((sum: number, entry: StockEntry) => sum + entry.initial_quantity, 0)} unidades
                 </p>
               </div>
               <div className="text-center">
@@ -212,9 +213,7 @@ export default function StockModal({ isOpen, onClose, productId, productName }: 
                     <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
                       Precio Venta Unit.
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
-                      Precio Venta Caja
-                    </th>
+
                     <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
                       Precio Mayorista
                     </th>
@@ -244,18 +243,16 @@ export default function StockModal({ isOpen, onClose, productId, productName }: 
                         {entry.barcode}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
-                        <span className="text-blue-600 font-medium">${entry.purchase_price.toFixed(2)}</span>
+                        <span className="text-blue-600 font-medium">${(Number(entry.purchase_price) || 0).toFixed(2)}</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
-                        <span className="text-green-600 font-medium">${entry.sale_price_unit.toFixed(2)}</span>
+                        <span className="text-green-600 font-medium">${(Number(entry.sale_price_unit) || 0).toFixed(2)}</span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
-                        <span className="text-green-600 font-medium">${entry.sale_price_box.toFixed(2)}</span>
-                      </td>
+
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
                         {entry.sale_price_wholesale ? (
                           <span className="text-purple-600 font-medium">
-                            ${entry.sale_price_wholesale.toFixed(2)}
+                            ${(Number(entry.sale_price_wholesale) || 0).toFixed(2)}
                             <span className="text-xs text-gray-500 ml-1">(3+ unidades)</span>
                           </span>
                         ) : (
@@ -307,4 +304,4 @@ export default function StockModal({ isOpen, onClose, productId, productName }: 
       </div>
     </div>
   );
-} 
+}

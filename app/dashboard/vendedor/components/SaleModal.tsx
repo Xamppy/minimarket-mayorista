@@ -1,10 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { formatAsCLP } from '@/lib/formatters';
 import { calculateUnifiedPricing } from '@/lib/unified-pricing-service';
 import { StockEntry } from '@/lib/cart-types';
 import WholesalePricingIndicator from './WholesalePricingIndicator';
+
+// Función para prevenir cambios de valor en inputs numéricos al hacer scroll
+const preventScrollChange = (e: WheelEvent) => {
+  const target = e.target as HTMLInputElement;
+  if (target.type === 'number' && document.activeElement === target) {
+    e.preventDefault();
+  }
+};
 
 interface Product {
   id: string;
@@ -19,12 +27,12 @@ interface CartItem {
   product: Product;
   stockEntryId: string;
   quantity: number;
-  saleFormat: 'unitario' | 'caja' | 'display' | 'pallet';
+  saleFormat: 'unitario' | 'display' | 'pallet';
   unitPrice: number;
-  boxPrice?: number;
+
   wholesalePrice?: number;
   appliedPrice: number;
-  appliedPriceType: 'unit' | 'box' | 'wholesale';
+  appliedPriceType: 'unit' | 'wholesale';
   totalPrice: number;
   savings?: number;
 }
@@ -34,7 +42,7 @@ interface ScannedItem {
   stockEntry: {
     id: string;
     sale_price_unit: number;
-    sale_price_box: number;
+  
     sale_price_wholesale?: number;
     current_quantity: number;
     expiration_date?: string | null;
@@ -53,7 +61,7 @@ interface SaleModalProps {
     product: Product;
     stockEntryId: string;
     quantity: number;
-    saleFormat: 'unitario' | 'caja';
+    saleFormat: 'unitario';
     price: number;
   }) => void;
   // Para modo finalize-sale  
@@ -71,7 +79,7 @@ export default function SaleModal({
   onSaleCompleted 
 }: SaleModalProps) {
   const [quantity, setQuantity] = useState(1);
-  const [saleFormat, setSaleFormat] = useState<'unitario' | 'caja'>('unitario');
+  const [saleFormat, setSaleFormat] = useState<'unitario'>('unitario');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [saleSuccess, setSaleSuccess] = useState<{ success: boolean; saleId?: string }>({ success: false });
@@ -79,6 +87,16 @@ export default function SaleModal({
   // Determinar modo de operación
   const isAddToCartMode = mode === 'add-to-cart-from-scan';
   const isFinalizeSaleMode = mode === 'finalize-sale';
+
+  useEffect(() => {
+    // Agregar event listener para prevenir cambios de scroll en inputs numéricos
+    document.addEventListener('wheel', preventScrollChange, { passive: false });
+
+    // Cleanup function para remover el event listener
+    return () => {
+      document.removeEventListener('wheel', preventScrollChange);
+    };
+  }, []);
 
   if (!isOpen) return null;
 
@@ -96,7 +114,7 @@ export default function SaleModal({
       created_at: new Date().toISOString(),
       purchase_price: 0,
       sale_price_unit: scannedItem.stockEntry.sale_price_unit,
-      sale_price_box: scannedItem.stockEntry.sale_price_box,
+
       sale_price_wholesale: scannedItem.stockEntry.sale_price_wholesale || null
     };
     
@@ -118,7 +136,6 @@ export default function SaleModal({
       created_at: new Date().toISOString(),
       purchase_price: 0,
       sale_price_unit: scannedItem.stockEntry.sale_price_unit,
-      sale_price_box: scannedItem.stockEntry.sale_price_box,
       sale_price_wholesale: scannedItem.stockEntry.sale_price_wholesale || null
     };
     
@@ -590,13 +607,12 @@ export default function SaleModal({
                   <select
                     id="saleFormat"
                     value={saleFormat}
-                    onChange={(e) => setSaleFormat(e.target.value as 'unitario' | 'caja')}
+                    onChange={(e) => setSaleFormat(e.target.value as 'unitario')}
                     required
                     disabled={loading}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500 text-black"
                   >
                     <option value="unitario">Unitario - {scannedItem && formatAsCLP(scannedItem.stockEntry.sale_price_unit)}</option>
-                    <option value="caja">Caja - {scannedItem && formatAsCLP(scannedItem.stockEntry.sale_price_box)}</option>
                   </select>
                 </div>
 
@@ -671,4 +687,4 @@ export default function SaleModal({
       </div>
     </div>
   );
-} 
+}

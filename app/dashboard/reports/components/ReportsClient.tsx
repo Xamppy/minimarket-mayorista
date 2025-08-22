@@ -5,6 +5,7 @@ import { getSalesReport, getTopSellingProducts, getRecentSales, getDailySalesSta
 import { formatAsCLP } from '../../../../lib/formatters';
 import { safeEmailInitial, formatSafeEmail, validateSaleData, SafeRecentSale } from '../../../../lib/safe-data-utils';
 import DailySalesChart from './DailySalesChart';
+import SalesHistorySearch from './SalesHistorySearch';
 
 interface SalesReport {
   totalSales: number;
@@ -70,7 +71,9 @@ export default function ReportsClient() {
       setDailySalesData(dailySalesStats as DailySalesData[]);
       
       // Log data quality issues for debugging
-      const invalidSales = recentSalesData?.filter((sale: any) => !sale?.seller_email) || [];
+      const invalidSales = Array.isArray(recentSalesData) 
+        ? recentSalesData.filter((sale: any) => !sale?.seller_email) 
+        : [];
       if (invalidSales.length > 0) {
         console.warn(`Found ${invalidSales.length} sales with missing seller information`, invalidSales);
       }
@@ -308,99 +311,8 @@ export default function ReportsClient() {
         )}
       </div>
 
-      {/* Últimas 10 Ventas */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6">
-          📋 Últimas 10 Ventas Realizadas
-        </h2>
-        
-        {recentSales.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
-            <div className="mb-4">
-              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
-            </div>
-            <p className="text-lg font-medium">No hay ventas recientes</p>
-            <p className="text-sm">Las ventas aparecerán aquí una vez que se registren</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    ID Venta
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Fecha y Hora
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Vendedor
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Monto Total
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {recentSales.map((sale) => (
-                  <tr key={sale.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-semibold">
-                        #{sale.id}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(sale.created_at)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <div className="flex items-center">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${
-                          sale.seller_email 
-                            ? 'bg-blue-100 text-blue-700' 
-                            : 'bg-gray-200 text-gray-500'
-                        }`}>
-                          <span className="text-xs font-medium">
-                            {safeEmailInitial(sale.seller_email)}
-                          </span>
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="font-medium">
-                            {formatSafeEmail(sale.seller_email)}
-                          </span>
-                          {!sale.seller_email && (
-                            <span className="text-xs text-amber-600 flex items-center">
-                              <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                              </svg>
-                              Sin info del vendedor
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600">
-                      {formatAsCLP(sale.total_amount)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <button
-                        onClick={() => window.open(`/ticket/${sale.id}`, '_blank')}
-                        className="text-blue-600 hover:text-blue-900 font-medium hover:underline transition-colors"
-                      >
-                        Ver Ticket
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      {/* Búsqueda de Ventas Históricas */}
+      <SalesHistorySearch />
 
       {/* Información adicional mejorada */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
@@ -447,4 +359,4 @@ export default function ReportsClient() {
       </div>
     </div>
   );
-} 
+}

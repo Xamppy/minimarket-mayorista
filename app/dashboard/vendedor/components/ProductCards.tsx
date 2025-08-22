@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import SellButton from './SellButton';
 import SaleModal from './SaleModal';
+import { authenticatedFetch } from '../../../utils/auth/api';
 
 interface Product {
   id: string;
@@ -49,7 +50,7 @@ export default function ProductCards({ products, onSaleCompleted }: ProductCards
     try {
       // Primero necesitamos obtener la información de precios del producto
       // Buscaremos el primer stock entry disponible para este producto
-      const response = await fetch(`/api/stock-entries?productId=${product.id}`);
+      const response = await authenticatedFetch(`/api/stock-entries?productId=${product.id}`);
       
       if (!response.ok) {
         throw new Error('Error al obtener información del producto');
@@ -77,7 +78,7 @@ export default function ProductCards({ products, onSaleCompleted }: ProductCards
           stockEntry: {
             id: availableStock.id,
             sale_price_unit: availableStock.sale_price_unit,
-            sale_price_box: availableStock.sale_price_box,
+    
             sale_price_wholesale: availableStock.sale_price_wholesale,
             current_quantity: availableStock.current_quantity
           }
@@ -178,4 +179,4 @@ export default function ProductCards({ products, onSaleCompleted }: ProductCards
       />
     </>
   );
-} 
+}

@@ -24,6 +24,10 @@ export default function ProductForm({ brands, productTypes, onSuccess }: Product
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // Debug: Log de las props recibidas
+  console.log('ProductForm - Marcas recibidas:', brands);
+  console.log('ProductForm - Tipos recibidos:', productTypes);
+
   const handleSubmit = async (formData: FormData) => {
     setLoading(true);
     setError('');
@@ -73,19 +77,19 @@ export default function ProductForm({ brands, productTypes, onSuccess }: Product
 
         {/* Marca */}
         <div>
-          <label htmlFor="brandId" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="brand_name" className="block text-sm font-medium text-gray-700 mb-1">
             Marca *
           </label>
           <select
-            id="brandId"
-            name="brandId"
+            id="brand_name"
+            name="brand_name"
             required
             disabled={loading}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900"
           >
             <option value="">Selecciona una marca</option>
             {brands.map((brand) => (
-              <option key={brand.id} value={brand.id}>
+              <option key={brand.id} value={brand.name}>
                 {brand.name}
               </option>
             ))}
@@ -94,12 +98,12 @@ export default function ProductForm({ brands, productTypes, onSuccess }: Product
 
         {/* Tipo de producto */}
         <div>
-          <label htmlFor="typeId" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="product_type_id" className="block text-sm font-medium text-gray-700 mb-1">
             Tipo de Producto *
           </label>
           <select
-            id="typeId"
-            name="typeId"
+            id="product_type_id"
+            name="product_type_id"
             required
             disabled={loading}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900"
@@ -156,4 +160,4 @@ export default function ProductForm({ brands, productTypes, onSuccess }: Product
         </p>
       </form>
     );
-} 
+}

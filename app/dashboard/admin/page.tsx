@@ -1,8 +1,10 @@
-import { createClient } from '../../utils/supabase/server';  
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import AdminDashboard from './components/AdminDashboard';
 import AdminErrorBoundary from './components/AdminErrorBoundary';
+import { getCurrentUser, authenticatedFetchJson, isAuthenticated, logout } from '../../utils/auth/api';
 
 interface Product {
   id: string;
@@ -35,43 +37,107 @@ interface ProductType {
   name: string;
 }
 
-export default async function AdminDashboardPage() {
-  const cookieStore = cookies();
-  const supabase = createClient(cookieStore);
+export default function AdminDashboardPage() {
+  const router = useRouter();
+  const [user, setUser] = useState<any>(null);
+  const [role, setRole] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>('');
+  const [products, setProducts] = useState<any[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [productTypes, setProductTypes] = useState<ProductType[]>([]);
+  const [productsError, setProductsError] = useState<Error | null>(null);
 
-  // Verificar autenticación
-  const { data: { user } } = await supabase.auth.getUser();
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        // Verificar si hay token
+        const authenticated = await isAuthenticated();
+        if (!authenticated) {
+          router.push('/');
+          return;
+        }
 
-  if (!user) {
-    redirect('/login');
-  }
+        // Obtener datos del usuario
+        const userData = await getCurrentUser();
+        setUser(userData.user);
+        setRole(userData.user.role);
 
-  // Obtener rol del usuario usando la función RPC
-  const { data: role, error } = await supabase.rpc('get_user_role', { user_id: user.id });
+        // Verificar si el rol es 'administrator'
+        if (userData.user.role !== 'administrator') {
+          setError('access_denied');
+          setLoading(false);
+          return;
+        }
 
-  // Manejo de errores en la llamada RPC
-  if (error) {
-    console.error('Error al obtener rol del usuario:', error);
+        // Cargar datos del dashboard
+        await loadDashboardData();
+        
+      } catch (err) {
+        console.error('Error de autenticación:', err);
+        // Token inválido o expirado - limpiar estado y redirigir
+        setUser(null);
+        setRole('');
+        logout(router);
+        return; // Evitar renderizar el componente con user null
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, [router]);
+
+  const loadDashboardData = async () => {
+    try {
+      // Cargar productos, marcas y tipos en paralelo usando las funciones utilitarias
+      const [productsData, brandsData, typesData] = await Promise.allSettled([
+        authenticatedFetchJson('/api/products'),
+        authenticatedFetchJson('/api/brands'),
+        authenticatedFetchJson('/api/product-types')
+      ]);
+
+      // Procesar resultados de productos
+      if (productsData.status === 'fulfilled') {
+        setProducts(productsData.value.products || []);
+      } else {
+        console.error('Error al cargar productos:', productsData.reason);
+        setProductsError(new Error('Error al cargar productos'));
+      }
+
+      // Procesar resultados de marcas
+      if (brandsData.status === 'fulfilled') {
+        console.log('Datos de marcas recibidos:', brandsData.value);
+        setBrands(brandsData.value || []);
+      } else {
+        console.error('Error al cargar marcas:', brandsData.reason);
+      }
+
+      // Procesar resultados de tipos de productos
+      if (typesData.status === 'fulfilled') {
+        console.log('Datos de tipos recibidos:', typesData.value);
+        setProductTypes(typesData.value || []);
+      } else {
+        console.error('Error al cargar tipos de productos:', typesData.reason);
+      }
+    } catch (err) {
+      console.error('Error cargando datos del dashboard:', err);
+      setProductsError(new Error('Error al cargar datos'));
+    }
+  };
+
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">Error del Sistema</h1>
-          <p className="text-gray-700 mb-4">
-            No se pudo verificar tu rol de usuario. Por favor, contacta al administrador del sistema.
-          </p>
-          <p className="text-sm text-gray-500">
-            Usuario: <strong>{user.email}</strong>
-          </p>
-          <p className="text-sm text-red-500">
-            Error: {error.message || 'Error desconocido'}
-          </p>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Cargando dashboard...</p>
         </div>
       </div>
     );
   }
 
-  // Verificar si el rol es 'administrador'
-  if (!role || role !== 'administrador') {
+  if (error === 'access_denied') {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6">
@@ -81,7 +147,7 @@ export default async function AdminDashboardPage() {
             Solo los administradores pueden ver el dashboard.
           </p>
           <p className="text-sm text-gray-500">
-            Usuario: <strong>{user.email}</strong>
+            Usuario: <strong>{user?.email || 'No disponible'}</strong>
           </p>
           <p className="text-sm text-gray-500">
             Rol actual: <strong>{role || 'Sin rol asignado'}</strong>
@@ -91,65 +157,44 @@ export default async function AdminDashboardPage() {
     );
   }
 
-  // Obtener todos los productos con información relacionada de marcas y tipos
-  const { data: products, error: productsError } = await supabase
-    .from('products')
-    .select(`
-      id,
-      name,
-      image_url,
-      brands (
-        name
-      ),
-      product_types (
-        name
-      )
-    `)
-    .order('created_at', { ascending: false });
+  if (error === 'auth_error') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Error del Sistema</h1>
+          <p className="text-gray-700 mb-4">
+            No se pudo verificar tu rol de usuario. Por favor, contacta al administrador del sistema.
+          </p>
+          <p className="text-sm text-gray-500">
+            Usuario: <strong>{user?.email || 'No disponible'}</strong>
+          </p>
+        </div>
+      </div>
+    );
+  }
 
-  // Obtener stock total para cada producto
-  const productsWithStock = await Promise.all(
-    (products || []).map(async (product) => {
-      const { data: stockData } = await supabase
-        .from('stock_entries')
-        .select('current_quantity')
-        .eq('product_id', product.id);
-      
-      const total_stock = stockData?.reduce((sum, entry) => sum + (entry.current_quantity || 0), 0) || 0;
-      
-      return {
-        id: product.id,
-        name: product.name,
-        brand_name: (product.brands as any)?.name || 'Sin marca',
-        type_name: (product.product_types as any)?.name || 'Sin tipo',
-        image_url: product.image_url,
-        total_stock
-      };
-    })
-  );
-
-  // Obtener todas las marcas para el formulario
-  const { data: brands } = await supabase
-    .from('brands')
-    .select('id, name')
-    .order('name') as { data: Brand[] | null; error: any };
-
-  // Obtener todos los tipos de productos para el formulario
-  const { data: productTypes } = await supabase
-    .from('product_types')
-    .select('id, name')
-    .order('name') as { data: ProductType[] | null; error: any };
+  // Verificación adicional de seguridad
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Verificando autenticación...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <AdminErrorBoundary>
       <AdminDashboard
         user={user}
         role={role}
-        products={productsWithStock}
-        brands={brands || []}
-        productTypes={productTypes || []}
+        products={products}
+        brands={brands}
+        productTypes={productTypes}
         productsError={productsError}
       />
     </AdminErrorBoundary>
   );
-} 
+}

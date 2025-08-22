@@ -4,36 +4,20 @@ import { useState, useEffect } from 'react';
 import { getLowStockAlerts, getExpirationAlerts } from '../actions';
 
 interface StockAlert {
-  id: string;
-  current_quantity: number;
-  barcode: string;
-  products: {
-    id: string;
-    name: string;
-    brands: {
-      name: string;
-    };
-    product_types: {
-      name: string;
-    };
-  };
+  product_id: string;
+  product_name: string;
+  brand_name: string;
+  total_stock: number;
 }
 
 interface ExpirationAlert {
   id: string;
-  current_quantity: number;
+  product_id: string;
+  product_name: string;
+  brand_name: string;
+  remaining_quantity: number;
   expiration_date: string;
-  barcode: string;
-  products: {
-    id: string;
-    name: string;
-    brands: {
-      name: string;
-    };
-    product_types: {
-      name: string;
-    };
-  };
+  days_until_expiration: number;
 }
 
 export default function AlertsDashboard() {
@@ -141,24 +125,24 @@ export default function AlertsDashboard() {
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {lowStockItems.map((item: any) => (
                 <div
-                  key={item.id}
+                  key={item.product_id}
                   className="border border-orange-200 bg-orange-50 rounded-lg p-3"
                 >
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <h4 className="font-medium text-gray-900">
-                        {item.products?.name || 'Producto sin nombre'}
+                        {item.product_name || 'Producto sin nombre'}
                       </h4>
                       <p className="text-sm text-gray-600">
-                        {item.products?.brands?.name || 'Sin marca'} • {item.products?.product_types?.name || 'Sin tipo'}
+                        {item.brand_name || 'Sin marca'}
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
-                        Código: {item.barcode}
+                        ID: {item.product_id}
                       </p>
                     </div>
                     <div className="ml-4 text-right">
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                        {item.current_quantity} unidades
+                        {item.total_stock} unidades
                       </span>
                     </div>
                   </div>
@@ -184,7 +168,7 @@ export default function AlertsDashboard() {
           ) : (
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {expiringItems.map((item: any) => {
-                const daysUntilExp = getDaysUntilExpiration(item.expiration_date);
+                const daysUntilExp = item.days_until_expiration;
                 const urgencyClass = getExpirationUrgency(daysUntilExp);
                 
                 return (
@@ -195,16 +179,16 @@ export default function AlertsDashboard() {
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <h4 className="font-medium text-gray-900">
-                          {item.products?.name || 'Producto sin nombre'}
+                          {item.product_name || 'Producto sin nombre'}
                         </h4>
                         <p className="text-sm text-gray-600">
-                          {item.products?.brands?.name || 'Sin marca'} • {item.products?.product_types?.name || 'Sin tipo'}
+                          {item.brand_name || 'Sin marca'}
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
-                          Código: {item.barcode}
+                          ID: {item.product_id}
                         </p>
                         <p className="text-xs mt-1">
-                          Stock: {item.current_quantity} unidades
+                          Stock: {item.remaining_quantity} unidades
                         </p>
                       </div>
                       <div className="ml-4 text-right">
@@ -236,11 +220,11 @@ export default function AlertsDashboard() {
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
             <span className="text-orange-600">⚠️ Productos con bajo stock:</span>
-            <span className="ml-2 font-semibold">{lowStockItems.length}</span>
+            <span className="ml-2 font-semibold text-orange-600">{lowStockItems.length}</span>
           </div>
           <div>
             <span className="text-blue-600">⏳ Productos próximos a vencer:</span>
-            <span className="ml-2 font-semibold">{expiringItems.length}</span>
+            <span className="ml-2 font-semibold text-blue-600">{expiringItems.length}</span>
           </div>
         </div>
         {(lowStockItems.length > 0 || expiringItems.length > 0) && (
@@ -251,4 +235,4 @@ export default function AlertsDashboard() {
       </div>
     </div>
   );
-} 
+}

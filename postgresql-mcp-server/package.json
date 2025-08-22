@@ -1,0 +1,29 @@
+{
+  "name": "postgresql-mcp-server",
+  "version": "1.0.0",
+  "description": "PostgreSQL MCP Server for database connectivity",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "example": "tsx examples/usage.ts"
+  },
+  "keywords": ["mcp", "postgresql", "database"],
+  "author": "MiniMarket Pro",
+  "license": "MIT",
+  "dependencies": {
+    "pg": "^8.11.3",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/pg": "^8.10.9",
+    "@types/jest": "^29.5.8",
+    "jest": "^29.7.0",
+    "tsx": "^4.6.0",
+    "typescript": "^5.3.0",
+    "ts-jest": "^29.1.1"
+  }
+}

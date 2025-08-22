@@ -23,7 +23,7 @@ export const MIN_WHOLESALE_PRICE = 0.01;
 export function calculateUnifiedPricing(
   stockEntry: StockEntry, 
   quantity: number,
-  saleFormat: 'unitario' | 'caja' = 'unitario'
+  saleFormat: 'unitario' = 'unitario'
 ): PricingInfo {
   // Validate inputs
   if (quantity < 0) {
@@ -46,20 +46,7 @@ export function calculateUnifiedPricing(
   const baseUnitPrice = stockEntry.sale_price_unit;
   const wholesalePrice = stockEntry.sale_price_wholesale;
 
-  // For box format, use box price directly
-  if (saleFormat === 'caja') {
-    const boxPrice = stockEntry.sale_price_box;
-    return {
-      unitPrice: baseUnitPrice,
-      appliedPrice: boxPrice,
-      priceType: 'unit', // Box is still considered unit pricing
-      totalPrice: boxPrice * quantity,
-      savings: 0,
-      wholesaleAvailable: !!(wholesalePrice && wholesalePrice > 0),
-      wholesaleThreshold: WHOLESALE_THRESHOLD,
-      wholesalePrice: wholesalePrice || undefined
-    };
-  }
+
 
   // For unitario format, check wholesale pricing
   let appliedPrice = baseUnitPrice;
@@ -105,13 +92,11 @@ export function recalculateCartItemPricing(
     created_at: cartItem.stockEntry.created_at,
     purchase_price: 0, // Not needed for pricing calculation
     sale_price_unit: cartItem.stockEntry.sale_price_unit,
-    sale_price_box: cartItem.stockEntry.sale_price_box,
+
     sale_price_wholesale: cartItem.stockEntry.sale_price_wholesale
   };
 
-  // Mapear saleFormat a los valores soportados por calculateUnifiedPricing
-  const supportedSaleFormat = cartItem.saleFormat === 'caja' ? 'caja' : 'unitario';
-  return calculateUnifiedPricing(stockEntry, newQuantity, supportedSaleFormat);
+  return calculateUnifiedPricing(stockEntry, newQuantity, 'unitario');
 }
 
 /**
@@ -275,7 +260,7 @@ export function calculateCartTotals(cartItems: EnhancedCartItem[]): {
  * Legacy compatibility function for existing calculateItemPrice calls
  */
 export function calculateItemPrice(input: PriceCalculationInput): PriceCalculationResult {
-  const { quantity, unitPrice, boxPrice, wholesalePrice, wholesaleThreshold = WHOLESALE_THRESHOLD } = input;
+  const { quantity, unitPrice, wholesalePrice, wholesaleThreshold = WHOLESALE_THRESHOLD } = input;
 
   // Handle edge cases
   if (quantity < 0) {
@@ -302,7 +287,7 @@ export function calculateItemPrice(input: PriceCalculationInput): PriceCalculati
 
   const baseUnitPrice = unitPrice || 0;
   let applicablePrice = baseUnitPrice;
-  let priceType: 'unit' | 'box' | 'wholesale' = 'unit';
+  let priceType: 'unit' | 'wholesale' = 'unit';
 
   // Check if wholesale pricing applies
   if (quantity >= wholesaleThreshold && wholesalePrice && wholesalePrice > 0) {
