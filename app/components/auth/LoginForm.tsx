@@ -35,8 +35,8 @@ export default function LoginForm() {
 
       // El token se guarda automáticamente en las cookies por la API
       // Redirigir según el rol
-      if (data.user.rol === 'administrador') {
-        router.push('/admin');
+      if (data.user.role === 'administrator') {
+        router.push('/dashboard/admin');
       } else {
         router.push('/dashboard/vendedor');
       }

@@ -62,7 +62,9 @@ export default function StockEntrySelectionModal({
       console.log('Response data:', data);
       
       if (!response.ok) {
-        throw new Error(data.error || 'Error al obtener stock entries');
+        // Manejar estructura de error del endpoint
+        const errorMessage = data.error?.message || data.error || 'Error al obtener stock entries';
+        throw new Error(errorMessage);
       }
       
       if (data.stockEntries && data.stockEntries.length > 0) {
@@ -213,12 +215,20 @@ export default function StockEntrySelectionModal({
                   const expirationStatus = getExpirationStatus(entry.expiration_date);
                   const isRecommended = index === 0; // First one is FIFO recommended
                   
+                  const daysUntilExpiration = getDaysUntilExpiration(entry.expiration_date);
+                  const isNearExpiration = daysUntilExpiration !== null && daysUntilExpiration <= 7;
+                  const isExpired = daysUntilExpiration !== null && daysUntilExpiration <= 0;
+                  
                   return (
                     <div
                       key={entry.id}
                       className={`border rounded-lg p-4 cursor-pointer transition-colors ${
                         selectedStockEntry?.id === entry.id
                           ? 'border-blue-500 bg-blue-50'
+                          : isExpired
+                          ? 'border-red-300 bg-red-50 hover:border-red-400'
+                          : isNearExpiration
+                          ? 'border-orange-300 bg-orange-50 hover:border-orange-400'
                           : 'border-gray-200 hover:border-gray-300'
                       }`}
                       onClick={() => setSelectedStockEntry(entry)}
@@ -238,6 +248,16 @@ export default function StockEntrySelectionModal({
                             {isRecommended && (
                               <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
                                 Recomendado (FIFO)
+                              </span>
+                            )}
+                            {isExpired && (
+                              <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full flex items-center">
+                                ⚠️ VENCIDO
+                              </span>
+                            )}
+                            {isNearExpiration && !isExpired && (
+                              <span className="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full flex items-center">
+                                ⏰ PRÓXIMO A VENCER
                               </span>
                             )}
                           </div>

@@ -33,13 +33,13 @@ export async function GET(
 
             console.log('API: Fetching stock entries for product ID:', productId);
 
-            // Convertir productId a número si es necesario
-            const numericProductId = parseInt(productId);
-            if (isNaN(numericProductId)) {
+            // Validar que productId sea un UUID válido
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+            if (!uuidRegex.test(productId)) {
                 return NextResponse.json(
                     {
                         error: {
-                            message: 'ID del producto debe ser un número válido',
+                            message: 'ID del producto debe ser un UUID válido',
                             status: 400
                         }
                     },
@@ -58,10 +58,10 @@ export async function GET(
                         id,
                         product_id,
                         barcode,
-                        remaining_quantity,
+                        remaining_quantity as current_quantity,
                         initial_quantity,
                         expiration_date,
-                        created_at,
+                        entry_date as created_at,
                         purchase_price,
                         sale_price_unit,
                         sale_price_wholesale
@@ -70,10 +70,10 @@ export async function GET(
                     ORDER BY 
                         CASE WHEN expiration_date IS NULL THEN 1 ELSE 0 END,
                         expiration_date ASC,
-                        created_at ASC
+                        entry_date ASC
                 `;
 
-                const stockResult = await client.query(stockQuery, [numericProductId]);
+                const stockResult = await client.query(stockQuery, [productId]);
 
                 if (stockResult.rows.length === 0) {
                     return NextResponse.json({
@@ -105,7 +105,7 @@ export async function GET(
 
                 // Calcular totales
                 const totalEntries = enrichedStockEntries.length;
-                const totalStock = enrichedStockEntries.reduce((sum, entry) => sum + entry.remaining_quantity, 0);
+                const totalStock = enrichedStockEntries.reduce((sum, entry) => sum + entry.current_quantity, 0);
 
                 console.log('API: Stock entries found:', totalEntries, 'Total stock:', totalStock);
 
