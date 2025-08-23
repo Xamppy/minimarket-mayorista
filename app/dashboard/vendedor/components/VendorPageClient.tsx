@@ -202,7 +202,7 @@ export default function VendorPageClient({
           purchase_price: 0,
           sale_price_unit: existingItem.unitPrice,
   
-          sale_price_wholesale: item.wholesalePrice || existingItem.wholesalePrice || null
+          sale_price_wholesale: existingItem.wholesalePrice || stockEntry.sale_price_wholesale || null
         };
         
         const pricingInfo = calculateUnifiedPricing(stockEntryForCalc, newQuantity, 'unitario');
