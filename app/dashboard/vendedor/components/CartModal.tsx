@@ -30,7 +30,7 @@ interface CartItem {
 interface CartModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSaleCompleted: () => void;
+  onSaleCompleted: (saleData?: { productIds?: string[] }) => void;
   initialProduct?: Product | null;
   // Props para carrito compartido
   cartItems?: CartItem[];
@@ -178,26 +178,76 @@ export default function CartModal({
         formData.append('productId', item.product.id);
         formData.append('quantity', item.quantity.toString());
         formData.append('saleFormat', item.saleFormat);
+        formData.append('stockEntryId', item.stockEntryId);
+        formData.append('price', item.appliedPrice.toString());
 
         const response = await fetch('/api/sales', {
           method: 'POST',
           body: formData,
+          credentials: 'include', // Incluir cookies de autenticación
         });
 
-        const result = await response.json();
-
-        if (!response.ok) {
-          throw new Error(result.error || `Error al procesar la venta de ${item.product.name}`);
+        let result;
+        try {
+          result = await response.json();
+        } catch (jsonError) {
+          throw new Error(`Error del servidor (${response.status}): No se pudo procesar la respuesta`);
         }
 
-        lastSaleId = result.saleId;
+        if (!response.ok) {
+          let errorMsg = `Error ${response.status} al procesar la venta de ${item.product.name}`;
+          
+          if (result?.error) {
+            if (typeof result.error === 'string') {
+              errorMsg = result.error;
+            } else if (result.error.message) {
+              errorMsg = result.error.message;
+            } else if (result.error.details) {
+              errorMsg = Array.isArray(result.error.details) 
+                ? result.error.details.join(', ') 
+                : result.error.details;
+            }
+          } else if (result?.message) {
+            errorMsg = result.message;
+          }
+          
+          throw new Error(errorMsg);
+        }
+
+        if (!result.data?.saleId) {
+          throw new Error('La venta se procesó pero no se recibió un ID de venta válido');
+        }
+
+        lastSaleId = result.data.saleId;
       }
 
       // Éxito
       setSaleSuccess({ success: true, saleId: lastSaleId });
       
+      // Actualizar la lista de productos para reflejar el nuevo stock
+      // Extraer IDs únicos de productos vendidos
+      const productIds = [...new Set(cartItems.map(item => item.product.id))];
+      onSaleCompleted({ productIds });
+      
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
+      console.error('Error en handleSubmit:', err);
+      let errorMessage = 'Error desconocido al procesar la venta';
+      
+      if (err instanceof Error) {
+        errorMessage = err.message;
+      } else if (typeof err === 'string') {
+        errorMessage = err;
+      } else if (err && typeof err === 'object') {
+        // Intentar extraer información útil del objeto error
+        if ('message' in err && typeof err.message === 'string') {
+          errorMessage = err.message;
+        } else if ('error' in err && typeof err.error === 'string') {
+          errorMessage = err.error;
+        } else {
+          errorMessage = 'Error interno del servidor. Por favor, intente nuevamente.';
+        }
+      }
+      
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -225,7 +275,9 @@ export default function CartModal({
   };
 
   const handleCompleteSale = () => {
-    onSaleCompleted();
+    // Extraer IDs únicos de productos vendidos
+    const productIds = [...new Set(cartItems.map(item => item.product.id))];
+    onSaleCompleted({ productIds });
     onClose();
     resetCart();
   };

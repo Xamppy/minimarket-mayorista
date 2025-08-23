@@ -390,7 +390,7 @@ export default function VendorPageClient({
     setSaleModalOpen(true);
   };
 
-  const handleSaleCompleted = () => {
+  const handleSaleCompleted = (saleData?: { productIds?: string[] }) => {
     setCart([]);
     setSaleModalOpen(false);
     setScannedProduct(undefined);

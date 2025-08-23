@@ -25,7 +25,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       const stockEntryId = id;
       
       const result = await client.query(
-        `SELECT id, product_id, initial_quantity, remaining_quantity, barcode, 
+        `SELECT id, product_id, initial_quantity, current_quantity, barcode, 
                 purchase_price, sale_price_unit, sale_price_wholesale,
                 expiration_date, entry_date
          FROM stock_entries 
@@ -74,7 +74,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       const body = await request.json();
       
       const {
-        remaining_quantity,
+        current_quantity,
         barcode,
         purchase_price,
         sale_price_unit,
@@ -100,13 +100,13 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       // Actualizar la entrada de stock
       const updateResult = await client.query(
         `UPDATE stock_entries 
-         SET remaining_quantity = $1, barcode = $2, purchase_price = $3,
+         SET current_quantity = $1, barcode = $2, purchase_price = $3,
              sale_price_unit = $4, sale_price_wholesale = $5,
              expiration_date = $6
          WHERE id = $7
          RETURNING *`,
         [
-          remaining_quantity,
+          current_quantity,
           barcode,
           purchase_price,
           sale_price_unit,
@@ -149,7 +149,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       
       // Verificar que la entrada de stock existe
       const checkResult = await client.query(
-        'SELECT id, remaining_quantity FROM stock_entries WHERE id = $1',
+        'SELECT id, current_quantity FROM stock_entries WHERE id = $1',
         [stockEntryId]
       );
       

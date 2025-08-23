@@ -58,7 +58,7 @@ export async function GET(
                         id,
                         product_id,
                         barcode,
-                        remaining_quantity as current_quantity,
+                        current_quantity,
                         initial_quantity,
                         expiration_date,
                         entry_date as created_at,
@@ -66,7 +66,7 @@ export async function GET(
                         sale_price_unit,
                         sale_price_wholesale
                     FROM stock_entries
-                    WHERE product_id = $1 AND remaining_quantity > 0
+                    WHERE product_id = $1 AND current_quantity > 0
                     ORDER BY 
                         CASE WHEN expiration_date IS NULL THEN 1 ELSE 0 END,
                         expiration_date ASC,

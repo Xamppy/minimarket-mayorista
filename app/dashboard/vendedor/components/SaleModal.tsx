@@ -66,7 +66,7 @@ interface SaleModalProps {
   }) => void;
   // Para modo finalize-sale  
   cartItems?: CartItem[];
-  onSaleCompleted?: () => void;
+  onSaleCompleted?: (saleData?: { productIds?: string[] }) => void;
 }
 
 export default function SaleModal({ 
@@ -82,7 +82,7 @@ export default function SaleModal({
   const [saleFormat, setSaleFormat] = useState<'unitario'>('unitario');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [saleSuccess, setSaleSuccess] = useState<{ success: boolean; saleId?: string }>({ success: false });
+  const [saleSuccess, setSaleSuccess] = useState<{ success: boolean; saleId?: string; ticketUrl?: string; totalAmount?: number }>({ success: false });
 
   // Determinar modo de operación
   const isAddToCartMode = mode === 'add-to-cart-from-scan';
@@ -220,34 +220,41 @@ export default function SaleModal({
       throw new Error('No hay productos en el carrito');
     }
 
-    // Crear múltiples ventas para cada item del carrito
-    const salePromises = cartItems.map(async (item) => {
-      const formData = new FormData();
-      formData.append('productId', item.product.id);
-      formData.append('stockEntryId', item.stockEntryId);
-      formData.append('quantity', item.quantity.toString());
-      formData.append('saleFormat', 'unitario');
-      formData.append('price', item.appliedPrice.toString());
+    // Convertir items del carrito al formato esperado por la nueva API
+    const cartItemsForAPI = cartItems.map(item => ({
+      productId: item.product.id,
+      stockEntryId: item.stockEntryId,
+      quantity: item.quantity,
+      saleFormat: item.saleFormat,
+      specificPrice: item.appliedPrice
+    }));
 
-      const response = await fetch('/api/sales', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || `Error al procesar la venta de ${item.product.name}`);
-      }
-
-      return result;
+    // Procesar toda la venta como un carrito usando el sistema reutilizable
+    const response = await fetch('/api/sales/cart', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ cartItems: cartItemsForAPI }),
+      credentials: 'include', // Incluir cookies de autenticación
     });
 
-    const results = await Promise.all(salePromises);
-    
-    // Tomar el ID de la primera venta para el ticket
-    const firstSaleId = results[0]?.saleId;
-    setSaleSuccess({ success: true, saleId: firstSaleId });
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error?.message || 'Error al procesar la venta del carrito');
+    }
+
+    if (result.success) {
+      setSaleSuccess({ 
+        success: true, 
+        saleId: result.data?.saleId,
+        ticketUrl: result.data?.ticketUrl,
+        totalAmount: result.data?.totalAmount
+      });
+    } else {
+      throw new Error(result.error?.message || 'Error procesando la venta');
+    }
   };
 
   const resetForm = () => {
@@ -273,7 +280,9 @@ export default function SaleModal({
 
   const handleCompleteSale = () => {
     if (onSaleCompleted) {
-      onSaleCompleted();
+      // Extraer IDs únicos de productos vendidos
+      const productIds = [...new Set(cartItems.map(item => item.product.id))];
+      onSaleCompleted({ productIds });
     }
     onClose();
     resetForm();

@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
           SELECT 
             se.id,
             se.product_id,
-            se.remaining_quantity,
+            se.current_quantity,
             p.barcode,
             se.sale_price_unit,
             se.sale_price_wholesale,
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
           JOIN products p ON se.product_id = p.id
           LEFT JOIN brands b ON p.brand_name = b.name
           LEFT JOIN product_types pt ON p.product_type_id = pt.id
-          WHERE p.barcode = $1 AND se.remaining_quantity > 0
+          WHERE p.barcode = $1 AND se.current_quantity > 0
           ORDER BY 
             CASE WHEN se.expiration_date IS NULL THEN 1 ELSE 0 END,
             se.expiration_date ASC,
@@ -77,9 +77,9 @@ export async function GET(request: NextRequest) {
 
         // Obtener el stock total del producto
         const totalStockQuery = `
-          SELECT COALESCE(SUM(remaining_quantity), 0) as total_stock
+          SELECT COALESCE(SUM(current_quantity), 0) as total_stock
         FROM stock_entries 
-        WHERE product_id = $1 AND remaining_quantity > 0
+        WHERE product_id = $1 AND current_quantity > 0
         `;
         
         const totalStockResult = await client.query(totalStockQuery, [stockEntry.product_id]);
@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
             id: stockEntry.id,
             sale_price_unit: stockEntry.sale_price_unit,
             sale_price_wholesale: stockEntry.sale_price_wholesale,
-            remaining_quantity: stockEntry.remaining_quantity,
+            remaining_quantity: stockEntry.current_quantity,
             purchase_price: stockEntry.purchase_price,
             expiration_date: stockEntry.expiration_date,
             barcode: stockEntry.barcode

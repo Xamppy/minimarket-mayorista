@@ -120,29 +120,58 @@ export const withAuth = async (
   handler: (request: NextRequest, user: AuthenticatedUser) => Promise<NextResponse>,
   roleCheck?: (user: AuthenticatedUser) => { success: boolean; response?: NextResponse }
 ): Promise<NextResponse> => {
-  // Verificar autenticación
-  const authResult = await authenticateRequest(request);
-  
-  if (!authResult.success || !authResult.user) {
-    return authResult.response || NextResponse.json(
-      { error: { message: 'Error de autenticación', status: 401 } },
-      { status: 401 }
-    );
-  }
-
-  // Verificar roles si se especifica
-  if (roleCheck) {
-    const roleResult = roleCheck(authResult.user);
-    if (!roleResult.success) {
-      return roleResult.response || NextResponse.json(
-        { error: { message: 'Permisos insuficientes', status: 403 } },
-        { status: 403 }
+  try {
+    console.log('=== INICIANDO withAuth ===');
+    
+    // Verificar autenticación
+    const authResult = await authenticateRequest(request);
+    console.log('Resultado de autenticación:', authResult.success ? 'exitoso' : 'fallido');
+    
+    if (!authResult.success || !authResult.user) {
+      console.log('Autenticación fallida, retornando 401');
+      return authResult.response || NextResponse.json(
+        { error: { message: 'Error de autenticación', status: 401 } },
+        { status: 401 }
       );
     }
-  }
 
-  // Ejecutar el handler con el usuario autenticado
-  return handler(request, authResult.user);
+    // Verificar roles si se especifica
+    if (roleCheck) {
+      console.log('Verificando roles para usuario:', authResult.user.email);
+      const roleResult = roleCheck(authResult.user);
+      if (!roleResult.success) {
+        console.log('Verificación de roles fallida, retornando 403');
+        return roleResult.response || NextResponse.json(
+          { error: { message: 'Permisos insuficientes', status: 403 } },
+          { status: 403 }
+        );
+      }
+      console.log('Verificación de roles exitosa');
+    }
+
+    console.log('=== EJECUTANDO HANDLER ===');
+    // Ejecutar el handler con el usuario autenticado
+    const result = await handler(request, authResult.user);
+    console.log('=== HANDLER EJECUTADO EXITOSAMENTE ===');
+    return result;
+    
+  } catch (error) {
+    console.error('=== ERROR EN withAuth ===');
+    console.error('Tipo de error:', error instanceof Error ? error.constructor.name : typeof error);
+    console.error('Mensaje de error:', error instanceof Error ? error.message : String(error));
+    console.error('Stack trace:', error instanceof Error ? error.stack : 'No disponible');
+    console.error('=== FIN ERROR EN withAuth ===');
+    
+    return NextResponse.json({
+      success: false,
+      error: {
+        message: 'Error interno del servidor en autenticación',
+        details: error instanceof Error ? error.message : 'Error desconocido',
+        status: 500,
+        timestamp: new Date().toISOString()
+      }
+    }, { status: 500 });
+  }
 };
 
 // Función helper para endpoints que requieren admin

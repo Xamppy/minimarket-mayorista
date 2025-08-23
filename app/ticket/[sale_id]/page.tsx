@@ -111,7 +111,7 @@ export default function TicketPage({ params }: PageProps) {
             sale_format: item.sale_format,
             product_name: item.stock_entry.product.name || 'Producto desconocido',
             brand_name: item.stock_entry.product.brand.name || 'Sin marca',
-            barcode: item.stock_entry.barcode || 'N/A',
+            barcode: item.stock_entry.barcode || null,
             is_wholesale: isWholesale,
             unit_price: item.price_at_sale, // Usamos el precio de venta como referencia
             wholesale_price: isWholesale ? item.price_at_sale : null,
@@ -242,9 +242,11 @@ export default function TicketPage({ params }: PageProps) {
               <div className="thermal-small thermal-wrap">
                 Marca: {formatBrandName(item.brand_name)}
               </div>
-              <div className="thermal-small thermal-wrap">
-                Código: {formatBarcode(item.barcode)}
-              </div>
+              {item.barcode && (
+                <div className="thermal-small thermal-wrap">
+                  Código: {formatBarcode(item.barcode)}
+                </div>
+              )}
               
               <div className="thermal-price-row">
                 <span className="thermal-price-left">
@@ -278,7 +280,7 @@ export default function TicketPage({ params }: PageProps) {
         <div className="thermal-separator"></div>
 
         {/* Totals Section */}
-        {saleData.totalSavings && saleData.totalSavings > 0 && (
+        {saleData.totalSavings > 0 && (
           <div className="thermal-row thermal-body">
             <span>Total Ahorrado:</span>
             <span className="thermal-bold">{formatCurrency(saleData.totalSavings)}</span>

@@ -40,9 +40,9 @@ export async function GET(request: NextRequest) {
       const productsWithStock = await Promise.all(
         productsResult.rows.map(async (product) => {
           const stockQuery = `
-            SELECT COALESCE(SUM(remaining_quantity), 0) as total_stock
+            SELECT COALESCE(SUM(current_quantity), 0) as total_stock
             FROM stock_entries 
-            WHERE product_id = $1
+            WHERE product_id = $1 AND current_quantity > 0
           `;
           
           const stockResult = await client.query(stockQuery, [product.id]);

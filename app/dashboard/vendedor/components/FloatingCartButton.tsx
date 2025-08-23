@@ -32,7 +32,7 @@ interface FloatingCartButtonProps {
   totalItems?: number;
   onUpdateQuantity?: (stockEntryId: string, productId: string, newQuantity: number) => void;
   onRemoveItem?: (stockEntryId: string, productId: string) => void;
-  onSaleCompleted?: () => void;
+  onSaleCompleted?: (saleData?: { productIds?: string[] }) => void;
 }
 
 export default function FloatingCartButton({ 

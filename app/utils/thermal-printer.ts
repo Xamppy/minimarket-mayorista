@@ -301,50 +301,66 @@ export const generateThermalPrintCSS = (config: ThermalPrintConfig = THERMAL_PRI
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         border-radius: 4px;
         border: 1px solid #ddd;
+        color: #000000 !important;
+      }
+      
+      /* Ensure all text within ticket is black */
+      .thermal-ticket, .thermal-ticket * {
+        color: #000000 !important;
       }
       
       /* Apply thermal styles for screen preview */
       .thermal-header {
         ${styles.typography.header}
         ${styles.layout.textCenter}
+        color: #000000 !important;
       }
       
       .thermal-section {
         ${styles.typography.section}
+        color: #000000 !important;
       }
       
       .thermal-body {
         ${styles.typography.body}
+        color: #000000 !important;
       }
       
       .thermal-small {
         ${styles.typography.small}
+        color: #000000 !important;
       }
       
       .thermal-separator {
         ${styles.layout.separator}
+        border-color: #000000 !important;
       }
       
       .thermal-row {
         ${styles.layout.flexRow}
+        color: #000000 !important;
       }
       
       .thermal-center {
         ${styles.layout.textCenter}
+        color: #000000 !important;
       }
       
       .thermal-bold {
         ${styles.layout.textBold}
+        color: #000000 !important;
       }
       
       .thermal-wrap {
         word-wrap: break-word;
         word-break: break-word;
         hyphens: auto;
+        color: #000000 !important;
       }
       
       .thermal-product-item {
         margin-bottom: ${config.spacing.sectionGap}mm;
+        color: #000000 !important;
       }
       
       .thermal-price-row {
@@ -352,16 +368,19 @@ export const generateThermalPrintCSS = (config: ThermalPrintConfig = THERMAL_PRI
         justify-content: space-between;
         align-items: baseline;
         width: 100%;
+        color: #000000 !important;
       }
       
       .thermal-price-left {
         flex: 1;
         text-align: left;
+        color: #000000 !important;
       }
       
       .thermal-price-right {
         text-align: right;
         white-space: nowrap;
+        color: #000000 !important;
       }
     }
   `;

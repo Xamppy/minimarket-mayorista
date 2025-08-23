@@ -34,11 +34,11 @@ export async function GET(request: NextRequest) {
             p.id as product_id,
             p.name as product_name,
             p.brand_name,
-            COALESCE(SUM(se.remaining_quantity), 0) as total_stock
+            COALESCE(SUM(se.current_quantity), 0) as total_stock
           FROM products p
-          LEFT JOIN stock_entries se ON p.id = se.product_id AND se.remaining_quantity > 0
+          LEFT JOIN stock_entries se ON p.id = se.product_id AND se.current_quantity > 0
           GROUP BY p.id, p.name, p.brand_name
-          HAVING COALESCE(SUM(se.remaining_quantity), 0) <= $1
+          HAVING COALESCE(SUM(se.current_quantity), 0) <= $1
           ORDER BY total_stock ASC, p.name ASC
         `;
         
@@ -64,12 +64,12 @@ export async function GET(request: NextRequest) {
             se.product_id,
             p.name as product_name,
             p.brand_name,
-            se.remaining_quantity as current_quantity,
+            se.current_quantity,
             se.expiration_date,
             (se.expiration_date - CURRENT_DATE) as days_until_expiration
           FROM stock_entries se
           JOIN products p ON se.product_id = p.id
-          WHERE se.remaining_quantity > 0 
+          WHERE se.current_quantity > 0 
             AND se.expiration_date IS NOT NULL
             AND se.expiration_date <= $1
           ORDER BY se.expiration_date ASC
@@ -97,11 +97,11 @@ export async function GET(request: NextRequest) {
 
       // Obtener entradas de stock para el producto específico
       const result = await client.query(
-        `SELECT id, product_id, initial_quantity, remaining_quantity as current_quantity, 
+        `SELECT id, product_id, initial_quantity, current_quantity, 
                 barcode, purchase_price, sale_price_unit, sale_price_wholesale,
                 expiration_date, entry_date as created_at
          FROM stock_entries 
-         WHERE product_id = $1 AND remaining_quantity > 0 
+         WHERE product_id = $1 AND current_quantity > 0 
          ORDER BY expiration_date ASC, entry_date ASC`,
         [productId]
       );
@@ -186,7 +186,7 @@ export async function POST(request: NextRequest) {
       // Crear nueva entrada de stock
       const result = await client.query(
         `INSERT INTO stock_entries 
-         (product_id, quantity, remaining_quantity, initial_quantity, barcode, purchase_price, 
+         (product_id, quantity, current_quantity, initial_quantity, barcode, purchase_price, 
           sale_price_unit, sale_price_wholesale, expiration_date, entry_date)
          VALUES ($1, $2, $2, $3, $4, $5, $6, $7, NOW())
          RETURNING *`,

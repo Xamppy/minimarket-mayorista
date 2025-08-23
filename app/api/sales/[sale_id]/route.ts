@@ -39,12 +39,12 @@ export async function GET(
         const saleQuery = `
           SELECT 
             s.id,
-            s.seller_id,
+            s.user_id as seller_id,
             s.total_amount,
-            s.created_at,
+            s.sale_date as created_at,
             u.email as seller_email
           FROM sales s
-          LEFT JOIN users u ON s.seller_id = u.id
+          LEFT JOIN users u ON s.user_id = u.id
           WHERE s.id = $1
         `;
         
@@ -68,15 +68,14 @@ export async function GET(
         const itemsQuery = `
           SELECT 
             si.id,
-            si.quantity_sold,
-            si.price_at_sale,
-            si.sale_format,
+            si.quantity,
+            si.unit_price,
+            'unitario' as sale_format,
             p.barcode,
             p.name as product_name,
             b.name as brand_name
           FROM sale_items si
-          JOIN stock_entries se ON si.stock_entry_id = se.id
-          JOIN products p ON se.product_id = p.id
+          JOIN products p ON si.product_id = p.id
           LEFT JOIN brands b ON p.brand_id = b.id
           WHERE si.sale_id = $1
           ORDER BY si.id
@@ -93,8 +92,8 @@ export async function GET(
           seller_email: sale.seller_email || '',
           sale_items: itemsResult.rows.map((item: any) => ({
             id: item.id.toString(),
-            quantity_sold: item.quantity_sold,
-            price_at_sale: parseFloat(item.price_at_sale),
+            quantity_sold: item.quantity,
+            price_at_sale: parseFloat(item.unit_price),
             sale_format: item.sale_format,
             stock_entry: {
               barcode: item.barcode || '',
