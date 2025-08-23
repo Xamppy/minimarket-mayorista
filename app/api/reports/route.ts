@@ -168,20 +168,54 @@ async function getRecentSales(limit: number = 10) {
   }
 }
 
-// Función para obtener estadísticas diarias
-async function getDailySalesStats() {
+// Función para obtener estadísticas según el período
+async function getDailySalesStats(period: 'day' | 'week' | 'month' = 'month') {
   const client = await pool.connect();
   try {
-    const result = await client.query(`
-      SELECT 
-        DATE(sale_date) as sale_date,
-        SUM(total_amount) as total_sales
-      FROM sales
-      WHERE sale_date >= CURRENT_DATE - INTERVAL '30 days'
-      GROUP BY DATE(sale_date)
-      ORDER BY sale_date DESC
-    `);
+    let query = '';
+    
+    switch (period) {
+      case 'day':
+        // Agrupar por días individuales (últimos 7 días)
+        query = `
+          SELECT 
+            DATE(sale_date) as sale_date,
+            SUM(total_amount) as total_sales
+          FROM sales
+          WHERE sale_date >= CURRENT_DATE - INTERVAL '7 days'
+          GROUP BY DATE(sale_date)
+          ORDER BY sale_date ASC
+        `;
+        break;
+        
+      case 'week':
+        // Agrupar por semanas (últimas 8 semanas)
+        query = `
+          SELECT 
+            DATE_TRUNC('week', sale_date) + INTERVAL '1 day' as sale_date,
+            SUM(total_amount) as total_sales
+          FROM sales
+          WHERE sale_date >= CURRENT_DATE - INTERVAL '8 weeks'
+          GROUP BY DATE_TRUNC('week', sale_date)
+          ORDER BY sale_date ASC
+        `;
+        break;
+        
+      case 'month':
+        // Agrupar por meses (últimos 12 meses)
+        query = `
+          SELECT 
+            DATE_TRUNC('month', sale_date) as sale_date,
+            SUM(total_amount) as total_sales
+          FROM sales
+          WHERE sale_date >= CURRENT_DATE - INTERVAL '12 months'
+          GROUP BY DATE_TRUNC('month', sale_date)
+          ORDER BY sale_date ASC
+        `;
+        break;
+    }
 
+    const result = await client.query(query);
     return result.rows;
   } finally {
     client.release();
@@ -221,16 +255,18 @@ export async function POST(request: NextRequest) {
         break;
 
       case 'getDailySalesStats':
-        result = await getDailySalesStats();
+        const { period: statsperiod = 'month' } = params;
+        result = await getDailySalesStats(statsperiod);
         break;
 
       case 'getAllReports':
         // Obtener todos los reportes de una vez
+        const reportPeriod = params.period || 'day';
         const [salesReport, topProducts, recentSales, dailyStats] = await Promise.all([
-          getSalesReport(params.period || 'day'),
-          getTopSellingProducts(5, params.period || 'day'),
+          getSalesReport(reportPeriod),
+          getTopSellingProducts(5, reportPeriod),
           getRecentSales(10),
-          getDailySalesStats()
+          getDailySalesStats(reportPeriod)
         ]);
         
         result = {
@@ -291,9 +327,9 @@ export async function GET(request: NextRequest) {
     // Por defecto, devolver todos los reportes básicos
     const [salesReport, topProducts, recentSales, dailyStats] = await Promise.all([
       getSalesReport('day'),
-      getTopSellingProducts(5),
+      getTopSellingProducts(5, 'day'),
       getRecentSales(10),
-      getDailySalesStats()
+      getDailySalesStats('day')
     ]);
     
     const result = {

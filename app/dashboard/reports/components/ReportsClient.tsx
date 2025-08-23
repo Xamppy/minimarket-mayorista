@@ -184,33 +184,51 @@ export default function ReportsClient() {
 
   return (
     <div className="space-y-6">
-      {/* Gráfico de Ventas Diarias - Posición prominente */}
-      <DailySalesChart data={dailySalesData} />
-
-      {/* Selector de período */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">
-          📅 Período de Análisis
-        </h2>
-        <p className="text-sm text-gray-600 mb-4">
-          Selecciona el período para ver el resumen de ventas y estadísticas
-        </p>
-        <div className="flex flex-wrap gap-3">
-          {(['day', 'week', 'month'] as const).map((period) => (
-            <button
-              key={period}
-              onClick={() => setSelectedPeriod(period)}
-              className={`px-6 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
-                selectedPeriod === period
-                  ? 'bg-blue-600 text-white shadow-md transform scale-105'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-sm'
-              }`}
-            >
-              {getPeriodLabel(period)}
-            </button>
-          ))}
+      {/* Filtro de Período - Posición prominente */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg shadow-md p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">
+              📊 Filtro de Período
+            </h2>
+            <p className="text-sm text-gray-600">
+              Selecciona el período para visualizar los datos de ventas
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {(['day', 'week', 'month'] as const).map((period) => {
+              const labels = {
+                day: { text: 'Día', icon: '📅', desc: 'Hoy' },
+                week: { text: 'Semana', icon: '📈', desc: 'Últimos 7 días' },
+                month: { text: 'Mes', icon: '📊', desc: 'Últimos 30 días' }
+              };
+              
+              return (
+                <button
+                  key={period}
+                  onClick={() => setSelectedPeriod(period)}
+                  className={`flex flex-col items-center px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 min-w-[80px] ${
+                    selectedPeriod === period
+                      ? 'bg-blue-600 text-white shadow-lg transform scale-105 ring-2 ring-blue-300'
+                      : 'bg-white text-gray-700 hover:bg-blue-50 hover:shadow-md border border-gray-200'
+                  }`}
+                >
+                  <span className="text-lg mb-1">{labels[period].icon}</span>
+                  <span className="font-semibold">{labels[period].text}</span>
+                  <span className={`text-xs mt-1 ${
+                    selectedPeriod === period ? 'text-blue-100' : 'text-gray-500'
+                  }`}>
+                    {labels[period].desc}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
+
+      {/* Gráfico de Ventas Diarias */}
+      <DailySalesChart data={dailySalesData} period={selectedPeriod} />
 
       {/* Resumen de Ventas */}
       <div className="bg-white rounded-lg shadow-md p-6">
