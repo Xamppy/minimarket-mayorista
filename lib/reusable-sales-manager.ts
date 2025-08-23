@@ -553,9 +553,9 @@ export class ReusableSalesManager {
   private async createSaleItems(saleId: string, items: ProcessedItem[]): Promise<void> {
     for (const item of items) {
       await this.client!.query(
-        `INSERT INTO sale_items (sale_id, stock_entry_id, quantity_sold, price_at_sale, sale_format)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [saleId, item.stockEntryId, item.quantity, item.unitPrice, item.saleFormat]
+        `INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, total_price, sale_type)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [saleId, item.productId, item.quantity, item.unitPrice, item.totalPrice, item.saleFormat]
       );
     }
   }

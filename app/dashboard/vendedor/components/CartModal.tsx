@@ -54,6 +54,7 @@ export default function CartModal({
   const [error, setError] = useState('');
   const [saleSuccess, setSaleSuccess] = useState<{ success: boolean; saleId?: string }>({ success: false });
   const [showAddProduct, setShowAddProduct] = useState(false);
+  const [hasAutoPrinted, setHasAutoPrinted] = useState(false);
 
   // Agregar producto inicial al carrito cuando se abre el modal
   useEffect(() => {
@@ -223,11 +224,17 @@ export default function CartModal({
 
       // Éxito
       setSaleSuccess({ success: true, saleId: lastSaleId });
+      setHasAutoPrinted(false); // Resetear estado de impresión automática
       
-      // Actualizar la lista de productos para reflejar el nuevo stock
-      // Extraer IDs únicos de productos vendidos
-      const productIds = [...new Set(cartItems.map(item => item.product.id))];
-      onSaleCompleted({ productIds });
+      // Activar impresión automática después de un breve delay
+      setTimeout(() => {
+        if (lastSaleId) {
+          handleAutoPrint(lastSaleId);
+        }
+      }, 500);
+      
+      // No cerrar el modal automáticamente, permitir que el usuario vea la pantalla de éxito
+      // y elija si imprimir o continuar
       
     } catch (err) {
       console.error('Error en handleSubmit:', err);
@@ -258,6 +265,7 @@ export default function CartModal({
     // Ya no manejamos el estado del carrito aquí, se maneja en VendorPageClient
     setError('');
     setSaleSuccess({ success: false });
+    setHasAutoPrinted(false);
   };
 
   const handleClose = () => {
@@ -265,11 +273,32 @@ export default function CartModal({
     onClose();
   };
 
+  const handleAutoPrint = (saleId: string) => {
+    if (hasAutoPrinted) return; // Evitar impresión múltiple
+    
+    setHasAutoPrinted(true);
+    const ticketWindow = window.open(`/ticket/${saleId}`, '_blank', 'width=400,height=600,scrollbars=yes');
+    
+    if (!ticketWindow) {
+      console.warn('No se pudo abrir la ventana de impresión automática.');
+      setHasAutoPrinted(false); // Permitir reintento manual
+    }
+  };
+
   const handlePrintTicket = (saleId: string) => {
     const ticketWindow = window.open(`/ticket/${saleId}`, '_blank', 'width=400,height=600,scrollbars=yes');
     
     if (!ticketWindow) {
       alert('No se pudo abrir la ventana de impresión. Verifique que no esté bloqueando ventanas emergentes.');
+      return;
+    }
+  };
+
+  const handleSaveAsPDF = (saleId: string) => {
+    const pdfWindow = window.open(`/ticket/${saleId}?format=pdf`, '_blank', 'width=800,height=600');
+    
+    if (!pdfWindow) {
+      alert('No se pudo abrir la ventana para guardar como PDF. Verifique que no esté bloqueando ventanas emergentes.');
       return;
     }
   };
@@ -321,26 +350,87 @@ export default function CartModal({
               </p>
             </div>
 
-            <div className="space-y-3">
-              <button
-                type="button"
-                onClick={() => saleSuccess.saleId && handlePrintTicket(saleSuccess.saleId)}
-                className="w-full py-3 px-4 bg-blue-600 text-white rounded-md shadow-sm text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center justify-center"
-              >
-                <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V9a2 2 0 00-2-2H9a2 2 0 00-2 2v.01" />
-                </svg>
-                Imprimir Último Ticket
-              </button>
-
-              <button
-                type="button"
-                onClick={handleCompleteSale}
-                className="w-full py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                Continuar sin Imprimir
-              </button>
-            </div>
+            {hasAutoPrinted ? (
+              <div className="space-y-3">
+                <div className="text-center p-3 bg-blue-50 rounded-lg">
+                  <p className="text-sm text-blue-700">
+                    ✓ El ticket se ha enviado a impresión automáticamente
+                  </p>
+                </div>
+                
+                <div className="grid grid-cols-1 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => saleSuccess.saleId && handlePrintTicket(saleSuccess.saleId)}
+                    className="w-full py-2 px-4 bg-blue-600 text-white rounded-md shadow-sm text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center justify-center"
+                  >
+                    <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V9a2 2 0 00-2-2H9a2 2 0 00-2 2v.01" />
+                    </svg>
+                    Reimprimir Ticket
+                  </button>
+                  
+                  <button
+                    type="button"
+                    onClick={() => saleSuccess.saleId && handleSaveAsPDF(saleSuccess.saleId)}
+                    className="w-full py-2 px-4 bg-green-600 text-white rounded-md shadow-sm text-sm font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 flex items-center justify-center"
+                  >
+                    <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Guardar como PDF
+                  </button>
+                  
+                  <button
+                    type="button"
+                    onClick={handleCompleteSale}
+                    className="w-full py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Continuar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="text-center p-3 bg-yellow-50 rounded-lg">
+                  <p className="text-sm text-yellow-700">
+                    ⏳ Preparando impresión automática...
+                  </p>
+                </div>
+                
+                <div className="grid grid-cols-1 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => saleSuccess.saleId && handlePrintTicket(saleSuccess.saleId)}
+                    className="w-full py-2 px-4 bg-blue-600 text-white rounded-md shadow-sm text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center justify-center"
+                  >
+                    <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V9a2 2 0 00-2-2H9a2 2 0 00-2 2v.01" />
+                    </svg>
+                    Imprimir Ahora
+                  </button>
+                  
+                  <button
+                    type="button"
+                    onClick={() => saleSuccess.saleId && handleSaveAsPDF(saleSuccess.saleId)}
+                    className="w-full py-2 px-4 bg-green-600 text-white rounded-md shadow-sm text-sm font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 flex items-center justify-center"
+                  >
+                    <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Guardar como PDF
+                  </button>
+                  
+                  <button
+                    type="button"
+                    onClick={handleCompleteSale}
+                    className="w-full py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Cancelar Impresión
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           /* Carrito de compras */

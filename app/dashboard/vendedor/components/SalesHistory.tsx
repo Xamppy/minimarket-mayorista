@@ -105,7 +105,7 @@ export default function SalesHistory() {
       {/* Header */}
       <div className="bg-white rounded-lg p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-gray-900 mb-2">
-          📊 Ventas de Hoy
+          📊 Ventas de las Últimas 12 Horas
         </h2>
         <p className="text-sm text-gray-600 mb-3">{todayFormatted}</p>
         
@@ -134,8 +134,8 @@ export default function SalesHistory() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
             </svg>
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No hay ventas hoy</h3>
-          <p className="text-gray-500">Las ventas aparecerán aquí una vez que realices transacciones</p>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No hay ventas en las últimas 12 horas</h3>
+          <p className="text-gray-500">Las ventas de las últimas 12 horas aparecerán aquí una vez que realices transacciones</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -185,4 +185,4 @@ export default function SalesHistory() {
       </div>
     </div>
   );
-} 
+}

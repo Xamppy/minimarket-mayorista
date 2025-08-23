@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, use } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useThermalPrint } from '../../hooks/useThermalPrint';
 import { ThermalPrintStyles } from '../../components/ThermalPrintStyles';
 import { 
@@ -48,12 +48,16 @@ export default function TicketPage({ params }: PageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const resolvedParams = use(params);
   const saleId = resolvedParams.sale_id;
+  
+  // Detectar si se solicita formato PDF para evitar impresión automática
+  const isPDFFormat = searchParams.get('format') === 'pdf';
 
   // Initialize thermal printing hook
   const { print, isPrinting, printError } = useThermalPrint({
-    autoprint: true,
+    autoprint: !isPDFFormat, // Desactivar impresión automática para PDF
     autoprintDelay: 500,
     onPrintError: (error) => {
       console.error('Print error:', error);
@@ -278,14 +282,6 @@ export default function TicketPage({ params }: PageProps) {
         })}
 
         <div className="thermal-separator"></div>
-
-        {/* Totals Section */}
-        {saleData.totalSavings > 0 && (
-          <div className="thermal-row thermal-body">
-            <span>Total Ahorrado:</span>
-            <span className="thermal-bold">{formatCurrency(saleData.totalSavings)}</span>
-          </div>
-        )}
         
         <div className="thermal-row thermal-section">
           <span>TOTAL A PAGAR:</span>
@@ -321,50 +317,95 @@ export default function TicketPage({ params }: PageProps) {
             </div>
           )}
           
-          {/* Thermal Printer Instructions */}
-          <div className="thermal-small" style={{ marginBottom: '15px', padding: '10px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
-            <strong>📋 Instrucciones para Impresora Térmica:</strong>
-            <ul style={{ textAlign: 'left', marginTop: '5px', fontSize: '11px' }}>
-              <li>Asegúrate de que la impresora térmica esté encendida</li>
-              <li>Selecciona tu impresora térmica en el diálogo</li>
-              <li>Verifica que el tamaño de papel sea 80mm</li>
-              <li>Si no imprime, revisa los drivers de la impresora</li>
-            </ul>
-          </div>
+          {isPDFFormat ? (
+            /* Controles para formato PDF */
+            <>
+              <div className="thermal-small" style={{ marginBottom: '15px', padding: '10px', backgroundColor: '#e8f5e8', borderRadius: '4px' }}>
+                <strong>📄 Modo Guardar como PDF</strong>
+                <p style={{ marginTop: '5px', fontSize: '12px' }}>Usa Ctrl+P o Cmd+P para guardar este ticket como PDF</p>
+              </div>
 
-          <button 
-            onClick={() => print()}
-            disabled={isPrinting}
-            style={{
-              padding: '10px 20px',
-              margin: '5px',
-              backgroundColor: isPrinting ? '#6c757d' : '#28a745',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: isPrinting ? 'not-allowed' : 'pointer',
-              fontSize: '14px',
-              fontWeight: 'bold'
-            }}
-          >
-            {isPrinting ? '🖨️ Imprimiendo...' : '🖨️ Imprimir Ticket'}
-          </button>
-          
-          <button 
-            onClick={() => window.close()}
-            style={{
-              padding: '10px 20px',
-              margin: '5px',
-              backgroundColor: '#6c757d',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '14px'
-            }}
-          >
-            ❌ Cerrar Ventana
-          </button>
+              <button 
+                onClick={() => window.print()}
+                style={{
+                  padding: '10px 20px',
+                  margin: '5px',
+                  backgroundColor: '#28a745',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 'bold'
+                }}
+              >
+                📄 Guardar como PDF
+              </button>
+              
+              <button 
+                onClick={() => window.close()}
+                style={{
+                  padding: '10px 20px',
+                  margin: '5px',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                ❌ Cerrar Ventana
+              </button>
+            </>
+          ) : (
+            /* Controles para impresión térmica normal */
+            <>
+              <div className="thermal-small" style={{ marginBottom: '15px', padding: '10px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
+                <strong>📋 Instrucciones para Impresora Térmica:</strong>
+                <ul style={{ textAlign: 'left', marginTop: '5px', fontSize: '11px' }}>
+                  <li>Asegúrate de que la impresora térmica esté encendida</li>
+                  <li>Selecciona tu impresora térmica en el diálogo</li>
+                  <li>Verifica que el tamaño de papel sea 80mm</li>
+                  <li>Si no imprime, revisa los drivers de la impresora</li>
+                </ul>
+              </div>
+
+              <button 
+                onClick={() => print()}
+                disabled={isPrinting}
+                style={{
+                  padding: '10px 20px',
+                  margin: '5px',
+                  backgroundColor: isPrinting ? '#6c757d' : '#28a745',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: isPrinting ? 'not-allowed' : 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 'bold'
+                }}
+              >
+                {isPrinting ? '🖨️ Imprimiendo...' : '🖨️ Imprimir Ticket'}
+              </button>
+              
+              <button 
+                onClick={() => window.close()}
+                style={{
+                  padding: '10px 20px',
+                  margin: '5px',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                ❌ Cerrar Ventana
+              </button>
+            </>
+          )}
         </div>
       </div>
     </>

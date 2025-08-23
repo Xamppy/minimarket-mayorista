@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { formatAsCLP } from '@/lib/formatters';
 import { calculateUnifiedPricing } from '@/lib/unified-pricing-service';
 import { StockEntry } from '@/lib/cart-types';
@@ -54,7 +54,7 @@ interface ScannedItem {
 interface SaleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  mode: 'add-to-cart-from-scan' | 'finalize-sale';
+  mode: 'add-to-cart-from-scan' | 'finalize-sale' | 'direct-sale-from-scan';
   // Para modo add-to-cart-from-scan
   scannedItem?: ScannedItem;
   onItemAddedToCart?: (item: {
@@ -63,6 +63,7 @@ interface SaleModalProps {
     quantity: number;
     saleFormat: 'unitario';
     price: number;
+    wholesalePrice?: number;
   }) => void;
   // Para modo finalize-sale  
   cartItems?: CartItem[];
@@ -83,10 +84,20 @@ export default function SaleModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [saleSuccess, setSaleSuccess] = useState<{ success: boolean; saleId?: string; ticketUrl?: string; totalAmount?: number }>({ success: false });
+  const [isButtonPressed, setIsButtonPressed] = useState(false);
 
   // Determinar modo de operación
   const isAddToCartMode = mode === 'add-to-cart-from-scan';
   const isFinalizeSaleMode = mode === 'finalize-sale';
+  const isDirectSaleMode = mode === 'direct-sale-from-scan';
+
+  const resetForm = () => {
+    setQuantity(1);
+    setSaleFormat('unitario');
+    setError('');
+    setSaleSuccess({ success: false });
+    setIsButtonPressed(false); // Resetear estado de botones
+  };
 
   useEffect(() => {
     // Agregar event listener para prevenir cambios de scroll en inputs numéricos
@@ -97,6 +108,63 @@ export default function SaleModal({
       document.removeEventListener('wheel', preventScrollChange);
     };
   }, []);
+
+  // Resetear formulario cuando el modal se abre
+  useEffect(() => {
+    if (isOpen) {
+      resetForm();
+    }
+  }, [isOpen]);
+
+  // Debug: Monitorear cambios en quantity y estados de botones
+  useEffect(() => {
+    console.log('Debug - Estados:', {
+      quantity,
+      loading,
+      stock: scannedItem?.stockEntry.current_quantity,
+      isButtonPressed,
+      decreaseDisabled: loading || quantity <= 1 || isButtonPressed,
+      increaseDisabled: loading || quantity >= (scannedItem?.stockEntry.current_quantity || 0) || isButtonPressed
+    });
+  }, [quantity, loading, scannedItem?.stockEntry.current_quantity, isButtonPressed]);
+
+  // Funciones optimizadas para manejar clics de botones
+  const handleDecreaseQuantity = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (isButtonPressed || loading || quantity <= 1) return;
+    
+    setIsButtonPressed(true);
+    console.log('Botón disminuir clickeado, quantity actual:', quantity);
+    setQuantity(prev => {
+      const newQuantity = prev > 1 ? prev - 1 : 1;
+      console.log('Nueva quantity después de disminuir:', newQuantity);
+      return newQuantity;
+    });
+    
+    // Reducir tiempo de bloqueo
+    setTimeout(() => setIsButtonPressed(false), 100);
+  }, [isButtonPressed, loading, quantity]);
+
+  const handleIncreaseQuantity = useCallback((e: React.MouseEvent) => {
+     e.preventDefault();
+     e.stopPropagation();
+     
+     const maxQuantity = scannedItem?.stockEntry.current_quantity || 0;
+     if (isButtonPressed || loading || quantity >= maxQuantity) return;
+    
+    setIsButtonPressed(true);
+    console.log('Botón aumentar clickeado, quantity actual:', quantity);
+    setQuantity(prev => {
+      const newQuantity = prev < maxQuantity ? prev + 1 : prev;
+      console.log('Nueva quantity después de aumentar:', newQuantity);
+      return newQuantity;
+    });
+    
+    // Reducir tiempo de bloqueo
+    setTimeout(() => setIsButtonPressed(false), 100);
+  }, [isButtonPressed, loading, quantity, scannedItem?.stockEntry.current_quantity]);
 
   if (!isOpen) return null;
 
@@ -174,6 +242,8 @@ export default function SaleModal({
         await handleAddToCart();
       } else if (isFinalizeSaleMode) {
         await handleFinalizeSale();
+      } else if (isDirectSaleMode) {
+        await handleDirectSaleFromScan();
       } else {
         throw new Error('Modo de operación no válido');
       }
@@ -207,12 +277,64 @@ export default function SaleModal({
       stockEntryId: scannedItem.stockEntry.id,
       quantity,
       saleFormat,
-      price: getPrice()
+      price: getPrice(),
+      wholesalePrice: scannedItem.stockEntry.sale_price_wholesale
     });
 
     // Cerrar modal y resetear
     resetForm();
     onClose();
+  };
+
+  const handleDirectSaleFromScan = async () => {
+    if (!scannedItem) {
+      throw new Error('No hay producto escaneado para procesar');
+    }
+
+    // Validaciones
+    if (quantity <= 0) {
+      throw new Error('La cantidad debe ser mayor a 0');
+    }
+
+    if (quantity > scannedItem.stockEntry.current_quantity) {
+      throw new Error(`Stock insuficiente. Solo hay ${scannedItem.stockEntry.current_quantity} unidades disponibles.`);
+    }
+
+    // Convertir el producto escaneado al formato esperado por la API del carrito
+    const cartItemsForAPI = [{
+      productId: scannedItem.product.id,
+      stockEntryId: scannedItem.stockEntry.id,
+      quantity: quantity,
+      saleFormat: saleFormat,
+      specificPrice: getPrice()
+    }];
+
+    // Procesar la venta usando el mismo sistema del carrito
+    const response = await fetch('/api/sales/cart', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ cartItems: cartItemsForAPI }),
+      credentials: 'include', // Incluir cookies de autenticación
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error?.message || 'Error al procesar la venta del producto escaneado');
+    }
+
+    if (result.success) {
+      setSaleSuccess({ 
+        success: true, 
+        saleId: result.data?.saleId,
+        ticketUrl: result.data?.ticketUrl,
+        totalAmount: result.data?.totalAmount
+      });
+    } else {
+      throw new Error(result.error?.message || 'Error procesando la venta');
+    }
   };
 
   const handleFinalizeSale = async () => {
@@ -257,13 +379,6 @@ export default function SaleModal({
     }
   };
 
-  const resetForm = () => {
-    setQuantity(1);
-    setSaleFormat('unitario');
-    setError('');
-    setSaleSuccess({ success: false });
-  };
-
   const handleClose = () => {
     resetForm();
     onClose();
@@ -289,11 +404,11 @@ export default function SaleModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ pointerEvents: 'auto' }}>
+      <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto" style={{ pointerEvents: 'auto' }}>
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-black">
-            {isAddToCartMode ? 'Añadir al Carrito' : 'Finalizar Venta'}
+            {isAddToCartMode ? 'Añadir al Carrito' : isDirectSaleMode ? 'Confirmar Venta' : 'Finalizar Venta'}
           </h2>
           <button
             onClick={handleClose}
@@ -541,24 +656,28 @@ export default function SaleModal({
                   <label htmlFor="quantity" className="block text-sm font-medium text-black mb-1">
                     Cantidad *
                   </label>
-                  <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-3" style={{ pointerEvents: 'auto', position: 'relative', zIndex: 20 }}>
                     {/* Botón de disminuir */}
                     <button
                       type="button"
-                      onClick={() => {
-                        if (quantity > 1) {
-                          setQuantity(quantity - 1);
-                        }
+                      onClick={handleDecreaseQuantity}
+                      onMouseEnter={() => console.log('Mouse enter en botón disminuir, disabled:', loading || quantity <= 1)}
+                      disabled={loading || quantity <= 1 || isButtonPressed}
+                      className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white hover:bg-blue-600 disabled:opacity-50 disabled:bg-gray-400 transition-colors shadow-md"
+                      style={{ 
+                        pointerEvents: 'auto', 
+                        position: 'relative', 
+                        zIndex: 30, 
+                        cursor: (loading || quantity <= 1 || isButtonPressed) ? 'not-allowed' : 'pointer',
+                        userSelect: 'none'
                       }}
-                      disabled={loading || quantity <= 1}
-                      className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
                       </svg>
                     </button>
 
-                    {/* Input de cantidad */}
+                    {/* Input de cantidad - optimizado para móviles */}
                     <input
                       type="number"
                       id="quantity"
@@ -578,23 +697,32 @@ export default function SaleModal({
                       max={scannedItem?.stockEntry.current_quantity || 1}
                       required
                       disabled={loading}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500 text-black text-center"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500 text-black text-center no-spinner"
                       placeholder="1"
+                      style={{
+                        /* Eliminar iconos nativos de incremento/decremento en móviles */
+                        WebkitAppearance: 'none',
+                        MozAppearance: 'textfield'
+                      }}
+                      onWheel={(e) => e.currentTarget.blur()} // Prevenir cambios con scroll
                     />
 
                     {/* Botón de aumentar */}
                     <button
                       type="button"
-                      onClick={() => {
-                        const maxQuantity = scannedItem?.stockEntry.current_quantity || 1;
-                        if (quantity < maxQuantity) {
-                          setQuantity(quantity + 1);
-                        }
+                      onClick={handleIncreaseQuantity}
+                      onMouseEnter={() => console.log('Mouse enter en botón aumentar, disabled:', loading || quantity >= (scannedItem?.stockEntry.current_quantity || 0))}
+                      disabled={loading || quantity >= (scannedItem?.stockEntry.current_quantity || 0) || isButtonPressed}
+                      className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white hover:bg-blue-600 disabled:opacity-50 disabled:bg-gray-400 transition-colors shadow-md"
+                      style={{ 
+                        pointerEvents: 'auto', 
+                        position: 'relative', 
+                        zIndex: 30, 
+                        cursor: (loading || quantity >= (scannedItem?.stockEntry.current_quantity || 0) || isButtonPressed) ? 'not-allowed' : 'pointer',
+                        userSelect: 'none'
                       }}
-                      disabled={loading || quantity >= (scannedItem?.stockEntry.current_quantity || 1)}
-                      className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                       </svg>
                     </button>
@@ -681,10 +809,10 @@ export default function SaleModal({
               </button>
               <button
                 type="submit"
-                disabled={loading || (isAddToCartMode && (quantity <= 0 || (scannedItem && quantity > scannedItem.stockEntry.current_quantity)))}
+                disabled={loading || ((isAddToCartMode || isDirectSaleMode) && (quantity <= 0 || (scannedItem && quantity > scannedItem.stockEntry.current_quantity)))}
                 className="flex-1 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'Procesando...' : (isAddToCartMode ? 'Añadir al Carrito' : 'Confirmar Venta')}
+                {loading ? 'Procesando...' : (isAddToCartMode ? 'Añadir al Carrito' : isDirectSaleMode ? 'Confirmar Venta' : 'Finalizar Venta')}
               </button>
             </div>
           </form>

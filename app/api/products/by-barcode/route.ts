@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
             id: stockEntry.id,
             sale_price_unit: stockEntry.sale_price_unit,
             sale_price_wholesale: stockEntry.sale_price_wholesale,
-            remaining_quantity: stockEntry.current_quantity,
+            current_quantity: stockEntry.current_quantity,
             purchase_price: stockEntry.purchase_price,
             expiration_date: stockEntry.expiration_date,
             barcode: stockEntry.barcode

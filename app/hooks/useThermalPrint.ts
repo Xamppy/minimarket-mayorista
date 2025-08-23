@@ -45,6 +45,7 @@ export const useThermalPrint = (
 
   const [isPrinting, setIsPrinting] = useState(false);
   const [printError, setPrintError] = useState<string | null>(null);
+  const [hasAutoPrinted, setHasAutoPrinted] = useState(false);
 
   const browserCapabilities = getBrowserPrintCapabilities();
   const thermalSettings = detectThermalPrinterSettings();
@@ -191,11 +192,12 @@ export const useThermalPrint = (
 
   // Auto-print functionality with element availability check
   useEffect(() => {
-    if (autoprint && !isPrinting) {
+    if (autoprint && !isPrinting && !hasAutoPrinted) {
       const checkAndPrint = () => {
         // Check if the thermal ticket element exists
         const ticketElement = document.querySelector('.thermal-ticket');
         if (ticketElement) {
+          setHasAutoPrinted(true);
           print().catch(error => {
             console.error('Auto-print failed:', error);
           });
@@ -208,7 +210,7 @@ export const useThermalPrint = (
       const timer = setTimeout(checkAndPrint, autoprintDelay);
       return () => clearTimeout(timer);
     }
-  }, [autoprint, autoprintDelay, print, isPrinting]);
+  }, [autoprint, autoprintDelay, print, isPrinting, hasAutoPrinted]);
 
   // Inject styles on mount (only once)
   useEffect(() => {
