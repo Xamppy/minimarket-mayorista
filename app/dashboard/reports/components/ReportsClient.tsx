@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getSalesReport, getTopSellingProducts, getRecentSales, getDailySalesStats } from '../../admin/actions';
+// Removed admin actions import - now using direct API calls
 import { formatAsCLP } from '../../../../lib/formatters';
 import { safeEmailInitial, formatSafeEmail, validateSaleData, SafeRecentSale } from '../../../../lib/safe-data-utils';
 import DailySalesChart from './DailySalesChart';
@@ -51,12 +51,26 @@ export default function ReportsClient() {
       setLoading(true);
       setError(null);
       
-      const [salesData, topProductsData, recentSalesData, dailySalesStats] = await Promise.all([
-        getSalesReport(period),
-        getTopSellingProducts(5),
-        getRecentSales(10),
-        getDailySalesStats()
-      ]);
+      // Fetch all reports data from the new endpoint
+      const response = await fetch('/api/reports', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for authentication
+        body: JSON.stringify({
+          action: 'getAllReports',
+          period: period
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
+      }
+
+      const { data } = await response.json();
+      const { salesReport: salesData, topProducts: topProductsData, recentSales: recentSalesData, dailyStats: dailySalesStats } = data;
       
       // Validate and sanitize data before setting state
       setSalesReport(salesData as SalesReport);
