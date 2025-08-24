@@ -199,7 +199,7 @@ export default function ReportsClient() {
             {(['day', 'week', 'month'] as const).map((period) => {
               const labels = {
                 day: { text: 'Día', icon: '📅', desc: 'Hoy' },
-                week: { text: 'Semana', icon: '📈', desc: 'Últimos 7 días' },
+                week: { text: 'Semana', icon: '📆', desc: 'Últimos 7 días' },
                 month: { text: 'Mes', icon: '📊', desc: 'Últimos 30 días' }
               };
               
@@ -355,7 +355,7 @@ export default function ReportsClient() {
             </svg>
           </div>
           <div className="ml-4">
-            <h3 className="font-semibold text-blue-900 mb-3">📈 Información sobre los reportes</h3>
+            <h3 className="font-semibold text-blue-900 mb-3">📋 Información sobre los reportes</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-800">
               <ul className="space-y-2">
                 <li className="flex items-center">

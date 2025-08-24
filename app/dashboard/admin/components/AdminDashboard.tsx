@@ -36,6 +36,8 @@ interface User {
   email?: string;
 }
 
+
+
 interface AdminDashboardProps {
   user: User;
   role: string;
@@ -57,6 +59,8 @@ export default function AdminDashboard({
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [currentBrands, setCurrentBrands] = useState(brands);
   const [currentProductTypes, setCurrentProductTypes] = useState(productTypes);
+  
+
 
   // Sincronizar estados con props cuando cambien
   useEffect(() => {
@@ -93,6 +97,8 @@ export default function AdminDashboard({
     refreshCategories(); // Refrescar datos cuando se cierre el modal
   };
 
+
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -108,6 +114,8 @@ export default function AdminDashboard({
         <div className="mb-8">
           <AlertsDashboard />
         </div>
+
+
 
         {/* Encabezado de Acciones */}
         <div className="mb-8">
@@ -187,6 +195,8 @@ export default function AdminDashboard({
           isOpen={categoryModalOpen}
           onClose={handleCategoryModalClose}
         />
+
+
       </div>
     </div>
   );

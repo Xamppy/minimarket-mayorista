@@ -532,10 +532,16 @@ export async function searchSalesByDate(startDate: string, endDate: string, limi
     }
 
     const data = await response.json();
-    return data;
+    
+    // La API devuelve { result: [...] }, necesitamos acceder a result
+    const salesData = data.result || data;
+    
+    // Asegurar que siempre retornemos un array
+    return Array.isArray(salesData) ? salesData : [];
   } catch (error: any) {
     console.error('Error al buscar ventas por fecha:', error);
-    throw new Error(`Error al buscar ventas por fecha: ${error.message}`);
+    // Retornar array vacío en caso de error
+    return [];
   }
 }
 

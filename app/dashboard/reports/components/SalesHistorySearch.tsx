@@ -27,6 +27,7 @@ export default function SalesHistorySearch() {
   const [endDate, setEndDate] = useState('');
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
 
@@ -58,13 +59,13 @@ export default function SalesHistorySearch() {
     setHasSearched(true);
 
     try {
-      // Agregar tiempo completo a las fechas
       const startDateTime = startDate + 'T00:00:00';
       const endDateTime = endDate + 'T23:59:59';
       
       const result = await searchSalesByDate(startDateTime, endDateTime, 100);
       setSales(result || []);
     } catch (err: any) {
+      console.error('❌ Error en búsqueda:', err);
       setError(err.message || 'Error al buscar ventas');
       setSales([]);
     } finally {
@@ -80,7 +81,7 @@ export default function SalesHistorySearch() {
     setHasSearched(false);
   };
 
-  const totalSales = sales.reduce((sum, sale) => sum + sale.total_amount, 0);
+  const totalSales = Array.isArray(sales) ? sales.reduce((sum, sale) => sum + sale.total_amount, 0) : 0;
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
@@ -100,7 +101,8 @@ export default function SalesHistorySearch() {
               id="startDate"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
+              style={{ colorScheme: 'light' }}
             />
           </div>
           
@@ -113,7 +115,8 @@ export default function SalesHistorySearch() {
               id="endDate"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
+              style={{ colorScheme: 'light' }}
             />
           </div>
           
@@ -146,7 +149,7 @@ export default function SalesHistorySearch() {
         <div className="mb-6 p-4 bg-gray-50 rounded-lg">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
             <div>
-              <p className="text-2xl font-bold text-blue-600">{sales.length}</p>
+              <p className="text-2xl font-bold text-blue-600">{Array.isArray(sales) ? sales.length : 0}</p>
               <p className="text-sm text-gray-600">Ventas encontradas</p>
             </div>
             <div>
@@ -155,7 +158,7 @@ export default function SalesHistorySearch() {
             </div>
             <div>
               <p className="text-2xl font-bold text-purple-600">
-                {sales.length > 0 ? formatAsCLP(totalSales / sales.length) : formatAsCLP(0)}
+                {Array.isArray(sales) && sales.length > 0 ? formatAsCLP(totalSales / sales.length) : formatAsCLP(0)}
               </p>
               <p className="text-sm text-gray-600">Ticket promedio</p>
             </div>
@@ -199,17 +202,20 @@ export default function SalesHistorySearch() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Monto Total
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Acciones
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {sales.map((sale) => (
+              {Array.isArray(sales) && sales.map((sale) => (
                 <tr key={sale.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-semibold">
                       #{sale.id}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-black font-medium">
                     {formatDate(sale.created_at)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -241,12 +247,111 @@ export default function SalesHistorySearch() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600">
                     {formatAsCLP(sale.total_amount)}
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <button
+                      onClick={() => setSelectedSale(sale)}
+                      className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-md text-xs font-medium transition-colors"
+                    >
+                      Ver Detalles
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       ) : null}
+
+      {/* Modal para mostrar detalles del ticket */}
+      {selectedSale && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-900">
+                Detalles del Ticket #{selectedSale.id}
+              </h2>
+              <button
+                onClick={() => setSelectedSale(null)}
+                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              {/* Información general */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-gray-900 mb-2">Información General</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="font-medium text-gray-700">Fecha y Hora:</span>
+                    <p className="text-black font-medium">{formatDate(selectedSale.created_at)}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-700">Vendedor:</span>
+                    <p className="text-gray-900">{selectedSale.seller_email || 'Sistema'}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-700">Total de Productos:</span>
+                    <p className="text-gray-900">{selectedSale.sale_items.length}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-700">Monto Total:</span>
+                    <p className="text-green-600 font-bold text-lg">{formatAsCLP(selectedSale.total_amount)}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Productos vendidos */}
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-3">Productos Vendidos</h3>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Marca</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Cantidad</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Precio Unit.</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {selectedSale.sale_items.map((item) => (
+                        <tr key={item.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-2 text-sm text-gray-900">{item.product.name}</td>
+                          <td className="px-4 py-2 text-sm text-gray-600">{item.product.brand_name}</td>
+                          <td className="px-4 py-2 text-sm text-gray-900 font-medium">{item.quantity_sold}</td>
+                          <td className="px-4 py-2 text-sm text-gray-900">{formatAsCLP(item.price_at_sale)}</td>
+                          <td className="px-4 py-2 text-sm text-green-600 font-medium">
+                            {formatAsCLP(item.quantity_sold * item.price_at_sale)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Botones de acción */}
+              <div className="flex justify-end space-x-3 pt-4 border-t">
+                <button
+                  onClick={() => setSelectedSale(null)}
+                  className="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-md transition-colors"
+                >
+                  Cerrar
+                </button>
+                <button
+                  onClick={() => window.open(`/ticket/${selectedSale.id}`, '_blank')}
+                  className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors"
+                >
+                  Ver Ticket Completo
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

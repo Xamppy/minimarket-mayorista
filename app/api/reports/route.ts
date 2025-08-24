@@ -225,7 +225,7 @@ async function getDailySalesStats(period: 'day' | 'week' | 'month' = 'month') {
 export async function POST(request: NextRequest) {
   try {
     // Verificar autenticación y permisos de administrador
-    const authResult = await verifyAdminAuth(request);
+    const authResult = await verifyAdminAuth();
     if (authResult.error) {
       return NextResponse.json(
         { error: authResult.error },
@@ -316,7 +316,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     // Verificar autenticación y permisos de administrador
-    const authResult = await verifyAdminAuth(request);
+    const authResult = await verifyAdminAuth();
     if (authResult.error) {
       return NextResponse.json(
         { error: authResult.error },

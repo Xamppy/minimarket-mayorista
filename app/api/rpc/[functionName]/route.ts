@@ -270,6 +270,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             LIMIT $3
           `, [startDate, endDate, searchLimit]);
           
+
+          
           result = searchSalesResult.rows.map(row => ({
             id: row.id,
             total_amount: parseFloat(row.total_amount),
@@ -283,6 +285,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
               price_at_sale: parseFloat(item.price_at_sale)
             }))
           }));
+          
+
            break;
 
         case 'get_product_categories':
