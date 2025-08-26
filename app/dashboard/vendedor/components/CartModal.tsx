@@ -171,56 +171,36 @@ export default function CartModal({
         }
       }
 
-      // Para ahora, vamos a procesar las ventas una por una usando el endpoint existente
-      let lastSaleId = '';
-      
-      for (const item of cartItems) {
-        const formData = new FormData();
-        formData.append('productId', item.product.id);
-        formData.append('quantity', item.quantity.toString());
-        formData.append('saleFormat', item.saleFormat);
-        formData.append('stockEntryId', item.stockEntryId);
-        formData.append('price', item.appliedPrice.toString());
+      // Convertir items del carrito al formato esperado por la API del carrito
+      const cartItemsForAPI = cartItems.map(item => ({
+        productId: item.product.id,
+        stockEntryId: item.stockEntryId,
+        quantity: item.quantity,
+        saleFormat: item.saleFormat,
+        specificPrice: item.appliedPrice
+      }));
 
-        const response = await fetch('/api/sales', {
-          method: 'POST',
-          body: formData,
-          credentials: 'include', // Incluir cookies de autenticación
-        });
+      // Procesar toda la venta como un carrito usando el sistema reutilizable
+      const response = await fetch('/api/sales/cart', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ cartItems: cartItemsForAPI }),
+        credentials: 'include', // Incluir cookies de autenticación
+      });
 
-        let result;
-        try {
-          result = await response.json();
-        } catch (jsonError) {
-          throw new Error(`Error del servidor (${response.status}): No se pudo procesar la respuesta`);
-        }
+      const result = await response.json();
 
-        if (!response.ok) {
-          let errorMsg = `Error ${response.status} al procesar la venta de ${item.product.name}`;
-          
-          if (result?.error) {
-            if (typeof result.error === 'string') {
-              errorMsg = result.error;
-            } else if (result.error.message) {
-              errorMsg = result.error.message;
-            } else if (result.error.details) {
-              errorMsg = Array.isArray(result.error.details) 
-                ? result.error.details.join(', ') 
-                : result.error.details;
-            }
-          } else if (result?.message) {
-            errorMsg = result.message;
-          }
-          
-          throw new Error(errorMsg);
-        }
-
-        if (!result.data?.saleId) {
-          throw new Error('La venta se procesó pero no se recibió un ID de venta válido');
-        }
-
-        lastSaleId = result.data.saleId;
+      if (!response.ok) {
+        throw new Error(result.error?.message || 'Error al procesar la venta del carrito');
       }
+
+      if (!result.success || !result.data?.saleId) {
+        throw new Error(result.error?.message || 'Error procesando la venta');
+      }
+
+      const lastSaleId = result.data.saleId;
 
       // Éxito
       setSaleSuccess({ success: true, saleId: lastSaleId });

@@ -12,11 +12,45 @@ export const authenticatedFetch = async (url: string, options: RequestInit = {})
     ...options.headers,
   };
 
-  return fetch(url, {
+  const response = await fetch(url, {
     ...options,
     headers,
     credentials: 'include', // Incluir cookies en la petición
   });
+
+  // Si recibimos 401 o 403, intentar renovar el token
+  if (response.status === 401 || response.status === 403) {
+    try {
+      const refreshResponse = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        credentials: 'include'
+      });
+
+      if (refreshResponse.ok) {
+        // Token renovado exitosamente, reintentar la petición original
+        return fetch(url, {
+          ...options,
+          headers,
+          credentials: 'include'
+        });
+      } else {
+        // No se pudo renovar el token, redirigir al login
+        if (typeof window !== 'undefined') {
+          window.location.href = '/';
+        }
+        return response;
+      }
+    } catch (error) {
+      console.error('Error al intentar renovar token:', error);
+      // Si falla la renovación, redirigir al login
+      if (typeof window !== 'undefined') {
+        window.location.href = '/';
+      }
+      return response;
+    }
+  }
+
+  return response;
 };
 
 

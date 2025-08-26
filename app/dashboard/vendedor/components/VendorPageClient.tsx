@@ -173,7 +173,7 @@ export default function VendorPageClient({
     setSaleModalOpen(true);
   };
 
-  const addToCart = (product: Product, stockEntry: any) => {
+  const addToCart = (product: Product, stockEntry: any, quantityToAdd: number = 1) => {
 
     setCart(prevCart => {
       const existingItem = prevCart.find(item =>
@@ -182,13 +182,13 @@ export default function VendorPageClient({
 
       if (existingItem) {
         // Verificar si hay suficiente stock
-        if (existingItem.quantity >= stockEntry.current_quantity) {
+        const newQuantity = existingItem.quantity + quantityToAdd;
+        if (newQuantity > stockEntry.current_quantity) {
           showError(`Stock insuficiente. Solo quedan ${stockEntry.current_quantity} unidades.`);
           return prevCart;
         }
 
-        // Incrementar cantidad y recalcular precios
-        const newQuantity = existingItem.quantity + 1;
+        // Incrementar cantidad por la cantidad especificada y recalcular precios
         
         // Crear stock entry para el cálculo unificado
         const stockEntryForCalc = {
@@ -220,11 +220,17 @@ export default function VendorPageClient({
             : item
         );
       } else {
+        // Verificar si hay suficiente stock para la nueva cantidad
+        if (quantityToAdd > stockEntry.current_quantity) {
+          showError(`Stock insuficiente. Solo quedan ${stockEntry.current_quantity} unidades.`);
+          return prevCart;
+        }
+
         // Añadir nuevo item con cálculo de wholesale pricing
         const baseItem = {
           product,
           stockEntryId: stockEntry.id,
-          quantity: 1,
+          quantity: quantityToAdd,
           saleFormat: 'unitario' as const,
           unitPrice: stockEntry.sale_price_unit || 0,
 
@@ -246,7 +252,7 @@ export default function VendorPageClient({
           sale_price_wholesale: baseItem.wholesalePrice || null
         };
         
-        const pricingInfo = calculateUnifiedPricing(stockEntryForCalc, 1, 'unitario');
+        const pricingInfo = calculateUnifiedPricing(stockEntryForCalc, quantityToAdd, 'unitario');
 
         return [...prevCart, {
           ...baseItem,

@@ -46,7 +46,10 @@ export function calculateUnifiedPricing(
   const baseUnitPrice = stockEntry.sale_price_unit;
   const wholesalePrice = stockEntry.sale_price_wholesale;
 
-
+  // Validar que el precio unitario sea válido
+  if (!baseUnitPrice || isNaN(baseUnitPrice) || baseUnitPrice <= 0) {
+    throw new Error(`Precio unitario inválido: ${baseUnitPrice}`);
+  }
 
   // For unitario format, check wholesale pricing
   let appliedPrice = baseUnitPrice;

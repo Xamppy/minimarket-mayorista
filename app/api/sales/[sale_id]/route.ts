@@ -70,12 +70,13 @@ export async function GET(
             si.id,
             si.quantity,
             si.unit_price,
-            'unitario' as sale_format,
-            p.barcode,
+            si.sale_type as sale_format,
+            se.barcode,
             p.name as product_name,
             b.name as brand_name
           FROM sale_items si
           JOIN products p ON si.product_id = p.id
+          LEFT JOIN stock_entries se ON p.id = se.product_id
           LEFT JOIN brands b ON p.brand_id = b.id
           WHERE si.sale_id = $1
           ORDER BY si.id

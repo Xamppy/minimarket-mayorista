@@ -188,7 +188,7 @@ export async function POST(request: NextRequest) {
         `INSERT INTO stock_entries 
          (product_id, quantity, current_quantity, initial_quantity, barcode, purchase_price, 
           sale_price_unit, sale_price_wholesale, expiration_date, entry_date)
-         VALUES ($1, $2, $2, $3, $4, $5, $6, $7, NOW())
+         VALUES ($1, $2, $2, $3, $4, $5, $6, $7, $8, NOW())
          RETURNING *`,
         [
           product_id,

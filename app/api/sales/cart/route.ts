@@ -33,13 +33,28 @@ export async function POST(request: NextRequest) {
     }
 
     // Convertir items del carrito al formato esperado
-    const processedCartItems: CartItem[] = cartItems.map((item: any) => ({
-      productId: item.productId || item.product?.id,
-      quantity: parseInt(item.quantity) || 1,
-      saleFormat: item.saleFormat || 'unitario',
-      specificPrice: item.specificPrice ? parseFloat(item.specificPrice) : undefined,
-      stockEntryId: item.stockEntryId
-    }));
+    const processedCartItems: CartItem[] = cartItems.map((item: any) => {
+      // Validar y convertir cantidad
+      const parsedQuantity = parseInt(item.quantity);
+      const quantity = (!isNaN(parsedQuantity) && parsedQuantity > 0) ? parsedQuantity : 1;
+      
+      // Validar y convertir precio específico
+      let specificPrice: number | undefined = undefined;
+      if (item.specificPrice !== null && item.specificPrice !== undefined) {
+        const parsedPrice = parseFloat(item.specificPrice);
+        if (!isNaN(parsedPrice) && parsedPrice > 0) {
+          specificPrice = parsedPrice;
+        }
+      }
+      
+      return {
+        productId: item.productId || item.product?.id,
+        quantity,
+        saleFormat: item.saleFormat || 'unitario',
+        specificPrice,
+        stockEntryId: item.stockEntryId
+      };
+    });
 
     // Validar items del carrito antes del procesamiento
     const validation = validateCartItemsUtility(processedCartItems);

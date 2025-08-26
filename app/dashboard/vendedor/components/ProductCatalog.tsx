@@ -67,7 +67,7 @@ export default function ProductCatalog({ products, searchTerm, categoryFilter, b
     });
   };
 
-  const handleStockEntrySelected = (stockEntry: StockEntry, _quantity: number, _saleFormat: 'unitario') => {
+  const handleStockEntrySelected = (stockEntry: StockEntry, quantity: number, _saleFormat: 'unitario') => {
     if (!stockSelectionModal.selectedProduct || !onAddToCart) return;
 
     // Convertir StockEntry a formato compatible con onAddToCart
@@ -82,7 +82,7 @@ export default function ProductCatalog({ products, searchTerm, categoryFilter, b
     };
 
     // Llamar a onAddToCart con la información del stock entry seleccionado
-    onAddToCart(stockSelectionModal.selectedProduct, stockEntryForCart);
+    onAddToCart(stockSelectionModal.selectedProduct, stockEntryForCart, quantity);
 
     // Cerrar modal
     setStockSelectionModal({

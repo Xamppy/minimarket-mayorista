@@ -301,6 +301,14 @@ export class ReusableSalesManager {
     totalPrice?: number;
     error?: string;
   }> {
+    // Validar que la cantidad sea un número válido
+    if (!item.quantity || isNaN(item.quantity) || item.quantity <= 0) {
+      return {
+        success: false,
+        error: `Cantidad inválida: ${item.quantity}`
+      };
+    }
+
     const stockEntry = await this.getStockEntry(item.stockEntryId!);
     if (!stockEntry) {
       return {
@@ -309,21 +317,37 @@ export class ReusableSalesManager {
       };
     }
 
-    if (stockEntry.remaining_quantity < item.quantity) {
+    // Validar que current_quantity sea un número válido
+    if (!stockEntry.current_quantity || isNaN(stockEntry.current_quantity) || stockEntry.current_quantity < 0) {
       return {
         success: false,
-        error: `Stock insuficiente en este lote. Disponible: ${stockEntry.remaining_quantity}`
+        error: `Cantidad actual inválida en stock entry ${item.stockEntryId}: ${stockEntry.current_quantity}`
       };
     }
 
-    const totalPrice = item.specificPrice! * item.quantity;
+    if (stockEntry.current_quantity < item.quantity) {
+      return {
+        success: false,
+        error: `Stock insuficiente en este lote. Disponible: ${stockEntry.current_quantity}`
+      };
+    }
+
+    // Validar que specificPrice sea un número válido
+    if (!item.specificPrice || isNaN(item.specificPrice) || item.specificPrice <= 0) {
+      return {
+        success: false,
+        error: `Precio específico inválido: ${item.specificPrice}`
+      };
+    }
+
+    const totalPrice = item.specificPrice * item.quantity;
     
     const processedItem: ProcessedItem = {
       productId: item.productId,
       productName: product.name,
       brandName: product.brand_name || 'Sin marca',
       quantity: item.quantity,
-      unitPrice: item.specificPrice!,
+      unitPrice: item.specificPrice,
       totalPrice,
       saleFormat: item.saleFormat,
       stockEntryId: item.stockEntryId!,
@@ -332,8 +356,8 @@ export class ReusableSalesManager {
 
     const stockUpdate: StockUpdate = {
       stockEntryId: item.stockEntryId!,
-      previousQuantity: stockEntry.remaining_quantity,
-      newQuantity: stockEntry.remaining_quantity - item.quantity,
+      previousQuantity: stockEntry.current_quantity,
+      newQuantity: stockEntry.current_quantity - item.quantity,
       quantityUsed: item.quantity
     };
 
@@ -355,6 +379,14 @@ export class ReusableSalesManager {
     totalPrice?: number;
     error?: string;
   }> {
+    // Validar que la cantidad sea un número válido
+    if (!item.quantity || isNaN(item.quantity) || item.quantity <= 0) {
+      return {
+        success: false,
+        error: `Cantidad inválida: ${item.quantity}`
+      };
+    }
+
     // Obtener stock entries ordenados por FIFO
     const stockEntries = await this.getFIFOStockEntries(item.productId);
     if (stockEntries.length === 0) {
@@ -372,13 +404,30 @@ export class ReusableSalesManager {
     for (const stockEntry of stockEntries) {
       if (remainingQuantity <= 0) break;
 
+      // Validar que current_quantity sea un número válido
+      if (!stockEntry.current_quantity || isNaN(stockEntry.current_quantity) || stockEntry.current_quantity < 0) {
+        return {
+          success: false,
+          error: `Cantidad en stock inválida en stock entry ${stockEntry.id}: ${stockEntry.current_quantity}`
+        };
+      }
+
       const quantityToTake = Math.min(remainingQuantity, stockEntry.current_quantity);
       
       // Determinar precio (unitario vs wholesale)
       let unitPrice = stockEntry.sale_price_unit;
       let isWholesale = false;
       
+      // Validar que el precio unitario sea válido
+      if (!unitPrice || isNaN(unitPrice) || unitPrice <= 0) {
+        return {
+          success: false,
+          error: `Precio unitario inválido en stock entry ${stockEntry.id}: ${unitPrice}`
+        };
+      }
+      
       if (stockEntry.sale_price_wholesale && 
+          !isNaN(stockEntry.sale_price_wholesale) &&
           stockEntry.sale_price_wholesale > 0 && 
           quantityToTake >= 3) {
         unitPrice = stockEntry.sale_price_wholesale;
@@ -543,6 +592,11 @@ export class ReusableSalesManager {
   }
 
   private async createSale(userId: string, totalAmount: number): Promise<string> {
+    // Validar que totalAmount sea un número válido
+    if (isNaN(totalAmount) || totalAmount <= 0) {
+      throw new Error(`Monto total inválido: ${totalAmount}`);
+    }
+    
     const result = await this.client!.query(
       'INSERT INTO sales (user_id, total_amount, payment_method) VALUES ($1, $2, $3) RETURNING id',
       [userId, totalAmount, 'pending']
@@ -552,6 +606,17 @@ export class ReusableSalesManager {
 
   private async createSaleItems(saleId: string, items: ProcessedItem[]): Promise<void> {
     for (const item of items) {
+      // Validar que todos los valores numéricos sean válidos
+      if (isNaN(item.quantity) || item.quantity <= 0) {
+        throw new Error(`Cantidad inválida en sale_item: ${item.quantity}`);
+      }
+      if (isNaN(item.unitPrice) || item.unitPrice <= 0) {
+        throw new Error(`Precio unitario inválido en sale_item: ${item.unitPrice}`);
+      }
+      if (isNaN(item.totalPrice) || item.totalPrice <= 0) {
+        throw new Error(`Precio total inválido en sale_item: ${item.totalPrice}`);
+      }
+      
       await this.client!.query(
         `INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, total_price, sale_type)
          VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -562,6 +627,11 @@ export class ReusableSalesManager {
 
   private async updateStock(stockUpdates: StockUpdate[]): Promise<void> {
     for (const update of stockUpdates) {
+      // Validar que newQuantity sea un número válido antes de actualizar
+      if (isNaN(update.newQuantity) || update.newQuantity < 0) {
+        throw new Error(`Cantidad nueva inválida para stock entry ${update.stockEntryId}: ${update.newQuantity}`);
+      }
+      
       await this.client!.query(
         'UPDATE stock_entries SET current_quantity = $1 WHERE id = $2',
         [update.newQuantity, update.stockEntryId]

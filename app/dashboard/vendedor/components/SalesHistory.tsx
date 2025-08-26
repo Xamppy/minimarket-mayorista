@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { formatAsCLP } from '../../../../lib/formatters';
+import { authenticatedFetch } from '../../../utils/auth/api';
 
 interface Sale {
   id: string;
@@ -26,7 +27,7 @@ export default function SalesHistory() {
       setError(null);
 
       // Obtener ventas del día actual del vendedor autenticado
-      const response = await fetch('/api/vendor-sales');
+      const response = await authenticatedFetch('/api/vendor-sales');
       
       if (!response.ok) {
         throw new Error('Error al obtener ventas del día');
