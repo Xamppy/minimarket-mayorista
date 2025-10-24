@@ -131,7 +131,7 @@ export const THERMAL_PRINTER_PRESETS: Record<string, ThermalPrinterPreset> = {
     description: 'Standard 80mm thermal printer (most common)',
     config: {
       paperWidth: 80,
-      printableWidth: 72,
+      printableWidth: 78,
       fontSize: {
         header: 14,
         section: 12,
@@ -141,16 +141,17 @@ export const THERMAL_PRINTER_PRESETS: Record<string, ThermalPrinterPreset> = {
       spacing: {
         sectionGap: 3,
         lineHeight: 1.1,
-        padding: 2,
+        padding: 1,
       },
     },
   },
+
   compact80mm: {
     name: 'Compact 80mm',
     description: 'Compact layout for 80mm thermal printer',
     config: {
       paperWidth: 80,
-      printableWidth: 74,
+      printableWidth: 78,
       fontSize: {
         header: 13,
         section: 11,
@@ -160,7 +161,7 @@ export const THERMAL_PRINTER_PRESETS: Record<string, ThermalPrinterPreset> = {
       spacing: {
         sectionGap: 2,
         lineHeight: 1.0,
-        padding: 1.5,
+        padding: 1,
       },
     },
   },
@@ -169,7 +170,7 @@ export const THERMAL_PRINTER_PRESETS: Record<string, ThermalPrinterPreset> = {
     description: 'High density layout for 80mm thermal printer',
     config: {
       paperWidth: 80,
-      printableWidth: 76,
+      printableWidth: 78,
       fontSize: {
         header: 12,
         section: 10,
@@ -179,7 +180,7 @@ export const THERMAL_PRINTER_PRESETS: Record<string, ThermalPrinterPreset> = {
       spacing: {
         sectionGap: 1.5,
         lineHeight: 0.9,
-        padding: 1,
+        padding: 0.5,
       },
     },
   },

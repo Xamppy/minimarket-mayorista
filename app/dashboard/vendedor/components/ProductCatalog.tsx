@@ -20,7 +20,7 @@ interface ProductCatalogProps {
   searchTerm: string;
   categoryFilter: string;
   brandFilter: string;
-  onAddToCart?: (product: Product, stockEntry: any) => void;
+  onAddToCart?: (product: Product, stockEntry: any, quantity?: number) => void;
 }
 
 export default function ProductCatalog({ products, searchTerm, categoryFilter, brandFilter, onAddToCart }: ProductCatalogProps) {

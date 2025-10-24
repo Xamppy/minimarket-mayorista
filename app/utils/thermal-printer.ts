@@ -40,10 +40,12 @@ export const getThermalPrintStyles = (config: ThermalPrintConfig = THERMAL_PRINT
     ticketContainer: `
       width: ${config.printableWidth}mm;
       max-width: ${config.printableWidth}mm;
-      margin: 0;
+      min-width: ${config.printableWidth}mm;
+      margin: 0 auto;
       padding: ${config.spacing.padding}mm;
       box-sizing: border-box;
       font-family: 'Courier New', 'Consolas', 'Monaco', monospace;
+      display: block;
     `,
     typography: {
       header: `
@@ -107,7 +109,7 @@ export const generateThermalPrintCSS = (config: ThermalPrintConfig = THERMAL_PRI
     @media print {
       ${styles.pageConfig}
       
-      /* Force thermal printer compatibility */
+      /* Force printer compatibility */
       @page {
         size: ${config.paperWidth}mm auto;
         margin: 0;
@@ -129,12 +131,16 @@ export const generateThermalPrintCSS = (config: ThermalPrintConfig = THERMAL_PRI
         filter: none !important;
       }
       
-      /* Optimize body for thermal printing */
+      /* Optimize body for printing */
       body {
         ${styles.bodyStyles}
         -webkit-font-smoothing: none !important;
         -moz-osx-font-smoothing: unset !important;
         text-rendering: optimizeSpeed !important;
+        width: ${config.paperWidth}mm !important;
+        max-width: ${config.paperWidth}mm !important;
+        display: flex !important;
+        justify-content: center !important;
       }
       
       /* Main ticket container */
@@ -143,6 +149,10 @@ export const generateThermalPrintCSS = (config: ThermalPrintConfig = THERMAL_PRI
         page-break-inside: avoid;
         orphans: 3;
         widows: 3;
+        margin: 0 !important;
+        width: ${config.printableWidth}mm !important;
+        max-width: ${config.printableWidth}mm !important;
+        min-width: ${config.printableWidth}mm !important;
       }
       
       /* Typography classes */
@@ -227,7 +237,7 @@ export const generateThermalPrintCSS = (config: ThermalPrintConfig = THERMAL_PRI
         margin-left: 2mm;
       }
       
-      /* Thermal printer specific optimizations */
+      /* Printer specific optimizations */
       .thermal-ticket * {
         font-variant-ligatures: none !important;
         font-feature-settings: normal !important;
@@ -236,6 +246,49 @@ export const generateThermalPrintCSS = (config: ThermalPrintConfig = THERMAL_PRI
         -webkit-font-smoothing: none !important;
         -moz-osx-font-smoothing: unset !important;
         text-rendering: optimizeSpeed !important;
+      }
+      
+      /* Standard thermal printer optimizations */
+      .thermal-separator {
+        border-bottom: 1px solid #000 !important;
+          margin: ${config.spacing.sectionGap}mm 0 !important;
+          width: 100% !important;
+          height: 0 !important;
+          page-break-inside: avoid !important;
+        }
+        
+        .thermal-row {
+          display: flex !important;
+          justify-content: space-between !important;
+          align-items: baseline !important;
+          width: 100% !important;
+          margin: 2mm 0 !important;
+          page-break-inside: avoid !important;
+          min-height: ${config.fontSize.body * 1.2}px !important;
+        }
+        
+        .thermal-price-row {
+          display: flex !important;
+          justify-content: space-between !important;
+          align-items: baseline !important;
+          width: 100% !important;
+          margin: 1mm 0 !important;
+          page-break-inside: avoid !important;
+          font-weight: bold !important;
+        }
+        
+        .thermal-center {
+          text-align: center !important;
+          width: 100% !important;
+        }
+        
+        .thermal-header {
+          font-size: ${config.fontSize.header}px !important;
+          font-weight: bold !important;
+          text-align: center !important;
+          margin-bottom: ${config.spacing.sectionGap}mm !important;
+          letter-spacing: 1px !important;
+        }
       }
       
       /* Force black text for thermal printers */
@@ -295,6 +348,14 @@ export const generateThermalPrintCSS = (config: ThermalPrintConfig = THERMAL_PRI
         font-family: 'Courier New', 'Consolas', 'Monaco', monospace;
       }
       
+      /* Override dark mode specifically for thermal ticket pages */
+      @media (prefers-color-scheme: dark) {
+        body:has(.thermal-ticket) {
+          background-color: #f5f5f5 !important;
+          color: #000000 !important;
+        }
+      }
+      
       .thermal-ticket {
         ${styles.ticketContainer}
         background: white;
@@ -302,6 +363,9 @@ export const generateThermalPrintCSS = (config: ThermalPrintConfig = THERMAL_PRI
         border-radius: 4px;
         border: 1px solid #ddd;
         color: #000000 !important;
+        width: ${config.printableWidth}mm !important;
+        max-width: ${config.printableWidth}mm !important;
+        min-width: ${config.printableWidth}mm !important;
       }
       
       /* Ensure all text within ticket is black */
@@ -557,52 +621,60 @@ export const checkThermalPrinterAvailability = async (): Promise<{
   };
 };
 
-// Detect thermal printer capabilities and optimize settings
-export const detectThermalPrinterSettings = () => {
+// Detect printer type and capabilities, then optimize settings
+export const detectPrinterSettings = () => {
   const capabilities = getBrowserPrintCapabilities();
   
-  // Default settings for thermal printers
-  const settings = {
-    dpi: 203, // Standard thermal printer DPI
-    fontSize: THERMAL_PRINT_CONFIG.fontSize,
-    spacing: THERMAL_PRINT_CONFIG.spacing,
-    printDelay: 100,
-    retryAttempts: 3
-  };
-
+  // Default thermal printer settings
+  let recommendedConfig = THERMAL_PRINT_CONFIG;
+  let printDelay = 1000;
+  let retryAttempts = 2;
+  let printerType = 'thermal';
+  
   // Browser-specific optimizations
-  if (capabilities.isChrome || capabilities.isEdge) {
-    // Chrome and Edge have better print support
-    return {
-      ...settings,
-      printDelay: 50,
-      retryAttempts: 2
-    };
+  if (capabilities.isChrome) {
+    printDelay = 800;
+    retryAttempts = 3;
   } else if (capabilities.isFirefox) {
-    // Firefox needs more time for print processing
-    return {
-      ...settings,
-      printDelay: 300,
-      fontSize: {
-        ...settings.fontSize,
-        body: settings.fontSize.body - 1, // Slightly smaller for Firefox
-      }
-    };
+    printDelay = 1200;
+    retryAttempts = 2;
   } else if (capabilities.isSafari) {
-    // Safari has print quirks
-    return {
-      ...settings,
-      printDelay: 500,
-      retryAttempts: 4,
-      spacing: {
-        ...settings.spacing,
-        lineHeight: 1.2, // Increase line height for Safari
+    printDelay = 1500;
+    retryAttempts = 1;
+  }
+  
+  // Check for high DPI displays (might indicate better printer support)
+  const pixelRatio = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
+  if (pixelRatio > 1.5) {
+    recommendedConfig = {
+      ...THERMAL_PRINT_CONFIG,
+      fontSize: {
+        ...THERMAL_PRINT_CONFIG.fontSize,
+        body: THERMAL_PRINT_CONFIG.fontSize.body + 1,
+        small: THERMAL_PRINT_CONFIG.fontSize.small + 1
       }
     };
   }
-
-  return settings;
+  
+  return {
+    config: recommendedConfig,
+    printDelay,
+    retryAttempts,
+    capabilities,
+    printerType,
+    recommendations: [
+      'Asegúrese de que la impresora esté conectada y configurada como predeterminada',
+      printerType === 'thermal' ? 'Verifique que el papel térmico esté correctamente cargado' : 'Verifique que el papel esté correctamente alineado',
+      'Para mejores resultados, use Chrome o Edge como navegador',
+      capabilities.supportsCSSPrint ? 'Su navegador soporta impresión CSS avanzada' : 'Su navegador tiene soporte limitado para impresión CSS'
+    ]
+  };
 };
+
+// Mantener compatibilidad con el nombre anterior
+export const detectThermalPrinterSettings = detectPrinterSettings;
+
+
 
 // Generate optimized CSS for specific thermal printer DPI
 export const generateOptimizedThermalCSS = (dpi: number = 203): string => {

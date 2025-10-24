@@ -2,7 +2,7 @@
  * Custom hook for thermal printing functionality
  */
 
-import { useEffect, useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { 
   THERMAL_PRINT_CONFIG, 
   generateThermalPrintCSS, 
@@ -47,10 +47,10 @@ export const useThermalPrint = (
   const [printError, setPrintError] = useState<string | null>(null);
   const [hasAutoPrinted, setHasAutoPrinted] = useState(false);
 
-  const browserCapabilities = getBrowserPrintCapabilities();
   const thermalSettings = detectThermalPrinterSettings();
+   const browserCapabilities = getBrowserPrintCapabilities();
 
-  // Inject thermal print styles into the document
+   // Inject thermal print styles into the document
   const injectStyles = useCallback(() => {
     if (typeof window === 'undefined') return;
 
@@ -125,9 +125,9 @@ export const useThermalPrint = (
       }
 
       // Use optimized delay from thermal settings
-      await new Promise(resolve => setTimeout(resolve, thermalSettings.printDelay));
+       await new Promise(resolve => setTimeout(resolve, thermalSettings.printDelay));
 
-      // Enhanced thermal printing with better feedback
+       // Enhanced thermal printing with better feedback
       try {
         console.log('Initiating thermal print...');
         
@@ -171,7 +171,7 @@ export const useThermalPrint = (
       console.error('Print error:', printError);
 
       // Retry logic for transient errors using thermal settings
-      if (retryCount < thermalSettings.retryAttempts && (
+       if (retryCount < thermalSettings.retryAttempts && (
         printError.message.includes('not found') ||
         printError.message.includes('empty') ||
         printError.message.includes('ready')
@@ -188,7 +188,7 @@ export const useThermalPrint = (
     } finally {
       setIsPrinting(false);
     }
-  }, [config, onPrintStart, onPrintEnd, onPrintError, thermalSettings.printDelay, thermalSettings.retryAttempts]);
+  }, [config, onPrintStart, onPrintEnd, onPrintError, thermalSettings]);
 
   // Auto-print functionality with element availability check
   useEffect(() => {
@@ -271,8 +271,9 @@ export const useThermalPrint = (
     print,
     isPrinting,
     printError,
-    browserCapabilities,
-    injectStyles,
+     browserCapabilities,
+     thermalSettings,
+     injectStyles,
     removeStyles,
   };
 };
