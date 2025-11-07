@@ -39,6 +39,79 @@ export default function TicketPage({ params }: PageProps) {
   // Detectar si se solicita formato PDF para evitar impresión automática
   const isPDFFormat = searchParams.get('format') === 'pdf';
 
+  // Force light-mode screen styles for ticket page
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.body.setAttribute('data-thermal-page', '1');
+    }
+    return () => {
+      if (typeof document !== 'undefined') {
+        document.body.removeAttribute('data-thermal-page');
+      }
+    };
+  }, []);
+
+  // Extra-strong overrides against forced dark mode (flags/extensiones)
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    // Quitar clases de dark mode comunes
+    document.documentElement.classList.remove('dark');
+    document.body.classList.remove('dark');
+
+    // Forzar color-scheme y estilos inline con !important
+    document.documentElement.style.setProperty('color-scheme', 'light', 'important');
+    document.documentElement.style.setProperty('background-color', '#ffffff', 'important');
+    document.documentElement.style.setProperty('color', '#000000', 'important');
+    document.documentElement.style.setProperty('filter', 'none', 'important');
+    document.body.style.setProperty('background-color', '#ffffff', 'important');
+    document.body.style.setProperty('color', '#000000', 'important');
+    document.body.style.setProperty('filter', 'none', 'important');
+
+    // Meta color-scheme para navegadores que lo respetan
+    const meta = document.createElement('meta');
+    meta.name = 'color-scheme';
+    meta.content = 'light only';
+    meta.id = 'meta-color-scheme-thermal';
+    document.head.appendChild(meta);
+
+    // Inyectar estilo de alto peso para asegurar blanco/negro
+    const styleEl = document.createElement('style');
+    styleEl.id = 'force-light-thermal';
+    styleEl.textContent = `
+      html, body, #root, #__next { background-color: #ffffff !important; color: #000000 !important; filter: none !important; }
+      html, body { color-scheme: light !important; }
+      body[data-thermal-page="1"] { background-color: #ffffff !important; color: #000000 !important; }
+      body[data-thermal-page="1"] * { -webkit-text-fill-color: #000000 !important; }
+      body[data-thermal-page="1"] .thermal-ticket { background-color: #ffffff !important; color: #000000 !important; }
+      body[data-thermal-page="1"] .thermal-ticket * { color: #000000 !important; background-color: transparent !important; }
+
+      @media (prefers-color-scheme: dark) {
+        html, body, #root, #__next, body[data-thermal-page="1"] {
+          background-color: #ffffff !important; color: #000000 !important; filter: none !important;
+        }
+      }
+    `;
+    document.head.appendChild(styleEl);
+
+    return () => {
+      // Limpiar estilo inyectado y meta
+      const s = document.getElementById('force-light-thermal');
+      if (s && s.parentNode) s.parentNode.removeChild(s);
+      const m = document.getElementById('meta-color-scheme-thermal');
+      if (m && m.parentNode) m.parentNode.removeChild(m);
+
+      // Limpiar propiedades inline para no afectar otras páginas
+      document.documentElement.style.removeProperty('color-scheme');
+      document.documentElement.style.removeProperty('background-color');
+      document.documentElement.style.removeProperty('color');
+      document.documentElement.style.removeProperty('filter');
+      document.body.style.removeProperty('background-color');
+      document.body.style.removeProperty('color');
+      document.body.style.removeProperty('filter');
+    };
+  }, []);
+
   // Initialize thermal printing hook
   const { print, isPrinting, printError } = useThermalPrint({
     autoprint: !isPDFFormat, // Desactivar impresión automática para PDF

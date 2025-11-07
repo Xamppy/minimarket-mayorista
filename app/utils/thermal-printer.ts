@@ -337,8 +337,9 @@ export const generateThermalPrintCSS = (config: ThermalPrintConfig = THERMAL_PRI
     
     @media screen {
       /* Screen preview styles */
-      body {
-        background-color: #f5f5f5;
+      body[data-thermal-page="1"] {
+        background-color: #f5f5f5 !important;
+        color: #000000 !important;
         display: flex;
         justify-content: center;
         align-items: center;
@@ -347,16 +348,28 @@ export const generateThermalPrintCSS = (config: ThermalPrintConfig = THERMAL_PRI
         padding: 20px;
         font-family: 'Courier New', 'Consolas', 'Monaco', monospace;
       }
+
+      /* Force light scheme when viewing a thermal ticket, regardless of OS/browser dark mode */
+      html:has(body[data-thermal-page="1"]) {
+        color-scheme: light !important;
+      }
+
+      /* Ensure all text renders black on screen for the ticket page */
+      body[data-thermal-page="1"] *,
+      body[data-thermal-page="1"] .thermal-ticket,
+      body[data-thermal-page="1"] .thermal-ticket * {
+        color: #000000 !important;
+      }
       
       /* Override dark mode specifically for thermal ticket pages */
       @media (prefers-color-scheme: dark) {
-        body:has(.thermal-ticket) {
+        body[data-thermal-page="1"] {
           background-color: #f5f5f5 !important;
           color: #000000 !important;
         }
       }
       
-      .thermal-ticket {
+      body[data-thermal-page="1"] .thermal-ticket {
         ${styles.ticketContainer}
         background: white;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -369,65 +382,65 @@ export const generateThermalPrintCSS = (config: ThermalPrintConfig = THERMAL_PRI
       }
       
       /* Ensure all text within ticket is black */
-      .thermal-ticket, .thermal-ticket * {
+      body[data-thermal-page="1"] .thermal-ticket, body[data-thermal-page="1"] .thermal-ticket * {
         color: #000000 !important;
       }
       
       /* Apply thermal styles for screen preview */
-      .thermal-header {
+      body[data-thermal-page="1"] .thermal-header {
         ${styles.typography.header}
         ${styles.layout.textCenter}
         color: #000000 !important;
       }
       
-      .thermal-section {
+      body[data-thermal-page="1"] .thermal-section {
         ${styles.typography.section}
         color: #000000 !important;
       }
       
-      .thermal-body {
+      body[data-thermal-page="1"] .thermal-body {
         ${styles.typography.body}
         color: #000000 !important;
       }
       
-      .thermal-small {
+      body[data-thermal-page="1"] .thermal-small {
         ${styles.typography.small}
         color: #000000 !important;
       }
       
-      .thermal-separator {
+      body[data-thermal-page="1"] .thermal-separator {
         ${styles.layout.separator}
         border-color: #000000 !important;
       }
       
-      .thermal-row {
+      body[data-thermal-page="1"] .thermal-row {
         ${styles.layout.flexRow}
         color: #000000 !important;
       }
       
-      .thermal-center {
+      body[data-thermal-page="1"] .thermal-center {
         ${styles.layout.textCenter}
         color: #000000 !important;
       }
       
-      .thermal-bold {
+      body[data-thermal-page="1"] .thermal-bold {
         ${styles.layout.textBold}
         color: #000000 !important;
       }
       
-      .thermal-wrap {
+      body[data-thermal-page="1"] .thermal-wrap {
         word-wrap: break-word;
         word-break: break-word;
         hyphens: auto;
         color: #000000 !important;
       }
       
-      .thermal-product-item {
+      body[data-thermal-page="1"] .thermal-product-item {
         margin-bottom: ${config.spacing.sectionGap}mm;
         color: #000000 !important;
       }
       
-      .thermal-price-row {
+      body[data-thermal-page="1"] .thermal-price-row {
         display: flex;
         justify-content: space-between;
         align-items: baseline;
@@ -435,13 +448,13 @@ export const generateThermalPrintCSS = (config: ThermalPrintConfig = THERMAL_PRI
         color: #000000 !important;
       }
       
-      .thermal-price-left {
+      body[data-thermal-page="1"] .thermal-price-left {
         flex: 1;
         text-align: left;
         color: #000000 !important;
       }
       
-      .thermal-price-right {
+      body[data-thermal-page="1"] .thermal-price-right {
         text-align: right;
         white-space: nowrap;
         color: #000000 !important;
@@ -450,21 +463,21 @@ export const generateThermalPrintCSS = (config: ThermalPrintConfig = THERMAL_PRI
   `;
 };
 
-// Utility function to truncate text intelligently
+// Utility function to safely truncate text at word boundaries
 export const truncateText = (text: string | null | undefined, maxLength: number): string => {
   // Handle null, undefined, or non-string values
   if (!text || typeof text !== 'string') return '';
-  
+
   if (text.length <= maxLength) return text;
-  
+
   // Try to break at word boundaries
   const truncated = text.substring(0, maxLength);
   const lastSpace = truncated.lastIndexOf(' ');
-  
+
   if (lastSpace > maxLength * 0.7) {
     return truncated.substring(0, lastSpace) + '...';
   }
-  
+
   return truncated + '...';
 };
 
