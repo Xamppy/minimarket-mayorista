@@ -14,7 +14,8 @@ interface EscposOptions {
   silent?: boolean;
 }
 
-const DEFAULT_PLUGIN_URL = 'http://localhost:8000';
+// Use same-origin proxy by default to avoid CORS; allow override via env
+const DEFAULT_PLUGIN_URL = process.env.NEXT_PUBLIC_ESCPOS_PLUGIN_URL || '/api/escpos';
 
 async function http<T>(url: string, body?: any, method: 'GET' | 'POST' | 'PUT' = 'POST'): Promise<T> {
   const res = await fetch(url, {
