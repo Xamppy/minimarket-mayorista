@@ -4,6 +4,7 @@ import { useEffect, useState, use } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useThermalPrint } from '../../hooks/useThermalPrint';
 import { ThermalPrintStyles } from '../../components/ThermalPrintStyles';
+
 import { 
   formatCurrency, 
   formatDateForThermal, 
@@ -14,30 +15,9 @@ import {
   formatBarcode,
   formatWholesaleInfo
 } from '../../utils/thermal-printer';
-import type { ThermalTicketData, ThermalTicketItem } from '../../types/thermal-print';
+import { printThermalTicketEscpos, buildPreviewTextFromTicket } from '../../utils/escpos-plugin';
 
-interface SaleData {
-  id: string;
-  seller_id: string;
-  total_amount: number;
-  created_at: string;
-  seller_email: string;
-  sale_items: {
-    id: string;
-    quantity_sold: number;
-    price_at_sale: number;
-    sale_format: string;
-    stock_entry: {
-      barcode: string;
-      product: {
-        name: string;
-        brand: {
-          name: string;
-        };
-      };
-    };
-  }[];
-}
+import type { ThermalTicketData, ThermalTicketItem } from '../../types/thermal-print';
 
 interface PageProps {
   params: Promise<{ sale_id: string }>;
@@ -47,6 +27,10 @@ export default function TicketPage({ params }: PageProps) {
   const [saleData, setSaleData] = useState<ThermalTicketData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [escposPrinting, setEscposPrinting] = useState(false);
+  const [escposError, setEscposError] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewText, setPreviewText] = useState<string>('');
   const router = useRouter();
   const searchParams = useSearchParams();
   const resolvedParams = use(params);
@@ -63,6 +47,38 @@ export default function TicketPage({ params }: PageProps) {
       console.error('Print error:', error);
     }
   });
+
+  const handleEscposPrint = async () => {
+    if (!saleData) return;
+    try {
+      setEscposPrinting(true);
+      setEscposError(null);
+      await printThermalTicketEscpos(saleData, {});
+    } catch (e: any) {
+      setEscposError(e?.message || 'Error al imprimir con ESC/POS');
+    } finally {
+      setEscposPrinting(false);
+    }
+  };
+
+  const handlePreviewEscpos = () => {
+    if (!saleData) return;
+    const text = buildPreviewTextFromTicket(saleData);
+    setPreviewText(text);
+    setPreviewOpen(true);
+  };
+
+  const handleDownloadPreview = () => {
+    const blob = new Blob([previewText], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ticket_${saleData?.id || 'preview'}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    URL.revokeObjectURL(url);
+    a.remove();
+  };
 
   useEffect(() => {
     if (!saleId) {
@@ -316,6 +332,16 @@ export default function TicketPage({ params }: PageProps) {
               ❌ Error: {printError}
             </div>
           )}
+          {escposPrinting && (
+            <div className="thermal-body" style={{ marginBottom: '10px' }}>
+              🧾 Imprimiendo con ESC/POS...
+            </div>
+          )}
+          {escposError && (
+            <div className="thermal-body" style={{ color: 'red', marginBottom: '10px' }}>
+              ❌ ESC/POS: {escposError}
+            </div>
+          )}
           
           {isPDFFormat ? (
             /* Controles para formato PDF */
@@ -388,6 +414,111 @@ export default function TicketPage({ params }: PageProps) {
               >
                 {isPrinting ? '🖨️ Imprimiendo...' : '🖨️ Imprimir Ticket'}
               </button>
+              
+              <button 
+                onClick={handleEscposPrint}
+                disabled={escposPrinting || !saleData}
+                style={{
+                  padding: '10px 20px',
+                  margin: '5px',
+                  backgroundColor: escposPrinting ? '#6c757d' : '#007bff',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: escposPrinting ? 'not-allowed' : 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 'bold'
+                }}
+              >
+                {escposPrinting ? '🧾 Imprimiendo...' : '🧾 Imprimir (ESC/POS)'}
+              </button>
+
+              <button 
+                onClick={handlePreviewEscpos}
+                disabled={!saleData}
+                style={{
+                  padding: '10px 20px',
+                  margin: '5px',
+                  backgroundColor: '#17a2b8',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: !saleData ? 'not-allowed' : 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 'bold'
+                }}
+              >
+                👁️ Previsualizar (ESC/POS)
+              </button>
+
+              {previewOpen && previewText && (
+                <div style={{ marginTop: '15px', textAlign: 'left' }}>
+                  <div className="thermal-small" style={{ marginBottom: '8px' }}>
+                    Vista previa de texto a 32 columnas
+                  </div>
+                  <pre style={{
+                    backgroundColor: '#111827',
+                    color: '#e5e7eb',
+                    padding: '12px',
+                    borderRadius: '4px',
+                    maxHeight: '300px',
+                    overflow: 'auto',
+                    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                    fontSize: '12px',
+                    lineHeight: 1.2,
+                    border: '1px solid #374151'
+                  }}>{previewText}</pre>
+                  <div style={{ marginTop: '8px' }}>
+                    <button
+                      onClick={() => navigator.clipboard?.writeText(previewText)}
+                      style={{
+                        padding: '8px 12px',
+                        marginRight: '8px',
+                        backgroundColor: '#6c757d',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      Copiar
+                    </button>
+                    <button
+                      onClick={handleDownloadPreview}
+                      style={{
+                        padding: '8px 12px',
+                        marginRight: '8px',
+                        backgroundColor: '#28a745',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      Descargar .txt
+                    </button>
+                    <button
+                      onClick={() => setPreviewOpen(false)}
+                      style={{
+                        padding: '8px 12px',
+                        backgroundColor: '#dc3545',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      Cerrar
+                    </button>
+                  </div>
+                </div>
+              )}
               
               <button 
                 onClick={() => window.close()}
