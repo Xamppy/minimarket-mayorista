@@ -390,21 +390,25 @@ export const generateThermalPrintCSS = (config: ThermalPrintConfig = THERMAL_PRI
       body[data-thermal-page="1"] .thermal-header {
         ${styles.typography.header}
         ${styles.layout.textCenter}
+        font-size: ${config.fontSize.header + 2}px !important;
         color: #000000 !important;
       }
       
       body[data-thermal-page="1"] .thermal-section {
         ${styles.typography.section}
+        font-size: ${config.fontSize.section + 2}px !important;
         color: #000000 !important;
       }
       
       body[data-thermal-page="1"] .thermal-body {
         ${styles.typography.body}
+        font-size: ${config.fontSize.body + 1}px !important;
         color: #000000 !important;
       }
       
       body[data-thermal-page="1"] .thermal-small {
         ${styles.typography.small}
+        font-size: ${config.fontSize.small + 1}px !important;
         color: #000000 !important;
       }
       
