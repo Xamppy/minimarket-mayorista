@@ -6,6 +6,7 @@ import AdminPageClient from './AdminPageClient';
 import AlertsDashboard from './AlertsDashboard';
 import AddProductModal from './AddProductModal';
 import dynamic from 'next/dynamic';
+import CreateVendedorForm from './CreateVendedorForm';
 
 const CategoryManagementModal = dynamic(() => import('./CategoryManagementModal'), {
   ssr: false
@@ -38,8 +39,6 @@ interface User {
   id: string;
   email?: string;
 }
-
-
 
 interface AdminDashboardProps {
   user: User;
@@ -119,7 +118,16 @@ export default function AdminDashboard({
           <AlertsDashboard />
         </div>
 
-
+        {/* Gestión de Usuarios */}
+        <div className="mb-8">
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="mb-4">
+              <h2 className="text-2xl font-bold text-gray-900">Gestión de Usuarios</h2>
+              <p className="text-gray-600 mt-1">Crea cuentas de vendedores y administra accesos</p>
+            </div>
+            <CreateVendedorForm />
+          </div>
+        </div>
 
         {/* Encabezado de Acciones */}
         <div className="mb-8">

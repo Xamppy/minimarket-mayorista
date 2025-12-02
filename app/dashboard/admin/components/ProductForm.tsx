@@ -77,12 +77,12 @@ export default function ProductForm({ brands, productTypes, onSuccess }: Product
 
         {/* Marca */}
         <div>
-          <label htmlFor="brand_name" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="brandId" className="block text-sm font-medium text-gray-700 mb-1">
             Marca *
           </label>
           <select
-            id="brand_name"
-            name="brand_name"
+            id="brandId"
+            name="brandId"
             required
             disabled={loading}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900"
@@ -98,12 +98,12 @@ export default function ProductForm({ brands, productTypes, onSuccess }: Product
 
         {/* Tipo de producto */}
         <div>
-          <label htmlFor="product_type_id" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="typeId" className="block text-sm font-medium text-gray-700 mb-1">
             Tipo de Producto *
           </label>
           <select
-            id="product_type_id"
-            name="product_type_id"
+            id="typeId"
+            name="typeId"
             required
             disabled={loading}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900"
@@ -141,8 +141,7 @@ export default function ProductForm({ brands, productTypes, onSuccess }: Product
 
         {success && (
           <div className="text-green-600 text-sm bg-green-50 p-3 rounded-md">
-            {success}
-          </div>
+            {success}</div>
         )}
 
         {/* Botón de envío */}

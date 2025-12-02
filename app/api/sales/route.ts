@@ -79,8 +79,6 @@ export async function POST(request: NextRequest) {
       console.log(`  quantity: ${quantity}`);
       console.log(`  saleFormat: ${saleFormat}`);
       
-
-      
       // Parámetros opcionales para venta específica por stock entry (carrito)
       const stockEntryIdString = formData.get('stockEntryId') as string;
       let stockEntryId = null;
@@ -115,10 +113,6 @@ export async function POST(request: NextRequest) {
       
       console.log(`  price: ${specificPrice} (original: ${priceString})`);
       console.log('=== FIN DATOS RECIBIDOS ===');
-      
-
-
-
 
       // Validaciones robustas de datos de entrada
       console.log('=== INICIANDO VALIDACIONES ===');
@@ -324,7 +318,7 @@ export async function POST(request: NextRequest) {
          const saleQuery = `
            INSERT INTO sales (user_id, total_amount, payment_method)
            VALUES ($1, $2, $3)
-           RETURNING id
+           RETURNING id, ticket_number
          `;
          
          const saleResult = await retryOperation(
@@ -483,6 +477,7 @@ export async function POST(request: NextRequest) {
            message: 'Venta registrada exitosamente',
            data: {
              saleId: sale.id,
+             ticketNumber: sale.ticket_number ? sale.ticket_number.toString().padStart(10, '0') : '0000000000',
              totalAmount: totalPrice,
              items: saleItemsToInsert,
              timestamp: new Date().toISOString(),

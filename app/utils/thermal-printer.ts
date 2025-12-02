@@ -3,22 +3,25 @@
  * Optimized for 80mm thermal printers with 72mm printable area
  */
 
-import { 
-  ThermalPrintConfig, 
-  ThermalPrintStyles, 
+import {
+  ThermalPrintConfig,
+  ThermalPrintStyles,
   PrintCapabilities,
-  THERMAL_PRINTER_PRESETS 
-} from '../types/thermal-print';
+  THERMAL_PRINTER_PRESETS,
+} from "../types/thermal-print";
 
 // Re-export types for backward compatibility
 export type TicketPrintConfig = ThermalPrintConfig;
 export type { ThermalPrintStyles, PrintCapabilities };
 
 // Default configuration for 80mm thermal printers
-export const THERMAL_PRINT_CONFIG: ThermalPrintConfig = THERMAL_PRINTER_PRESETS.standard80mm.config;
+export const THERMAL_PRINT_CONFIG: ThermalPrintConfig =
+  THERMAL_PRINTER_PRESETS.standard80mm.config;
 
-// CSS-in-JS styles for thermal printing
-export const getThermalPrintStyles = (config: ThermalPrintConfig = THERMAL_PRINT_CONFIG): ThermalPrintStyles => {
+// CSS-in-JS styles for thermal printing (Optimized for 203 DPI thermal printers - Expert Mode)
+export const getThermalPrintStyles = (
+  config: ThermalPrintConfig = THERMAL_PRINT_CONFIG
+): ThermalPrintStyles => {
   return {
     pageConfig: `
       @page {
@@ -29,13 +32,20 @@ export const getThermalPrintStyles = (config: ThermalPrintConfig = THERMAL_PRINT
     bodyStyles: `
       margin: 0;
       padding: 0;
-      font-family: 'Courier New', 'Consolas', 'Monaco', monospace;
-      font-size: ${config.fontSize.body}px;
-      line-height: ${config.spacing.lineHeight};
-      color: #000;
+      font-family: Tahoma, Verdana, Segoe, sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.3;
+      color: #000000 !important;
       background: #fff;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
+      -webkit-font-smoothing: none !important;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: geometricPrecision;
+      text-shadow: none;
+      filter: contrast(200%);
+      font-variant-numeric: tabular-nums;
     `,
     ticketContainer: `
       width: ${config.printableWidth}mm;
@@ -44,42 +54,62 @@ export const getThermalPrintStyles = (config: ThermalPrintConfig = THERMAL_PRINT
       margin: 0 auto;
       padding: ${config.spacing.padding}mm;
       box-sizing: border-box;
-      font-family: 'Courier New', 'Consolas', 'Monaco', monospace;
+      font-family: Tahoma, Verdana, Segoe, sans-serif;
+      font-size: 12px;
+      font-weight: 600;
       display: block;
+      color: #000000 !important;
+      -webkit-font-smoothing: none !important;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: geometricPrecision;
+      filter: contrast(200%);
+      font-variant-numeric: tabular-nums;
     `,
     typography: {
       header: `
         font-size: ${config.fontSize.header}px;
-        font-weight: bold;
-        line-height: ${config.spacing.lineHeight};
+        font-weight: 700;
+        line-height: 1.3;
         margin: 0;
         padding: 0;
+        color: #000000 !important;
+        text-shadow: none;
+        filter: none;
       `,
       section: `
         font-size: ${config.fontSize.section}px;
-        font-weight: bold;
-        line-height: ${config.spacing.lineHeight};
+        font-weight: 700;
+        line-height: 1.3;
         margin: 0;
         padding: 0;
+        color: #000000 !important;
+        text-shadow: none;
+        filter: none;
       `,
       body: `
         font-size: ${config.fontSize.body}px;
-        font-weight: normal;
-        line-height: ${config.spacing.lineHeight};
+        font-weight: 600;
+        line-height: 1.3;
         margin: 0;
         padding: 0;
+        color: #000000 !important;
+        text-shadow: none;
+        filter: none;
       `,
       small: `
         font-size: ${config.fontSize.small}px;
-        font-weight: normal;
-        line-height: ${config.spacing.lineHeight};
+        font-weight: 600;
+        line-height: 1.3;
         margin: 0;
         padding: 0;
+        color: #000000 !important;
+        text-shadow: none;
+        filter: none;
       `,
     },
     layout: {
       separator: `
-        border-bottom: 1px dashed #000;
+        border-bottom: 1px dashed #000000;
         margin: ${config.spacing.sectionGap}mm 0;
         width: 100%;
         height: 0;
@@ -90,21 +120,28 @@ export const getThermalPrintStyles = (config: ThermalPrintConfig = THERMAL_PRINT
         align-items: center;
         width: 100%;
         margin: 1mm 0;
+        color: #000000 !important;
+        font-weight: 600;
       `,
       textCenter: `
         text-align: center;
+        color: #000000 !important;
+        font-weight: 600;
       `,
       textBold: `
-        font-weight: bold;
+        font-weight: 700;
+        color: #000000 !important;
       `,
     },
   };
 };
 
 // Utility function to generate complete CSS for thermal printing
-export const generateThermalPrintCSS = (config: ThermalPrintConfig = THERMAL_PRINT_CONFIG): string => {
+export const generateThermalPrintCSS = (
+  config: ThermalPrintConfig = THERMAL_PRINT_CONFIG
+): string => {
   const styles = getThermalPrintStyles(config);
-  
+
   return `
     @media print {
       ${styles.pageConfig}
@@ -134,9 +171,9 @@ export const generateThermalPrintCSS = (config: ThermalPrintConfig = THERMAL_PRI
       /* Optimize body for printing */
       body {
         ${styles.bodyStyles}
-        -webkit-font-smoothing: none !important;
-        -moz-osx-font-smoothing: unset !important;
-        text-rendering: optimizeSpeed !important;
+        -webkit-font-smoothing: antialiased !important;
+        -moz-osx-font-smoothing: grayscale !important;
+        text-rendering: geometricPrecision !important;
         width: ${config.paperWidth}mm !important;
         max-width: ${config.paperWidth}mm !important;
         display: flex !important;
@@ -243,9 +280,9 @@ export const generateThermalPrintCSS = (config: ThermalPrintConfig = THERMAL_PRI
         font-feature-settings: normal !important;
         text-shadow: none !important;
         filter: none !important;
-        -webkit-font-smoothing: none !important;
-        -moz-osx-font-smoothing: unset !important;
-        text-rendering: optimizeSpeed !important;
+        -webkit-font-smoothing: antialiased !important;
+        -moz-osx-font-smoothing: grayscale !important;
+        text-rendering: geometricPrecision !important;
       }
       
       /* Standard thermal printer optimizations */
@@ -312,18 +349,18 @@ export const generateThermalPrintCSS = (config: ThermalPrintConfig = THERMAL_PRI
         widows: 1;
       }
       
-      /* Optimize for 203 DPI thermal printers */
+      /* Optimize for 203 DPI thermal printers (keep sizes, no shrink to preserve sharpness) */
       @media print and (resolution: 203dpi) {
         .thermal-ticket {
-          font-size: ${config.fontSize.body - 1}px;
+          font-size: ${config.fontSize.body}px;
         }
         
         .thermal-header {
-          font-size: ${config.fontSize.header - 1}px;
+          font-size: ${config.fontSize.header}px;
         }
         
         .thermal-section {
-          font-size: ${config.fontSize.section - 1}px;
+          font-size: ${config.fontSize.section}px;
         }
       }
       
@@ -468,46 +505,52 @@ export const generateThermalPrintCSS = (config: ThermalPrintConfig = THERMAL_PRI
 };
 
 // Utility function to safely truncate text at word boundaries
-export const truncateText = (text: string | null | undefined, maxLength: number): string => {
+export const truncateText = (
+  text: string | null | undefined,
+  maxLength: number
+): string => {
   // Handle null, undefined, or non-string values
-  if (!text || typeof text !== 'string') return '';
+  if (!text || typeof text !== "string") return "";
 
   if (text.length <= maxLength) return text;
 
   // Try to break at word boundaries
   const truncated = text.substring(0, maxLength);
-  const lastSpace = truncated.lastIndexOf(' ');
+  const lastSpace = truncated.lastIndexOf(" ");
 
   if (lastSpace > maxLength * 0.7) {
-    return truncated.substring(0, lastSpace) + '...';
+    return truncated.substring(0, lastSpace) + "...";
   }
 
-  return truncated + '...';
+  return truncated + "...";
 };
 
 // Utility function to format product name for thermal printing
-export const formatProductName = (name: string | null | undefined, maxLength: number = 30): string => {
-  if (!name || typeof name !== 'string') return 'Producto desconocido';
-  
+export const formatProductName = (
+  name: string | null | undefined,
+  maxLength: number = 30
+): string => {
+  if (!name || typeof name !== "string") return "Producto desconocido";
+
   // Clean up the product name
-  const cleanName = name.trim().replace(/\s+/g, ' ');
-  
+  const cleanName = name.trim().replace(/\s+/g, " ");
+
   // If it fits, return as is
   if (cleanName.length <= maxLength) return cleanName;
-  
+
   // Try to truncate at word boundaries
   return truncateText(cleanName, maxLength);
 };
 
 // Utility function to format brand name for thermal printing
 export const formatBrandName = (brand: string | null | undefined): string => {
-  if (!brand || typeof brand !== 'string') return 'Sin marca';
+  if (!brand || typeof brand !== "string") return "Sin marca";
   return brand.trim();
 };
 
 // Utility function to format barcode for thermal printing
 export const formatBarcode = (barcode: string | null | undefined): string => {
-  if (!barcode || typeof barcode !== 'string') return 'N/A';
+  if (!barcode || typeof barcode !== "string") return "N/A";
   return barcode.trim();
 };
 
@@ -517,28 +560,30 @@ export const formatWholesaleInfo = (item: {
   savings?: number;
   quantity_sold: number;
 }): { showWholesale: boolean; savingsText: string; wholesaleLabel: string } => {
-  const showWholesale = Boolean(item.is_wholesale && item.savings && item.savings > 0);
-  const savingsText = showWholesale ? formatCurrency(item.savings || 0) : '';
-  const wholesaleLabel = item.quantity_sold >= 3 ? 'MAYORISTA' : '';
-  
+  const showWholesale = Boolean(
+    item.is_wholesale && item.savings && item.savings > 0
+  );
+  const savingsText = showWholesale ? formatCurrency(item.savings || 0) : "";
+  const wholesaleLabel = item.quantity_sold >= 3 ? "MAYORISTA" : "";
+
   return {
     showWholesale,
     savingsText,
-    wholesaleLabel
+    wholesaleLabel,
   };
 };
 
 // Utility function to wrap text for thermal printing
 export const wrapText = (text: string, maxWidth: number): string[] => {
-  if (!text) return [''];
-  
-  const words = text.split(' ');
+  if (!text) return [""];
+
+  const words = text.split(" ");
   const lines: string[] = [];
-  let currentLine = '';
-  
+  let currentLine = "";
+
   for (const word of words) {
     const testLine = currentLine ? `${currentLine} ${word}` : word;
-    
+
     if (testLine.length <= maxWidth) {
       currentLine = testLine;
     } else {
@@ -552,12 +597,12 @@ export const wrapText = (text: string, maxWidth: number): string[] => {
       }
     }
   }
-  
+
   if (currentLine) {
     lines.push(currentLine);
   }
-  
-  return lines.length > 0 ? lines : [''];
+
+  return lines.length > 0 ? lines : [""];
 };
 
 // Utility function to format currency for thermal printing
@@ -566,23 +611,27 @@ export const formatCurrency = (amount: number): string => {
 };
 
 // Utility function to format date for thermal printing
-export const formatDateForThermal = (date: Date): { date: string; time: string } => {
-  const formattedDate = date.toLocaleDateString('es-ES', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
+export const formatDateForThermal = (
+  date: Date
+): { date: string; time: string } => {
+  const formattedDate = date.toLocaleDateString("es-ES", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
   });
-  
-  const formattedTime = date.toLocaleTimeString('es-ES', {
-    hour: '2-digit',
-    minute: '2-digit'
+
+  const formattedTime = date.toLocaleTimeString("es-ES", {
+    hour: "2-digit",
+    minute: "2-digit",
   });
-  
+
   return { date: formattedDate, time: formattedTime };
 };
 
 // Utility function to calculate optimal text width for thermal printing
-export const calculateOptimalTextWidth = (config: ThermalPrintConfig = THERMAL_PRINT_CONFIG): number => {
+export const calculateOptimalTextWidth = (
+  config: ThermalPrintConfig = THERMAL_PRINT_CONFIG
+): number => {
   // Approximate character width in mm for monospace font at body size
   const charWidthMm = 0.6; // Approximate for 11px Courier New
   return Math.floor(config.printableWidth / charWidthMm);
@@ -590,14 +639,15 @@ export const calculateOptimalTextWidth = (config: ThermalPrintConfig = THERMAL_P
 
 // Browser detection for print optimization
 export const getBrowserPrintCapabilities = (): PrintCapabilities => {
-  const userAgent = typeof window !== 'undefined' ? window.navigator.userAgent : '';
-  
+  const userAgent =
+    typeof window !== "undefined" ? window.navigator.userAgent : "";
+
   return {
-    isChrome: userAgent.includes('Chrome'),
-    isFirefox: userAgent.includes('Firefox'),
-    isSafari: userAgent.includes('Safari') && !userAgent.includes('Chrome'),
-    isEdge: userAgent.includes('Edge'),
-    supportsCSSPrint: typeof window !== 'undefined' && 'matchMedia' in window,
+    isChrome: userAgent.includes("Chrome"),
+    isFirefox: userAgent.includes("Firefox"),
+    isSafari: userAgent.includes("Safari") && !userAgent.includes("Chrome"),
+    isEdge: userAgent.includes("Edge"),
+    supportsCSSPrint: typeof window !== "undefined" && "matchMedia" in window,
   };
 };
 
@@ -608,46 +658,46 @@ export const checkThermalPrinterAvailability = async (): Promise<{
   recommendations: string[];
 }> => {
   const recommendations = [
-    'Asegúrate de que la impresora térmica esté encendida y conectada',
-    'Verifica que los drivers de la impresora estén instalados correctamente',
-    'En Windows: Ve a Configuración > Impresoras y escáneres',
-    'Selecciona tu impresora térmica como predeterminada',
+    "Asegúrate de que la impresora térmica esté encendida y conectada",
+    "Verifica que los drivers de la impresora estén instalados correctamente",
+    "En Windows: Ve a Configuración > Impresoras y escáneres",
+    "Selecciona tu impresora térmica como predeterminada",
     'Configura el tamaño de papel a 80mm (3.15") en las propiedades de la impresora',
-    'Si usas Chrome, asegúrate de seleccionar la impresora térmica en el diálogo de impresión'
+    "Si usas Chrome, asegúrate de seleccionar la impresora térmica en el diálogo de impresión",
   ];
 
   try {
     // Check if we can access printer information (limited in browsers for security)
-    if (typeof window !== 'undefined' && 'navigator' in window) {
+    if (typeof window !== "undefined" && "navigator" in window) {
       // Modern browsers don't expose printer information directly
       // We can only provide general guidance
       return {
         available: true, // Assume available since we can't detect directly
-        printers: ['Impresora térmica detectada en el sistema'],
-        recommendations
+        printers: ["Impresora térmica detectada en el sistema"],
+        recommendations,
       };
     }
   } catch (error) {
-    console.warn('Could not check printer availability:', error);
+    console.warn("Could not check printer availability:", error);
   }
 
   return {
     available: false,
     printers: [],
-    recommendations
+    recommendations,
   };
 };
 
 // Detect printer type and capabilities, then optimize settings
 export const detectPrinterSettings = () => {
   const capabilities = getBrowserPrintCapabilities();
-  
+
   // Default thermal printer settings
   let recommendedConfig = THERMAL_PRINT_CONFIG;
   let printDelay = 1000;
   let retryAttempts = 2;
-  let printerType = 'thermal';
-  
+  let printerType = "thermal";
+
   // Browser-specific optimizations
   if (capabilities.isChrome) {
     printDelay = 800;
@@ -659,20 +709,21 @@ export const detectPrinterSettings = () => {
     printDelay = 1500;
     retryAttempts = 1;
   }
-  
+
   // Check for high DPI displays (might indicate better printer support)
-  const pixelRatio = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
+  const pixelRatio =
+    typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
   if (pixelRatio > 1.5) {
     recommendedConfig = {
       ...THERMAL_PRINT_CONFIG,
       fontSize: {
         ...THERMAL_PRINT_CONFIG.fontSize,
         body: THERMAL_PRINT_CONFIG.fontSize.body + 1,
-        small: THERMAL_PRINT_CONFIG.fontSize.small + 1
-      }
+        small: THERMAL_PRINT_CONFIG.fontSize.small + 1,
+      },
     };
   }
-  
+
   return {
     config: recommendedConfig,
     printDelay,
@@ -680,23 +731,25 @@ export const detectPrinterSettings = () => {
     capabilities,
     printerType,
     recommendations: [
-      'Asegúrese de que la impresora esté conectada y configurada como predeterminada',
-      printerType === 'thermal' ? 'Verifique que el papel térmico esté correctamente cargado' : 'Verifique que el papel esté correctamente alineado',
-      'Para mejores resultados, use Chrome o Edge como navegador',
-      capabilities.supportsCSSPrint ? 'Su navegador soporta impresión CSS avanzada' : 'Su navegador tiene soporte limitado para impresión CSS'
-    ]
+      "Asegúrese de que la impresora esté conectada y configurada como predeterminada",
+      printerType === "thermal"
+        ? "Verifique que el papel térmico esté correctamente cargado"
+        : "Verifique que el papel esté correctamente alineado",
+      "Para mejores resultados, use Chrome o Edge como navegador",
+      capabilities.supportsCSSPrint
+        ? "Su navegador soporta impresión CSS avanzada"
+        : "Su navegador tiene soporte limitado para impresión CSS",
+    ],
   };
 };
 
 // Mantener compatibilidad con el nombre anterior
 export const detectThermalPrinterSettings = detectPrinterSettings;
 
-
-
 // Generate optimized CSS for specific thermal printer DPI
 export const generateOptimizedThermalCSS = (dpi: number = 203): string => {
   const config = { ...THERMAL_PRINT_CONFIG };
-  
+
   // Adjust font sizes based on DPI
   if (dpi >= 300) {
     // High DPI printers
@@ -727,12 +780,16 @@ export const thermalPrint = async (): Promise<void> => {
   return new Promise((resolve, reject) => {
     try {
       // Ensure document is ready
-      if (document.readyState !== 'complete') {
-        window.addEventListener('load', () => {
-          setTimeout(() => {
-            executeThermalPrint(capabilities, resolve, reject);
-          }, settings.printDelay);
-        }, { once: true });
+      if (document.readyState !== "complete") {
+        window.addEventListener(
+          "load",
+          () => {
+            setTimeout(() => {
+              executeThermalPrint(capabilities, resolve, reject);
+            }, settings.printDelay);
+          },
+          { once: true }
+        );
       } else {
         setTimeout(() => {
           executeThermalPrint(capabilities, resolve, reject);
@@ -745,7 +802,11 @@ export const thermalPrint = async (): Promise<void> => {
 };
 
 // Execute thermal print with enhanced compatibility
-const executeThermalPrint = (capabilities: PrintCapabilities, resolve: () => void, reject: (error: Error) => void) => {
+const executeThermalPrint = (
+  capabilities: PrintCapabilities,
+  resolve: () => void,
+  reject: (error: Error) => void
+) => {
   try {
     // For thermal printers, we need to ensure the print dialog shows with correct settings
     if (capabilities.isChrome || capabilities.isEdge) {
@@ -755,7 +816,7 @@ const executeThermalPrint = (capabilities: PrintCapabilities, resolve: () => voi
         printBackground: true,
         color: false, // Thermal printers are monochrome
         margin: {
-          marginType: 'none' as const,
+          marginType: "none" as const,
         },
         landscape: false,
         pagesPerSheet: 1,
@@ -764,48 +825,75 @@ const executeThermalPrint = (capabilities: PrintCapabilities, resolve: () => voi
         pageRanges: [],
         headerFooterEnabled: false,
         shouldPrintBackgrounds: true,
-        shouldPrintSelectionOnly: false
+        shouldPrintSelectionOnly: false,
       };
 
       // Use the enhanced print API if available
-      if ('print' in window) {
+      if ("print" in window) {
         window.print();
-        
+
         // Listen for afterprint event to know when printing is done
         const handleAfterPrint = () => {
-          window.removeEventListener('afterprint', handleAfterPrint);
+          window.removeEventListener("afterprint", handleAfterPrint);
           resolve();
         };
-        
+
         const handleBeforePrint = () => {
-          window.removeEventListener('beforeprint', handleBeforePrint);
+          window.removeEventListener("beforeprint", handleBeforePrint);
           // Print dialog opened successfully
         };
 
-        window.addEventListener('afterprint', handleAfterPrint);
-        window.addEventListener('beforeprint', handleBeforePrint);
-        
+        window.addEventListener("afterprint", handleAfterPrint);
+        window.addEventListener("beforeprint", handleBeforePrint);
+
         // Fallback timeout in case events don't fire
         setTimeout(() => {
-          window.removeEventListener('afterprint', handleAfterPrint);
-          window.removeEventListener('beforeprint', handleBeforePrint);
+          window.removeEventListener("afterprint", handleAfterPrint);
+          window.removeEventListener("beforeprint", handleBeforePrint);
           resolve();
         }, 10000); // 10 second timeout
       }
     } else {
       // Firefox, Safari, and other browsers
       window.print();
-      
+
       // For other browsers, we can't reliably detect print completion
       // so we resolve after a reasonable delay
       setTimeout(resolve, 1000);
     }
   } catch (error) {
-    reject(error instanceof Error ? error : new Error('Print execution failed'));
+    reject(
+      error instanceof Error ? error : new Error("Print execution failed")
+    );
   }
 };
 
 // Cross-browser print function with fallbacks (keeping for backward compatibility)
 export const crossBrowserPrint = async (): Promise<void> => {
   return thermalPrint();
+};
+
+// Utility functions for backward compatibility with existing code
+// These are wrappers around formatDateForThermal for easier usage
+
+/**
+ * Format a date to DD/MM/YYYY format
+ * @param date - Date object or ISO string
+ * @returns Formatted date string
+ */
+export const formatDate = (date: Date | string): string => {
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  const { date: formattedDate } = formatDateForThermal(dateObj);
+  return formattedDate;
+};
+
+/**
+ * Format a date to HH:mm format
+ * @param date - Date object or ISO string
+ * @returns Formatted time string
+ */
+export const formatTime = (date: Date | string): string => {
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  const { time: formattedTime } = formatDateForThermal(dateObj);
+  return formattedTime;
 };

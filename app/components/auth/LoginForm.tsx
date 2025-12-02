@@ -34,6 +34,13 @@ export default function LoginForm() {
       }
 
       // El token se guarda automáticamente en las cookies por la API
+      // Forzar cambio de contraseña si es requerido
+      if (data.forcePasswordChange) {
+        router.push('/auth/force-change-password');
+        router.refresh();
+        return;
+      }
+
       // Redirigir según el rol
       if (data.user.role === 'administrator') {
         router.push('/dashboard/admin');

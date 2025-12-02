@@ -63,6 +63,7 @@ export interface PrintOptions {
 
 export interface ThermalTicketData {
   id: string;
+  ticket_number?: string;
   seller_id: string;
   total_amount: number;
   created_at: string;
@@ -133,14 +134,14 @@ export const THERMAL_PRINTER_PRESETS: Record<string, ThermalPrinterPreset> = {
       paperWidth: 80,
       printableWidth: 78,
       fontSize: {
-        header: 14,
-        section: 12,
-        body: 11,
-        small: 9,
+        header: 16,
+        section: 14,
+        body: 13,
+        small: 11,
       },
       spacing: {
         sectionGap: 3,
-        lineHeight: 1.1,
+        lineHeight: 1.2,
         padding: 1,
       },
     },

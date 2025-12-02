@@ -227,6 +227,8 @@ export async function deleteStockEntry(stockEntryId: string) {
 }
 
 export async function addProduct(formData: FormData) {
+  // Debug: Ver qué datos están llegando desde el formulario
+  console.log('📦 FormData recibido:', Object.fromEntries(formData));
 
   // Obtener datos del formulario
   const productId = formData.get('productId') as string;

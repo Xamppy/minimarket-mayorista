@@ -42,6 +42,7 @@ export async function GET(
             s.user_id as seller_id,
             s.total_amount,
             s.sale_date as created_at,
+            s.ticket_number,
             u.email as seller_email
           FROM sales s
           LEFT JOIN users u ON s.user_id = u.id
@@ -66,7 +67,7 @@ export async function GET(
         
         // Obtener items de la venta con información completa
         const itemsQuery = `
-          SELECT 
+          SELECT DISTINCT ON (si.id)
             si.id,
             si.quantity,
             si.unit_price,
@@ -79,7 +80,7 @@ export async function GET(
           LEFT JOIN stock_entries se ON p.id = se.product_id
           LEFT JOIN brands b ON p.brand_id = b.id
           WHERE si.sale_id = $1
-          ORDER BY si.id
+          ORDER BY si.id, se.entry_date DESC
         `;
         
         const itemsResult = await client.query(itemsQuery, [sale_id]);
@@ -90,21 +91,16 @@ export async function GET(
           seller_id: sale.seller_id,
           total_amount: parseFloat(sale.total_amount),
           created_at: sale.created_at,
+          ticket_number: sale.ticket_number,
           seller_email: sale.seller_email || '',
           sale_items: itemsResult.rows.map((item: any) => ({
             id: item.id.toString(),
             quantity_sold: item.quantity,
             price_at_sale: parseFloat(item.unit_price),
             sale_format: item.sale_format,
-            stock_entry: {
-              barcode: item.barcode || '',
-              product: {
-                name: item.product_name,
-                brand: {
-                  name: item.brand_name || 'Sin marca'
-                }
-              }
-            }
+            product_name: item.product_name,
+            brand_name: item.brand_name || 'Sin marca',
+            barcode: item.barcode || ''
           }))
         };
         

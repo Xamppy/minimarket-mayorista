@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Client } from 'pg';
 import { withAdminAuth } from '../../../utils/auth/middleware';
-import { hashPassword, validatePasswordStrength } from '../../../utils/auth/password';
+import { hashPassword, validatePasswordStrength, generateTemporaryPassword } from '../../../utils/auth/password';
+import { sendTemporaryPasswordEmail } from '../../../../lib/email';
 
 const dbConfig = {
   host: process.env.POSTGRES_HOST,
@@ -124,11 +125,11 @@ export async function POST(request: NextRequest) {
       const { email, password, role, full_name } = body;
 
       // Validaciones
-      if (!email || !password || !role) {
+      if (!email || !role) {
         return NextResponse.json(
           {
             error: {
-              message: 'Email, contraseña y rol son requeridos',
+              message: 'Email y rol son requeridos',
               status: 400
             }
           },
@@ -162,18 +163,28 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Validar fortaleza de contraseña
-      const passwordValidation = validatePasswordStrength(password);
-      if (!passwordValidation.isValid) {
-        return NextResponse.json(
-          {
-            error: {
-              message: `Contraseña no válida: ${passwordValidation.errors.join(', ')}`,
-              status: 400
-            }
-          },
-          { status: 400 }
-        );
+      // Generar contraseña temporal si no se proporcionó
+      let userPassword = password;
+      let isTemporaryPassword = false;
+      
+      if (!userPassword) {
+        userPassword = generateTemporaryPassword(8);
+        isTemporaryPassword = true;
+        console.log('🔑 Contraseña temporal generada para:', email);
+      } else {
+        // Validar fortaleza de contraseña solo si fue proporcionada
+        const passwordValidation = validatePasswordStrength(userPassword);
+        if (!passwordValidation.isValid) {
+          return NextResponse.json(
+            {
+              error: {
+                message: `Contraseña no válida: ${passwordValidation.errors.join(', ')}`,
+                status: 400
+              }
+            },
+            { status: 400 }
+          );
+        }
       }
 
       const client = new Client(dbConfig);
@@ -199,7 +210,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Hash de la contraseña
-        const passwordHash = await hashPassword(password);
+        const passwordHash = await hashPassword(userPassword);
 
         // Crear nuevo usuario
         const result = await client.query(
@@ -215,6 +226,27 @@ export async function POST(request: NextRequest) {
             'UPDATE profiles SET full_name = $1 WHERE user_id = $2',
             [full_name, newUser.id]
           );
+        }
+
+        // Enviar email con contraseña temporal si fue generada automáticamente
+        if (isTemporaryPassword) {
+          try {
+            const emailSent = await sendTemporaryPasswordEmail(
+              email,
+              userPassword, // Enviar contraseña original (sin hashear)
+              full_name
+            );
+            
+            if (emailSent) {
+              console.log('✅ Email con contraseña temporal enviado a:', email);
+            } else {
+              console.warn('⚠️ No se pudo enviar el email a:', email);
+              // No fallar la creación del usuario si el email falla
+            }
+          } catch (emailError) {
+            console.error('❌ Error al enviar email:', emailError);
+            // Continuar - el usuario fue creado exitosamente
+          }
         }
 
         return NextResponse.json({

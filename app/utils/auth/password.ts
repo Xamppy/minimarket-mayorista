@@ -62,19 +62,27 @@ export const validatePasswordStrength = (password: string): { isValid: boolean; 
 };
 
 // Generar contraseña temporal segura
+// Generar contraseña temporal segura y legible
 export const generateTemporaryPassword = (length: number = 12): string => {
-  const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+  // Eliminamos caracteres ambiguos: l, 1, I, O, 0
+  // Eliminamos caracteres especiales problemáticos en HTML/URL: &, <, >, ", ', `
+  const lowercase = 'abcdefghijkmnopqrstuvwxyz'; // sin l
+  const uppercase = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // sin I, O
+  const numbers = '23456789'; // sin 0, 1
+  const symbols = '!@#$^*'; // sin &, %, (, )
+  
+  const allChars = lowercase + uppercase + numbers + symbols;
   let password = '';
   
-  // Asegurar que tenga al menos una letra minúscula, una mayúscula, un número y un símbolo
-  password += 'abcdefghijklmnopqrstuvwxyz'[Math.floor(Math.random() * 26)];
-  password += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random() * 26)];
-  password += '0123456789'[Math.floor(Math.random() * 10)];
-  password += '!@#$%^&*'[Math.floor(Math.random() * 8)];
+  // Asegurar al menos un carácter de cada tipo
+  password += lowercase[Math.floor(Math.random() * lowercase.length)];
+  password += uppercase[Math.floor(Math.random() * uppercase.length)];
+  password += numbers[Math.floor(Math.random() * numbers.length)];
+  password += symbols[Math.floor(Math.random() * symbols.length)];
   
-  // Completar el resto de la longitud
+  // Completar el resto
   for (let i = password.length; i < length; i++) {
-    password += charset[Math.floor(Math.random() * charset.length)];
+    password += allChars[Math.floor(Math.random() * allChars.length)];
   }
   
   // Mezclar los caracteres

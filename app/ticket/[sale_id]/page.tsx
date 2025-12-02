@@ -1,282 +1,140 @@
 'use client';
 
-import { useEffect, useState, use } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useThermalPrint } from '../../hooks/useThermalPrint';
-import { ThermalPrintStyles } from '../../components/ThermalPrintStyles';
-
+import { useEffect, useState, useRef } from 'react';
+import { useParams } from 'next/navigation';
+import { ThermalTicketData, ThermalTicketItem } from '../../types/thermal-print';
 import { 
   formatCurrency, 
-  formatDateForThermal, 
-  truncateText, 
+  formatDate, 
+  formatTime, 
+  truncateText,
   calculateOptimalTextWidth,
   formatProductName,
   formatBrandName,
   formatBarcode,
   formatWholesaleInfo
 } from '../../utils/thermal-printer';
-import { printThermalTicketEscpos, buildPreviewTextFromTicket } from '../../utils/escpos-plugin';
+import { useThermalPrint } from '../../hooks/useThermalPrint';
+import ThermalPrintStyles from '../../components/ThermalPrintStyles';
 
-import type { ThermalTicketData, ThermalTicketItem } from '../../types/thermal-print';
-
-interface PageProps {
-  params: Promise<{ sale_id: string }>;
-}
-
-export default function TicketPage({ params }: PageProps) {
+export default function TicketPage() {
+  const params = useParams();
+  const saleId = params.sale_id as string;
   const [saleData, setSaleData] = useState<ThermalTicketData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [escposPrinting, setEscposPrinting] = useState(false);
-  const [escposError, setEscposError] = useState<string | null>(null);
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [previewText, setPreviewText] = useState<string>('');
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const resolvedParams = use(params);
-  const saleId = resolvedParams.sale_id;
+  const [isPDFFormat, setIsPDFFormat] = useState(false);
   
-  // Detectar si se solicita formato PDF para evitar impresión automática
-  const isPDFFormat = searchParams.get('format') === 'pdf';
-
-  // Force light-mode screen styles for ticket page
-  useEffect(() => {
-    if (typeof document !== 'undefined') {
-      document.body.setAttribute('data-thermal-page', '1');
-    }
-    return () => {
-      if (typeof document !== 'undefined') {
-        document.body.removeAttribute('data-thermal-page');
-      }
-    };
-  }, []);
-
-  // Extra-strong overrides against forced dark mode (flags/extensiones)
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-
-    // Quitar clases de dark mode comunes
-    document.documentElement.classList.remove('dark');
-    document.body.classList.remove('dark');
-
-    // Forzar color-scheme y estilos inline con !important
-    document.documentElement.style.setProperty('color-scheme', 'light', 'important');
-    document.documentElement.style.setProperty('background-color', '#ffffff', 'important');
-    document.documentElement.style.setProperty('color', '#000000', 'important');
-    document.documentElement.style.setProperty('filter', 'none', 'important');
-    document.body.style.setProperty('background-color', '#ffffff', 'important');
-    document.body.style.setProperty('color', '#000000', 'important');
-    document.body.style.setProperty('filter', 'none', 'important');
-
-    // Meta color-scheme para navegadores que lo respetan
-    const meta = document.createElement('meta');
-    meta.name = 'color-scheme';
-    meta.content = 'light only';
-    meta.id = 'meta-color-scheme-thermal';
-    document.head.appendChild(meta);
-
-    // Inyectar estilo de alto peso para asegurar blanco/negro
-    const styleEl = document.createElement('style');
-    styleEl.id = 'force-light-thermal';
-    styleEl.textContent = `
-      html, body, #root, #__next { background-color: #ffffff !important; color: #000000 !important; filter: none !important; }
-      html, body { color-scheme: light !important; }
-      body[data-thermal-page="1"] { background-color: #ffffff !important; color: #000000 !important; }
-      body[data-thermal-page="1"] * { -webkit-text-fill-color: #000000 !important; }
-      body[data-thermal-page="1"] .thermal-ticket { background-color: #ffffff !important; color: #000000 !important; }
-      body[data-thermal-page="1"] .thermal-ticket * { color: #000000 !important; background-color: transparent !important; }
-
-      @media (prefers-color-scheme: dark) {
-        html, body, #root, #__next, body[data-thermal-page="1"] {
-          background-color: #ffffff !important; color: #000000 !important; filter: none !important;
-        }
-      }
-    `;
-    document.head.appendChild(styleEl);
-
-    return () => {
-      // Limpiar estilo inyectado y meta
-      const s = document.getElementById('force-light-thermal');
-      if (s && s.parentNode) s.parentNode.removeChild(s);
-      const m = document.getElementById('meta-color-scheme-thermal');
-      if (m && m.parentNode) m.parentNode.removeChild(m);
-
-      // Limpiar propiedades inline para no afectar otras páginas
-      document.documentElement.style.removeProperty('color-scheme');
-      document.documentElement.style.removeProperty('background-color');
-      document.documentElement.style.removeProperty('color');
-      document.documentElement.style.removeProperty('filter');
-      document.body.style.removeProperty('background-color');
-      document.body.style.removeProperty('color');
-      document.body.style.removeProperty('filter');
-    };
-  }, []);
-
-  // Initialize thermal printing hook
+  // Use our custom thermal print hook
   const { print, isPrinting, printError } = useThermalPrint({
-    autoprint: !isPDFFormat, // Desactivar impresión automática para PDF
-    autoprintDelay: 500,
-    onPrintError: (error) => {
-      console.error('Print error:', error);
-    }
+    autoprint: false
   });
 
-  const handleEscposPrint = async () => {
-    if (!saleData) return;
-    try {
-      setEscposPrinting(true);
-      setEscposError(null);
-      await printThermalTicketEscpos(saleData, {});
-    } catch (e: any) {
-      setEscposError(e?.message || 'Error al imprimir con ESC/POS');
-    } finally {
-      setEscposPrinting(false);
+  // Use ref to store print function and avoid dependency issues
+  const printRef = useRef(print);
+  
+  // Update ref when print function changes
+  useEffect(() => {
+    printRef.current = print;
+  }, [print]);
+
+  // Force light mode for this page
+  useEffect(() => {
+    // Add light-mode class to html and body
+    document.documentElement.classList.add('light-mode');
+    document.body.classList.add('light-mode');
+    
+    // Remove dark-mode class if present
+    document.documentElement.classList.remove('dark-mode');
+    document.body.classList.remove('dark-mode');
+    
+    // Force background to white
+    document.body.style.backgroundColor = '#ffffff';
+    document.body.style.color = '#000000';
+
+    // Check if we are in PDF mode (URL param)
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('format') === 'pdf') {
+      setIsPDFFormat(true);
     }
-  };
 
-  const handlePreviewEscpos = () => {
-    if (!saleData) return;
-    const text = buildPreviewTextFromTicket(saleData);
-    setPreviewText(text);
-    setPreviewOpen(true);
-  };
-
-  const handleDownloadPreview = () => {
-    const blob = new Blob([previewText], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `ticket_${saleData?.id || 'preview'}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    URL.revokeObjectURL(url);
-    a.remove();
-  };
+    return () => {
+      // Cleanup
+      document.documentElement.classList.remove('light-mode');
+      document.body.classList.remove('light-mode');
+      document.body.style.backgroundColor = '';
+      document.body.style.color = '';
+    };
+  }, []);
 
   useEffect(() => {
-    if (!saleId) {
-      router.push('/dashboard/vendedor');
-      return;
-    }
-
     const fetchSaleData = async () => {
       try {
-        setLoading(true);
-
-        // Obtener datos de la venta usando el endpoint de API
-        console.log('Fetching sale with ID:', saleId);
-        
-        const response = await fetch(`/api/sales/${saleId}`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error('Error fetching sale data:', errorData);
-          setError(errorData.error?.message || 'Error al cargar la venta');
-          return;
-        }
-
+        const response = await fetch(`/api/sales/${saleId}`);
         const result = await response.json();
-        
-        if (!result.success || !result.data) {
-          console.error('No sale data found');
-          setError('Venta no encontrada');
-          return;
-        }
 
-        const sale = result.data;
-        console.log('Sale data:', sale);
-
-        // Procesar items con información de wholesale pricing
-        const itemsWithProducts: ThermalTicketItem[] = (sale.sale_items || []).map((item: any) => {
-          // Para determinar wholesale pricing, necesitamos hacer una estimación
-          // basada en la cantidad y el precio aplicado
-          const isWholesale = item.quantity_sold >= 3;
+        if (result.success) {
+          const sale = result.data;
           
-          return {
-            id: item.id,
-            quantity_sold: item.quantity_sold,
-            price_at_sale: item.price_at_sale,
-            sale_format: item.sale_format,
-            product_name: item.stock_entry.product.name || 'Producto desconocido',
-            brand_name: item.stock_entry.product.brand.name || 'Sin marca',
-            barcode: item.stock_entry.barcode || null,
-            is_wholesale: isWholesale,
-            unit_price: item.price_at_sale, // Usamos el precio de venta como referencia
-            wholesale_price: isWholesale ? item.price_at_sale : null,
-            savings: 0 // Por ahora no calculamos ahorros sin datos adicionales
-          };
-        });
+          // Calculate totals if not present
+          const itemCount = sale.sale_items.reduce((sum: number, item: any) => sum + item.quantity_sold, 0);
+          const totalSavings = sale.sale_items.reduce((sum: number, item: any) => {
+            // Calculate savings if wholesale price was applied
+            if (item.is_wholesale && item.unit_price && item.wholesale_price) {
+              return sum + ((item.unit_price - item.wholesale_price) * item.quantity_sold);
+            }
+            return sum;
+          }, 0);
 
-        // Calcular totales adicionales
-        const totalSavings = itemsWithProducts.reduce((sum: number, item: any) => sum + (item.savings || 0), 0);
-        const itemCount = itemsWithProducts.reduce((sum: number, item: any) => sum + item.quantity_sold, 0);
+          // Format dates
+          const dateObj = new Date(sale.created_at);
+          const formattedDate = formatDate(dateObj);
+          const formattedTime = formatTime(dateObj);
 
-        // Formatear fecha y hora
-        const saleDate = new Date(sale.created_at);
-        const { date: formattedDate, time: formattedTime } = formatDateForThermal(saleDate);
-
-        // Construir el objeto final con tipos correctos
-        const fullSaleData: ThermalTicketData = {
-          id: sale.id,
-          seller_id: sale.seller_id,
-          total_amount: sale.total_amount,
-          created_at: sale.created_at,
-          seller_email: sale.seller_email || 'Vendedor desconocido',
-          sale_items: itemsWithProducts,
-          formattedDate,
-          formattedTime,
-          totalSavings,
-          itemCount
-        };
-
-        console.log('Full sale data:', fullSaleData);
-        setSaleData(fullSaleData);
+          setSaleData({
+            ...sale,
+            formattedDate,
+            formattedTime,
+            itemCount,
+            totalSavings
+          });
+          
+          // Auto-print if requested via URL param and not in PDF mode
+          const urlParams = new URLSearchParams(window.location.search);
+          if (urlParams.get('autoprint') === 'true' && !isPDFFormat) {
+            // Small delay to ensure styles are loaded
+            setTimeout(() => {
+              printRef.current();
+            }, 1000);
+          }
+        } else {
+          setError(result.error?.message || 'Error al cargar la venta');
+        }
       } catch (err) {
-        console.error('Error:', err);
-        setError('Error al cargar el ticket');
+        setError('Error de conexión');
+        console.error(err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchSaleData();
-  }, [saleId, router]);
+    if (saleId) {
+      fetchSaleData();
+    }
+  }, [saleId, isPDFFormat]);
 
-  // Auto-print is handled by the useThermalPrint hook
+
+
+
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-          <p>Cargando ticket...</p>
-        </div>
-      </div>
-    );
+    return <div className="thermal-center" style={{ padding: '20px' }}>Cargando ticket...</div>;
   }
 
   if (error || !saleData) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">{error || 'Ticket no encontrado'}</p>
-          <button 
-            onClick={() => window.close()}
-            className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-          >
-            Cerrar Ventana
-          </button>
-        </div>
-      </div>
-    );
+    return <div className="thermal-center" style={{ color: 'red', padding: '20px' }}>{error || 'Venta no encontrada'}</div>;
   }
 
-  // Calculate optimal text width for truncation
   const maxTextWidth = calculateOptimalTextWidth();
 
   return (
@@ -297,7 +155,9 @@ export default function TicketPage({ params }: PageProps) {
         <div className="thermal-body">
           <div className="thermal-row">
             <span>Ticket #:</span>
-            <span className="thermal-wrap">{truncateText(saleData.id, 20)}</span>
+            <span className="thermal-wrap">
+              {saleData.ticket_number ? saleData.ticket_number.toString().padStart(10, '0') : truncateText(saleData.id, 8)}
+            </span>
           </div>
           <div className="thermal-row">
             <span>Fecha:</span>
@@ -405,16 +265,6 @@ export default function TicketPage({ params }: PageProps) {
               ❌ Error: {printError}
             </div>
           )}
-          {escposPrinting && (
-            <div className="thermal-body" style={{ marginBottom: '10px' }}>
-              🧾 Imprimiendo con ESC/POS...
-            </div>
-          )}
-          {escposError && (
-            <div className="thermal-body" style={{ color: 'red', marginBottom: '10px' }}>
-              ❌ ESC/POS: {escposError}
-            </div>
-          )}
           
           {isPDFFormat ? (
             /* Controles para formato PDF */
@@ -487,111 +337,7 @@ export default function TicketPage({ params }: PageProps) {
               >
                 {isPrinting ? '🖨️ Imprimiendo...' : '🖨️ Imprimir Ticket'}
               </button>
-              
-              <button 
-                onClick={handleEscposPrint}
-                disabled={escposPrinting || !saleData}
-                style={{
-                  padding: '10px 20px',
-                  margin: '5px',
-                  backgroundColor: escposPrinting ? '#6c757d' : '#007bff',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: escposPrinting ? 'not-allowed' : 'pointer',
-                  fontSize: '14px',
-                  fontWeight: 'bold'
-                }}
-              >
-                {escposPrinting ? '🧾 Imprimiendo...' : '🧾 Imprimir (ESC/POS)'}
-              </button>
 
-              <button 
-                onClick={handlePreviewEscpos}
-                disabled={!saleData}
-                style={{
-                  padding: '10px 20px',
-                  margin: '5px',
-                  backgroundColor: '#17a2b8',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: !saleData ? 'not-allowed' : 'pointer',
-                  fontSize: '14px',
-                  fontWeight: 'bold'
-                }}
-              >
-                👁️ Previsualizar (ESC/POS)
-              </button>
-
-              {previewOpen && previewText && (
-                <div style={{ marginTop: '15px', textAlign: 'left' }}>
-                  <div className="thermal-small" style={{ marginBottom: '8px' }}>
-                    Vista previa de texto a 32 columnas
-                  </div>
-                  <pre style={{
-                    backgroundColor: '#111827',
-                    color: '#e5e7eb',
-                    padding: '12px',
-                    borderRadius: '4px',
-                    maxHeight: '300px',
-                    overflow: 'auto',
-                    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-                    fontSize: '12px',
-                    lineHeight: 1.2,
-                    border: '1px solid #374151'
-                  }}>{previewText}</pre>
-                  <div style={{ marginTop: '8px' }}>
-                    <button
-                      onClick={() => navigator.clipboard?.writeText(previewText)}
-                      style={{
-                        padding: '8px 12px',
-                        marginRight: '8px',
-                        backgroundColor: '#6c757d',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontSize: '12px',
-                        fontWeight: 'bold'
-                      }}
-                    >
-                      Copiar
-                    </button>
-                    <button
-                      onClick={handleDownloadPreview}
-                      style={{
-                        padding: '8px 12px',
-                        marginRight: '8px',
-                        backgroundColor: '#28a745',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontSize: '12px',
-                        fontWeight: 'bold'
-                      }}
-                    >
-                      Descargar .txt
-                    </button>
-                    <button
-                      onClick={() => setPreviewOpen(false)}
-                      style={{
-                        padding: '8px 12px',
-                        backgroundColor: '#dc3545',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontSize: '12px',
-                        fontWeight: 'bold'
-                      }}
-                    >
-                      Cerrar
-                    </button>
-                  </div>
-                </div>
-              )}
               
               <button 
                 onClick={() => window.close()}

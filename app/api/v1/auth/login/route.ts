@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { Pool } from 'pg';
-import { generateToken } from '../../../utils/auth/jwt';
+import { generateToken } from '../../../../utils/auth/jwt';
 
-// Configuración de la base de datos
 const pool = new Pool({
   host: process.env.POSTGRES_HOST,
   port: parseInt(process.env.POSTGRES_PORT || '5432'),
@@ -24,10 +23,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Buscar usuario en la base de datos
     const client = await pool.connect();
     try {
-      // Asegurar columna must_change_password (migración suave en runtime)
       await client.query(
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT false"
       );
@@ -37,9 +34,8 @@ export async function POST(request: NextRequest) {
         FROM users
         WHERE email = $1
       `;
-      
       const userResult = await client.query(userQuery, [email]);
-      
+
       if (userResult.rows.length === 0) {
         return NextResponse.json(
           { error: 'Credenciales incorrectas' },
@@ -49,9 +45,7 @@ export async function POST(request: NextRequest) {
 
       const user = userResult.rows[0];
 
-      // Verificar contraseña
       const isValidPassword = await bcrypt.compare(password, user.password_hash);
-      
       if (!isValidPassword) {
         return NextResponse.json(
           { error: 'Credenciales incorrectas' },
@@ -59,10 +53,8 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Crear token JWT
       const token = generateToken(user.id, user.email, user.role);
 
-      // Crear respuesta con cookie
       const response = NextResponse.json({
         success: true,
         user: {
@@ -74,23 +66,20 @@ export async function POST(request: NextRequest) {
         message: user.must_change_password ? 'Debes cambiar tu contraseña antes de continuar.' : undefined
       });
 
-      // Establecer cookie con el token
       response.cookies.set('auth_token', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: 24 * 60 * 60 * 1000, // 24 horas
+        maxAge: 24 * 60 * 60 * 1000,
         path: '/'
       });
 
       return response;
-
     } finally {
       client.release();
     }
-
   } catch (error) {
-    console.error('Error en login:', error);
+    console.error('Error en login v1:', error);
     return NextResponse.json(
       { error: 'Error interno del servidor' },
       { status: 500 }

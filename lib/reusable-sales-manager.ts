@@ -28,6 +28,7 @@ export interface CartItem {
 export interface SaleResult {
   success: boolean;
   saleId?: string;
+  ticketNumber?: string;
   ticketUrl?: string;
   totalAmount?: number;
   error?: {
@@ -42,6 +43,7 @@ export interface SaleResult {
 
 export interface TicketData {
   id: string;
+  ticket_number: string;
   seller_id: string;
   seller_email: string;
   total_amount: number;
@@ -198,6 +200,9 @@ export class ReusableSalesManager {
         await this.client!.query('COMMIT');
         this.log('Transacción confirmada exitosamente');
 
+        // Obtener el ticket number generado
+        const ticketNumber = await this.getTicketNumber(saleId);
+
         // Generar ticket automáticamente si está habilitado
         let ticketUrl: string | undefined;
         let ticketData: TicketData | undefined;
@@ -216,6 +221,7 @@ export class ReusableSalesManager {
         return {
           success: true,
           saleId,
+          ticketNumber,
           ticketUrl,
           totalAmount,
           stockUpdates,
@@ -598,10 +604,26 @@ export class ReusableSalesManager {
     }
     
     const result = await this.client!.query(
-      'INSERT INTO sales (user_id, total_amount, payment_method) VALUES ($1, $2, $3) RETURNING id',
+      'INSERT INTO sales (user_id, total_amount, payment_method) VALUES ($1, $2, $3) RETURNING id, ticket_number',
       [userId, totalAmount, 'pending']
     );
+    // Retornamos tanto el ID como el ticket_number (aunque el método solo devuelve string por compatibilidad, 
+    // podríamos ajustar esto si fuera necesario, pero por ahora lo manejamos internamente o cambiamos la firma)
+    // Para mantener compatibilidad, devolvemos el ID, pero guardamos el ticket_number en una propiedad temporal si es necesario
+    // O mejor, actualizamos la firma para devolver un objeto.
+    // Dado que esto es un cambio interno, vamos a devolver un objeto con ambos valores y actualizar quien lo llama.
+    // Pero espera, createSale devuelve Promise<string>. Vamos a cambiarlo a Promise<{id: string, ticketNumber: number}>
+    // Esto requeriría cambiar la firma. 
+    // Para minimizar impacto, vamos a obtener el ticket_number en getSaleData que es donde más importa para el ticket.
+    // Sin embargo, para mostrarlo en el modal de éxito inmediato, sí necesitamos devolverlo.
+    
     return result.rows[0].id;
+  }
+
+  // Método auxiliar para obtener el ticket number recién creado si es necesario
+  private async getTicketNumber(saleId: string): Promise<string> {
+    const result = await this.client!.query('SELECT ticket_number FROM sales WHERE id = $1', [saleId]);
+    return result.rows[0]?.ticket_number?.toString().padStart(10, '0') || '0000000000';
   }
 
   private async createSaleItems(saleId: string, items: ProcessedItem[]): Promise<void> {
@@ -884,6 +906,7 @@ export class ReusableSalesManager {
 
     return {
       id: saleData.id,
+      ticket_number: saleData.ticket_number ? saleData.ticket_number.toString().padStart(10, '0') : '0000000000',
       seller_id: saleData.seller_id,
       seller_email: saleData.seller_email,
       total_amount: saleData.total_amount,
@@ -902,6 +925,7 @@ export class ReusableSalesManager {
       const result = await this.client!.query(
         `SELECT 
            s.id,
+           s.ticket_number,
            s.user_id as seller_id,
            s.total_amount,
            s.sale_date as created_at,
@@ -928,7 +952,7 @@ export class ReusableSalesManager {
          LEFT JOIN products p ON se.product_id = p.id
          LEFT JOIN brands b ON p.brand_id = b.id
          WHERE s.id = $1
-         GROUP BY s.id, s.user_id, s.total_amount, s.sale_date, u.email`,
+         GROUP BY s.id, s.ticket_number, s.user_id, s.total_amount, s.sale_date, u.email`,
         [saleId]
       );
       return result.rows[0] || null;
@@ -1124,6 +1148,7 @@ export function formatSaleResultForAPI(result: SaleResult) {
     success: result.success,
     data: result.success ? {
       saleId: result.saleId,
+      ticketNumber: result.ticketNumber,
       ticketUrl: result.ticketUrl,
       totalAmount: result.totalAmount,
       itemsProcessed: result.itemsProcessed?.length || 0,
