@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
       // Obtener ventas de las últimas 12 horas del vendedor autenticado
       // Query optimizada con índice idx_sales_user_date
       const result = await client.query(
-        `SELECT id, total_amount, sale_date as created_at 
+        `SELECT id, ticket_number, total_amount, sale_date as created_at 
          FROM sales 
          WHERE user_id = $1 
            AND sale_date >= $2 

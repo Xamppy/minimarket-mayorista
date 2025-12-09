@@ -192,14 +192,7 @@ export default function TicketPage() {
               <div className="thermal-body thermal-bold thermal-wrap">
                 {formatProductName(item.product_name, maxTextWidth - 5)}
               </div>
-              <div className="thermal-small thermal-wrap">
-                Marca: {formatBrandName(item.brand_name)}
-              </div>
-              {item.barcode && (
-                <div className="thermal-small thermal-wrap">
-                  Código: {formatBarcode(item.barcode)}
-                </div>
-              )}
+
               
               <div className="thermal-price-row">
                 <span className="thermal-price-left">
@@ -210,12 +203,7 @@ export default function TicketPage() {
                 </span>
               </div>
               
-              <div className="thermal-small">
-                Formato: {item.sale_format}
-                {wholesaleInfo.wholesaleLabel && (
-                  <span className="thermal-bold"> - {wholesaleInfo.wholesaleLabel}</span>
-                )}
-              </div>
+
               
               {wholesaleInfo.showWholesale && (
                 <div className="thermal-small thermal-bold">

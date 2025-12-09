@@ -6,6 +6,7 @@ import { authenticatedFetch } from '../../../utils/auth/api';
 
 interface Sale {
   id: string;
+  ticket_number?: number;
   total_amount: number;
   created_at: string;
   sale_items_count?: number;
@@ -146,11 +147,11 @@ export default function SalesHistory() {
                 <div className="flex-1">
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                      <span className="text-blue-600 font-bold text-sm">#{sale.id}</span>
+                      <span className="text-blue-600 font-bold text-sm">{sale.ticket_number || sale.id.slice(-4)}</span>
                     </div>
                     <div>
                       <p className="font-medium text-gray-900">
-                        Venta #{sale.id}
+                        Venta #{sale.ticket_number ? sale.ticket_number.toString().padStart(10, '0') : sale.id}
                       </p>
                       <p className="text-sm text-gray-500">
                         {formatTime(sale.created_at)}
