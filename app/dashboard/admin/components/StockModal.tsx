@@ -24,9 +24,10 @@ interface StockModalProps {
   onClose: () => void;
   productId: string;
   productName: string;
+  productBarcode: string;
 }
 
-export default function StockModal({ isOpen, onClose, productId, productName }: StockModalProps) {
+export default function StockModal({ isOpen, onClose, productId, productName, productBarcode }: StockModalProps) {
   const [stockEntries, setStockEntries] = useState<StockEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -117,6 +118,7 @@ export default function StockModal({ isOpen, onClose, productId, productName }: 
           <StockEntryForm 
             productId={productId}
             productName={productName}
+            productBarcode={productBarcode}
             onStockEntryAdded={handleStockEntryAdded}
             editingStockEntry={editingStockEntry ? {
               id: editingStockEntry.id.toString(),

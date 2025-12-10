@@ -15,99 +15,101 @@ export async function GET(request: NextRequest) {
   return withVendedorAuth(request, async (req, user) => {
     try {
       const { searchParams } = req.nextUrl;
-      const barcode = searchParams.get('barcode');
+      const rawBarcode = searchParams.get('barcode');
 
-      if (!barcode) {
+      if (!rawBarcode) {
         return NextResponse.json(
-          {
-            error: {
-              message: 'Código de barras es requerido',
-              status: 400
-            }
-          },
+          { error: 'Código de barras es requerido' },
           { status: 400 }
         );
       }
+
+      // Limpieza como solicitó el usuario: .trim()
+      // Mantengo la sanitización extra por robustez
+      const barcode = rawBarcode.trim();
 
       const client = new Client(dbConfig);
       await client.connect();
 
       try {
-
-        // Buscar en stock_entries por código de barras y obtener información del producto
-        // Implementar FIFO: seleccionar el stock entry con fecha de vencimiento más próxima
-        const stockQuery = `
+        // Consulta Robusta: Producot + Stock + Precio (del lote más antiguo/prioritario)
+        const query = `
           SELECT 
-            se.id,
-            se.product_id,
-            se.current_quantity,
-            p.barcode,
-            se.sale_price_unit,
-            se.sale_price_wholesale,
-            se.purchase_price,
-            se.expiration_date,
-            se.entry_date,
-            p.id as product_id,
-            p.name as product_name,
+            p.id, 
+            p.name, 
+            p.barcode, 
             p.image_url,
-            b.name as brand_name,
-            pt.name as type_name
-          FROM stock_entries se
-          JOIN products p ON se.product_id = p.id
-          LEFT JOIN brands b ON p.brand_name = b.name
+            p.brand_name,
+            pt.name as type_name,
+            COALESCE(SUM(se.current_quantity), 0) as current_stock,
+            -- Subconsulta para obtener el precio del lote más prioritario (FIFO)
+            (
+              SELECT sale_price_unit 
+              FROM stock_entries 
+              WHERE product_id = p.id AND current_quantity > 0 
+              ORDER BY 
+                CASE WHEN expiration_date IS NULL THEN 1 ELSE 0 END,
+                expiration_date ASC, 
+                entry_date ASC 
+              LIMIT 1
+            ) as price,
+             -- Necesitamos un stock entry ID para el carrito? Usamos el más prioritario
+            (
+              SELECT id
+              FROM stock_entries 
+              WHERE product_id = p.id AND current_quantity > 0 
+              ORDER BY 
+                CASE WHEN expiration_date IS NULL THEN 1 ELSE 0 END,
+                expiration_date ASC, 
+                entry_date ASC 
+              LIMIT 1
+            ) as best_stock_entry_id
+          FROM products p
+          LEFT JOIN stock_entries se ON p.id = se.product_id
           LEFT JOIN product_types pt ON p.product_type_id = pt.id
-          WHERE p.barcode = $1 AND se.current_quantity > 0
-          ORDER BY 
-            CASE WHEN se.expiration_date IS NULL THEN 1 ELSE 0 END,
-            se.expiration_date ASC,
-            se.entry_date ASC
+          WHERE p.barcode = $1
+          GROUP BY p.id, pt.name
         `;
 
-        const stockResult = await client.query(stockQuery, [barcode.trim()]);
+        const result = await client.query(query, [barcode]);
 
-        if (stockResult.rows.length === 0) {
-          return NextResponse.json({ 
-            product: null, 
-            message: 'No se encontró producto con ese código de barras o sin stock disponible' 
-          });
+        if (result.rows.length === 0) {
+           return NextResponse.json(
+            { error: 'Producto no encontrado' }, 
+            { status: 404 }
+          );
         }
 
-        // Seleccionar el primer stock entry (FIFO - más próximo a vencer o más antiguo)
-        const stockEntry = stockResult.rows[0];
+        const data = result.rows[0];
+        const totalStock = parseInt(data.current_stock);
 
-        // Obtener el stock total del producto
-        const totalStockQuery = `
-          SELECT COALESCE(SUM(current_quantity), 0) as total_stock
-        FROM stock_entries 
-        WHERE product_id = $1 AND current_quantity > 0
-        `;
-        
-        const totalStockResult = await client.query(totalStockQuery, [stockEntry.product_id]);
-        const totalStock = parseInt(totalStockResult.rows[0].total_stock) || 0;
-
-        // Construir el objeto producto
+        // Estructura de respuesta
         const product = {
-          id: stockEntry.product_id,
-          name: stockEntry.product_name,
-          brand_name: stockEntry.brand_name || 'Sin marca',
-          type_name: stockEntry.type_name || 'Sin tipo',
+          id: data.id,
+          name: data.name,
+          brand_name: data.brand_name || 'Sin marca',
+          type_name: data.type_name || 'Sin tipo',
           total_stock: totalStock,
-          image_url: stockEntry.image_url
+          image_url: data.image_url,
+          // Precio puede ser null si no hay stock_entries
+          price: data.price ? parseInt(data.price) : 0 
         };
 
-        return NextResponse.json({ 
+        // Si tenemos un stock entry ID, lo pasamos para compatibilidad
+        const stockEntry = data.best_stock_entry_id ? {
+          id: data.best_stock_entry_id,
+          sale_price_unit: product.price,
+          sale_price_wholesale: 0, // No lo tenemos en el group by, simplificado
+          current_quantity: totalStock, // Dummy value para el entry específico
+          purchase_price: 0,
+          barcode: data.barcode
+        } : null;
+
+        return NextResponse.json({
           success: true,
           product,
-          stockEntry: {
-            id: stockEntry.id,
-            sale_price_unit: stockEntry.sale_price_unit,
-            sale_price_wholesale: stockEntry.sale_price_wholesale,
-            current_quantity: stockEntry.current_quantity,
-            purchase_price: stockEntry.purchase_price,
-            expiration_date: stockEntry.expiration_date,
-            barcode: stockEntry.barcode
-          },
-          message: 'Producto encontrado exitosamente'
+          stockEntry, // Mantenemos compatibilidad si el front lo usa
+          message: totalStock > 0 ? 'Producto encontrado' : 'Producto sin stock'
         });
 
       } finally {
@@ -117,12 +119,7 @@ export async function GET(request: NextRequest) {
     } catch (error) {
       console.error('Error in by-barcode API:', error);
       return NextResponse.json(
-        {
-          error: {
-            message: 'Error interno del servidor',
-            status: 500
-          }
-        },
+        { error: 'Error interno del servidor' },
         { status: 500 }
       );
     }

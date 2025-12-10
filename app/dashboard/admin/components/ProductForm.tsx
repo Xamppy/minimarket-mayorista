@@ -24,10 +24,6 @@ export default function ProductForm({ brands, productTypes, onSuccess }: Product
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Debug: Log de las props recibidas
-  console.log('ProductForm - Marcas recibidas:', brands);
-  console.log('ProductForm - Tipos recibidos:', productTypes);
-
   const handleSubmit = async (formData: FormData) => {
     setLoading(true);
     setError('');
@@ -35,7 +31,7 @@ export default function ProductForm({ brands, productTypes, onSuccess }: Product
 
     try {
       await addProduct(formData);
-      setSuccess('¡Producto registrado en el catálogo exitosamente!');
+      setSuccess('¡Producto registrado en el catálogo!');
       
       // Limpiar el formulario
       const form = document.getElementById('product-form') as HTMLFormElement;
@@ -47,7 +43,7 @@ export default function ProductForm({ brands, productTypes, onSuccess }: Product
       if (onSuccess) {
         setTimeout(() => {
           onSuccess();
-        }, 1500); // Esperar un poco para mostrar el mensaje de éxito
+        }, 1500);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
@@ -71,8 +67,27 @@ export default function ProductForm({ brands, productTypes, onSuccess }: Product
             required
             disabled={loading}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900"
-            placeholder="Ej: Leche Entera La Serenísima 1L"
+            placeholder="Ej: Coca-Cola 500ml"
           />
+        </div>
+
+        {/* Código de Barras */}
+        <div>
+          <label htmlFor="barcode" className="block text-sm font-medium text-gray-700 mb-1">
+            Código de Barras *
+          </label>
+          <input
+            type="text"
+            id="barcode"
+            name="barcode"
+            required
+            disabled={loading}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900"
+            placeholder="Ej: 7790123456789"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Escanea o ingresa el código de barras del producto
+          </p>
         </div>
 
         {/* Marca */}
@@ -89,7 +104,7 @@ export default function ProductForm({ brands, productTypes, onSuccess }: Product
           >
             <option value="">Selecciona una marca</option>
             {brands.map((brand) => (
-              <option key={brand.id} value={brand.name}>
+              <option key={brand.id} value={brand.id}>
                 {brand.name}
               </option>
             ))}
@@ -141,7 +156,8 @@ export default function ProductForm({ brands, productTypes, onSuccess }: Product
 
         {success && (
           <div className="text-green-600 text-sm bg-green-50 p-3 rounded-md">
-            {success}</div>
+            {success}
+          </div>
         )}
 
         {/* Botón de envío */}
@@ -153,10 +169,10 @@ export default function ProductForm({ brands, productTypes, onSuccess }: Product
           {loading ? 'Registrando...' : 'Registrar en Catálogo'}
         </button>
 
-        <p className="text-xs text-gray-500 text-center">
-          Los campos marcados con * son obligatorios.<br/>
-          Este formulario registra productos en el catálogo general sin precio ni stock.
-        </p>
+        <div className="text-xs text-gray-500 text-center bg-blue-50 p-2 rounded-md">
+          <p className="font-medium">ℹ️ Los precios se definen al ingresar stock</p>
+          <p>Este formulario solo registra la identidad del producto.</p>
+        </div>
       </form>
     );
 }

@@ -10,11 +10,12 @@ interface Product {
   type_name: string;
   image_url: string | null;
   total_stock: number;
+  barcode?: string;
 }
 
 interface ActionButtonProps {
   product: Product;
-  onManageStock: (productId: string, productName: string) => void;
+  onManageStock: (productId: string, productName: string, productBarcode: string) => void;
   onEditProduct: (product: Product) => void;
   onProductDeleted: () => void;
 }
@@ -28,7 +29,7 @@ export default function ActionButton({
   const [deleting, setDeleting] = useState(false);
 
   const handleManageStock = () => {
-    onManageStock(product.id, product.name);
+    onManageStock(product.id, product.name, product.barcode || '');
   };
 
   const handleEdit = () => {

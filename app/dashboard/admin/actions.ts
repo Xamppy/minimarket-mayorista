@@ -230,12 +230,13 @@ export async function addProduct(formData: FormData) {
   // Debug: Ver qué datos están llegando desde el formulario
   console.log('📦 FormData recibido:', Object.fromEntries(formData));
 
-  // Obtener datos del formulario
+  // Obtener datos del formulario (solo identidad del producto)
   const productId = formData.get('productId') as string;
   const name = formData.get('name') as string;
   const brandId = formData.get('brandId') as string;
   const typeId = formData.get('typeId') as string;
   const imageUrl = formData.get('imageUrl') as string;
+  const barcode = formData.get('barcode') as string;
 
   // Validar campos requeridos
   if (!name?.trim()) {
@@ -250,6 +251,10 @@ export async function addProduct(formData: FormData) {
     throw new Error('El tipo de producto es requerido');
   }
 
+  if (!barcode?.trim()) {
+    throw new Error('El código de barras es requerido');
+  }
+
   try {
     if (productId) {
       // Actualizar producto existente
@@ -260,9 +265,10 @@ export async function addProduct(formData: FormData) {
         },
         body: JSON.stringify({
           name: name.trim(),
-          brand_name: brandId, // Enviamos el nombre de la marca directamente
-          product_type_id: typeId,
-          image_url: imageUrl?.trim() || null
+          brand_id: brandId,
+          type_id: typeId,
+          image_url: imageUrl?.trim() || null,
+          barcode: barcode.trim()
         })
       });
 
@@ -271,7 +277,7 @@ export async function addProduct(formData: FormData) {
         throw new Error(`Error al actualizar el producto: ${errorData.error || 'Error desconocido'}`);
       }
     } else {
-      // Insertar producto nuevo
+      // Insertar producto nuevo (sin precios - se definen al ingresar stock)
       const response = await authenticatedFetch('/api/products', {
         method: 'POST',
         headers: {
@@ -279,15 +285,16 @@ export async function addProduct(formData: FormData) {
         },
         body: JSON.stringify({
           name: name.trim(),
-          brand_name: brandId, // Enviamos el nombre de la marca directamente
-          product_type_id: typeId,
-          image_url: imageUrl?.trim() || null
+          brand_id: brandId,
+          type_id: typeId,
+          image_url: imageUrl?.trim() || null,
+          barcode: barcode.trim()
         })
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(`Error al registrar el producto en el catálogo: ${errorData.error || 'Error desconocido'}`);
+        throw new Error(`Error al registrar el producto: ${errorData.error || 'Error desconocido'}`);
       }
     }
 
@@ -299,6 +306,7 @@ export async function addProduct(formData: FormData) {
     throw error;
   }
 }
+
 
 export async function deleteProduct(productId: string) {
   if (!productId) {

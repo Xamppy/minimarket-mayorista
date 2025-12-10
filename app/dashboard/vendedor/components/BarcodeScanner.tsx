@@ -124,6 +124,9 @@ export default function BarcodeScanner({ onProductFound, onError }: BarcodeScann
     setIsScanning(true);
     
     try {
+      console.log('--- FRONTEND SCAN ---');
+      console.log('Sending Code:', scannedBarcode.trim());
+      
       const response = await fetch(`/api/products/by-barcode?barcode=${encodeURIComponent(scannedBarcode.trim())}`);
       const data = await response.json();
 

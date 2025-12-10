@@ -14,6 +14,7 @@ const preventScrollChange = (e: WheelEvent) => {
 interface StockEntryFormProps {
   productId: string;
   productName?: string;
+  productBarcode?: string;
   onStockEntryAdded?: () => void;
   editingStockEntry?: {
     id: string;
@@ -30,7 +31,8 @@ interface StockEntryFormProps {
 
 export default function StockEntryForm({ 
   productId, 
-  productName, 
+  productName,
+  productBarcode,
   onStockEntryAdded, 
   editingStockEntry, 
   onCancelEdit 
@@ -39,6 +41,7 @@ export default function StockEntryForm({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [wholesalePriceError, setWholesalePriceError] = useState('');
+  const [barcodeValue, setBarcodeValue] = useState(productBarcode || '');
   const isEditing = !!editingStockEntry;
 
   useEffect(() => {
@@ -50,7 +53,7 @@ export default function StockEntryForm({
       const form = document.getElementById('stock-entry-form') as HTMLFormElement;
       if (form) {
         (form.elements.namedItem('quantity') as HTMLInputElement).value = editingStockEntry.current_quantity.toString();
-        (form.elements.namedItem('barcode') as HTMLInputElement).value = editingStockEntry.barcode;
+        setBarcodeValue(editingStockEntry.barcode);
         (form.elements.namedItem('purchasePrice') as HTMLInputElement).value = (editingStockEntry.purchase_price ?? 0).toString();
         (form.elements.namedItem('unitPrice') as HTMLInputElement).value = (editingStockEntry.sale_price_unit ?? 0).toString();
 
@@ -67,13 +70,15 @@ export default function StockEntryForm({
       if (form) {
         form.reset();
       }
+      // Restaurar el barcode del producto
+      setBarcodeValue(productBarcode || '');
     }
 
     // Cleanup function para remover el event listener
     return () => {
       document.removeEventListener('wheel', preventScrollChange);
     };
-  }, [editingStockEntry]);
+  }, [editingStockEntry, productBarcode]);
 
   const handleSubmit = async (formData: FormData) => {
     setLoading(true);
@@ -216,20 +221,26 @@ export default function StockEntryForm({
           </div>
         </div>
 
-        {/* Segunda fila: Código de Barras */}
+        {/* Segunda fila: Código de Barras (auto-rellenado del producto) */}
         <div>
           <label htmlFor="barcode" className="block text-sm font-medium text-gray-700 mb-1">
-            Código de Barras *
+            Código de Barras {productBarcode ? '(del producto)' : '*'}
           </label>
           <input
             type="text"
             id="barcode"
             name="barcode"
             required
+            value={barcodeValue}
+            onChange={(e) => setBarcodeValue(e.target.value)}
+            readOnly={!!productBarcode && !isEditing}
             disabled={loading}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900"
+            className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900 ${productBarcode && !isEditing ? 'bg-gray-100 cursor-not-allowed' : ''}`}
             placeholder="Ej: 7790123456789"
           />
+          {productBarcode && !isEditing && (
+            <p className="text-xs text-green-600 mt-1">✓ Heredado del producto</p>
+          )}
         </div>
 
         {/* Tercera fila: Precios */}
