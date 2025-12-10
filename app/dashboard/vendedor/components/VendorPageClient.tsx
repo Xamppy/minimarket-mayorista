@@ -93,6 +93,7 @@ export default function VendorPageClient({
       barcode?: string;
       purchase_price?: number;
     };
+    stockEntries?: any[]; // Array completo de lotes disponibles
   } | undefined>(undefined);
   const scanInputRef = useRef<HTMLInputElement>(null);
   const scanTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -140,13 +141,18 @@ export default function VendorPageClient({
         throw new Error(data.error || 'Error al buscar producto');
       }
 
-      if (!data.product || !data.stockEntry) {
+      // Nueva validación: verificar array de stockEntries (lógica FEFO)
+      if (!data.product || !data.stockEntries || data.stockEntries.length === 0) {
         showError('Producto no encontrado o sin stock disponible');
         return;
       }
 
-      // Usar directamente el stock entry específico devuelto por la API
-      openAddToCartModal(data.product, data.stockEntry);
+      // Lógica FEFO: seleccionar primer lote disponible (ya ordenado por API)
+      // Los lotes están ordenados por: expiration_date ASC, entry_date ASC
+      const firstAvailableLot = data.stockEntries[0];
+      
+      // Pasar el producto, el lote prioritario Y todos los lotes disponibles
+      openAddToCartModal(data.product, firstAvailableLot, data.stockEntries);
     } catch (error) {
       console.error('Error searching by barcode:', error);
       showError(error instanceof Error ? error.message : 'Error al buscar producto');
@@ -155,7 +161,7 @@ export default function VendorPageClient({
     }
   };
 
-  const openAddToCartModal = (product: Product, stockEntry: any) => {
+  const openAddToCartModal = (product: Product, stockEntry: any, allStockEntries?: any[]) => {
     setScannedProduct({
       product,
       stockEntry: {
@@ -167,7 +173,9 @@ export default function VendorPageClient({
         expiration_date: stockEntry.expiration_date,
         barcode: stockEntry.barcode,
         purchase_price: stockEntry.purchase_price
-      }
+      },
+      // NUEVO: Array completo de lotes disponibles para selección manual
+      stockEntries: allStockEntries || [stockEntry]
     });
     setSaleModalMode('add-to-cart-from-scan');
     setSaleModalOpen(true);

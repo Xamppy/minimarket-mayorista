@@ -49,6 +49,7 @@ interface ScannedItem {
     barcode?: string;
     purchase_price?: number;
   };
+  stockEntries?: any[]; // Array completo de lotes disponibles
 }
 
 interface SaleModalProps {
@@ -85,6 +86,9 @@ export default function SaleModal({
   const [error, setError] = useState('');
   const [saleSuccess, setSaleSuccess] = useState<{ success: boolean; saleId?: string; ticketUrl?: string; totalAmount?: number }>({ success: false });
   const [isButtonPressed, setIsButtonPressed] = useState(false);
+  
+  // Estado para el lote seleccionado manualmente
+  const [selectedStockEntry, setSelectedStockEntry] = useState<any | null>(null);
 
   // Determinar modo de operación
   const isAddToCartMode = mode === 'add-to-cart-from-scan';
@@ -113,8 +117,10 @@ export default function SaleModal({
   useEffect(() => {
     if (isOpen) {
       resetForm();
+      // Resetear al lote prioritario (FEFO) cuando se abre el modal
+      setSelectedStockEntry(scannedItem?.stockEntry || null);
     }
-  }, [isOpen]);
+  }, [isOpen, scannedItem]);
 
   // Debug: Monitorear cambios en quantity y estados de botones
   useEffect(() => {
@@ -171,19 +177,22 @@ export default function SaleModal({
   const getPrice = () => {
     if (!isAddToCartMode || !scannedItem) return 0;
     
+    // Usar el lote seleccionado o el lote por defecto
+    const activeStockEntry = selectedStockEntry || scannedItem.stockEntry;
+    
     // Crear stock entry para el cálculo unificado
     const stockEntry: StockEntry = {
-      id: scannedItem.stockEntry.id,
+      id: activeStockEntry.id,
       product_id: scannedItem.product.id,
       barcode: '',
-      current_quantity: scannedItem.stockEntry.current_quantity,
-      initial_quantity: scannedItem.stockEntry.current_quantity,
+      current_quantity: activeStockEntry.current_quantity,
+      initial_quantity: activeStockEntry.current_quantity,
       expiration_date: null,
       created_at: new Date().toISOString(),
       purchase_price: 0,
-      sale_price_unit: scannedItem.stockEntry.sale_price_unit,
+      sale_price_unit: activeStockEntry.sale_price_unit,
 
-      sale_price_wholesale: scannedItem.stockEntry.sale_price_wholesale || null
+      sale_price_wholesale: activeStockEntry.sale_price_wholesale || null
     };
     
     const pricingInfo = calculateUnifiedPricing(stockEntry, quantity, saleFormat);
@@ -193,18 +202,21 @@ export default function SaleModal({
   const getPricingInfo = () => {
     if (!isAddToCartMode || !scannedItem) return null;
     
+    // Usar el lote seleccionado o el lote por defecto
+    const activeStockEntry = selectedStockEntry || scannedItem.stockEntry;
+    
     // Crear stock entry para el cálculo unificado
     const stockEntry: StockEntry = {
-      id: scannedItem.stockEntry.id,
+      id: activeStockEntry.id,
       product_id: scannedItem.product.id,
       barcode: '',
-      current_quantity: scannedItem.stockEntry.current_quantity,
-      initial_quantity: scannedItem.stockEntry.current_quantity,
+      current_quantity: activeStockEntry.current_quantity,
+      initial_quantity: activeStockEntry.current_quantity,
       expiration_date: null,
       created_at: new Date().toISOString(),
       purchase_price: 0,
-      sale_price_unit: scannedItem.stockEntry.sale_price_unit,
-      sale_price_wholesale: scannedItem.stockEntry.sale_price_wholesale || null
+      sale_price_unit: activeStockEntry.sale_price_unit,
+      sale_price_wholesale: activeStockEntry.sale_price_wholesale || null
     };
     
     const pricingInfo = calculateUnifiedPricing(stockEntry, quantity, saleFormat);
@@ -260,25 +272,28 @@ export default function SaleModal({
       throw new Error('Información del producto no disponible');
     }
 
+    // Usar el lote seleccionado o el lote por defecto
+    const activeStockEntry = selectedStockEntry || scannedItem.stockEntry;
+
     // Validaciones
     if (quantity <= 0) {
       setError('La cantidad debe ser mayor a 0');
       return;
     }
 
-    if (quantity > scannedItem.stockEntry.current_quantity) {
-      setError(`Stock insuficiente. Solo hay ${scannedItem.stockEntry.current_quantity} unidades disponibles.`);
+    if (quantity > activeStockEntry.current_quantity) {
+      setError(`Stock insuficiente. Solo hay ${activeStockEntry.current_quantity} unidades disponibles.`);
       return;
     }
 
-    // Llamar al callback para añadir al carrito
+    // Llamar al callback para añadir al carrito con el lote seleccionado
     onItemAddedToCart({
       product: scannedItem.product,
-      stockEntryId: scannedItem.stockEntry.id,
+      stockEntryId: activeStockEntry.id,
       quantity,
       saleFormat,
       price: getPrice(),
-      wholesalePrice: scannedItem.stockEntry.sale_price_wholesale
+      wholesalePrice: activeStockEntry.sale_price_wholesale
     });
 
     // Cerrar modal y resetear
@@ -496,6 +511,44 @@ export default function SaleModal({
                   )}
                 </div>
               </div>
+                {/* Lot Selection Dropdown - Solo si hay múltiples lotes disponibles */}
+              {scannedItem.stockEntries && scannedItem.stockEntries.length > 1 && (
+                <div className="mt-3">
+                  <label htmlFor="lotSelect" className="block text-sm font-medium text-gray-700 mb-1">
+                    🔄 Seleccionar Lote Alternativo
+                  </label>
+                  <select
+                    id="lotSelect"
+                    value={selectedStockEntry?.id || scannedItem.stockEntry.id}
+                    onChange={(e) => {
+                      const selected = scannedItem.stockEntries!.find(lot => lot.id === e.target.value);
+                      if (selected) {
+                        setSelectedStockEntry(selected);
+                        // Resetear cantidad si excede el nuevo stock
+                        if (quantity > selected.current_quantity) {
+                          setQuantity(selected.current_quantity);
+                        }
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black bg-white text-sm"
+                  >
+                    {scannedItem.stockEntries.map((lot: any, index) => {
+                      const expirationText = lot.expiration_date 
+                        ? `Vence: ${new Date(lot.expiration_date).toLocaleDateString('es-CL')}` 
+                        : 'Sin vencimiento';
+                      const priceText = formatAsCLP(lot.sale_price_unit);
+                      return (
+                        <option key={lot.id} value={lot.id}>
+                          {index === 0 ? '⭐ ' : ''}{expirationText} - Stock: {lot.current_quantity} - {priceText}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    El lote marcado con ⭐ vence primero (FEFO)
+                  </p>
+                </div>
+              )}
 
               {/* Expiration Warning */}
               {scannedItem.stockEntry.expiration_date && (() => {

@@ -32,83 +32,84 @@ export async function GET(request: NextRequest) {
       await client.connect();
 
       try {
-        // Consulta Robusta: Producot + Stock + Precio (del lote más antiguo/prioritario)
-        const query = `
+        // Paso 1: Buscar el producto por código de barras
+        const productQuery = `
           SELECT 
             p.id, 
             p.name, 
             p.barcode, 
             p.image_url,
             p.brand_name,
-            pt.name as type_name,
-            COALESCE(SUM(se.current_quantity), 0) as current_stock,
-            -- Subconsulta para obtener el precio del lote más prioritario (FIFO)
-            (
-              SELECT sale_price_unit 
-              FROM stock_entries 
-              WHERE product_id = p.id AND current_quantity > 0 
-              ORDER BY 
-                CASE WHEN expiration_date IS NULL THEN 1 ELSE 0 END,
-                expiration_date ASC, 
-                entry_date ASC 
-              LIMIT 1
-            ) as price,
-             -- Necesitamos un stock entry ID para el carrito? Usamos el más prioritario
-            (
-              SELECT id
-              FROM stock_entries 
-              WHERE product_id = p.id AND current_quantity > 0 
-              ORDER BY 
-                CASE WHEN expiration_date IS NULL THEN 1 ELSE 0 END,
-                expiration_date ASC, 
-                entry_date ASC 
-              LIMIT 1
-            ) as best_stock_entry_id
+            pt.name as type_name
           FROM products p
-          LEFT JOIN stock_entries se ON p.id = se.product_id
           LEFT JOIN product_types pt ON p.product_type_id = pt.id
           WHERE p.barcode = $1
-          GROUP BY p.id, pt.name
         `;
 
-        const result = await client.query(query, [barcode]);
+        const productResult = await client.query(productQuery, [barcode]);
 
-        if (result.rows.length === 0) {
-           return NextResponse.json(
+        if (productResult.rows.length === 0) {
+          return NextResponse.json(
             { error: 'Producto no encontrado' }, 
             { status: 404 }
           );
         }
 
-        const data = result.rows[0];
-        const totalStock = parseInt(data.current_stock);
+        const productData = productResult.rows[0];
 
-        // Estructura de respuesta
+        // Paso 2: Obtener todos los stock entries con lógica FEFO
+        const stockEntriesQuery = `
+          SELECT 
+            id,
+            product_id,
+            current_quantity,
+            initial_quantity,
+            sale_price_unit,
+            sale_price_wholesale,
+            purchase_price,
+            barcode,
+            expiration_date,
+            entry_date
+          FROM stock_entries
+          WHERE product_id = $1 AND current_quantity > 0
+          ORDER BY 
+            CASE WHEN expiration_date IS NULL THEN 1 ELSE 0 END,
+            expiration_date ASC, 
+            entry_date ASC
+        `;
+
+        const stockEntriesResult = await client.query(stockEntriesQuery, [productData.id]);
+        const stockEntries = stockEntriesResult.rows;
+
+        // Calcular stock total
+        const totalStock = stockEntries.reduce((sum, entry) => sum + entry.current_quantity, 0);
+
+        // Estructura de respuesta del producto
         const product = {
-          id: data.id,
-          name: data.name,
-          brand_name: data.brand_name || 'Sin marca',
-          type_name: data.type_name || 'Sin tipo',
+          id: productData.id,
+          name: productData.name,
+          brand_name: productData.brand_name || 'Sin marca',
+          type_name: productData.type_name || 'Sin tipo',
           total_stock: totalStock,
-          image_url: data.image_url,
-          // Precio puede ser null si no hay stock_entries
-          price: data.price ? parseInt(data.price) : 0 
+          image_url: productData.image_url
         };
 
-        // Si tenemos un stock entry ID, lo pasamos para compatibilidad
-        const stockEntry = data.best_stock_entry_id ? {
-          id: data.best_stock_entry_id,
-          sale_price_unit: product.price,
-          sale_price_wholesale: 0, // No lo tenemos en el group by, simplificado
-          current_quantity: totalStock, // Dummy value para el entry específico
-          purchase_price: 0,
-          barcode: data.barcode
+        // DEPRECATED: Mantener compatibilidad con código anterior
+        const stockEntry = stockEntries.length > 0 ? {
+          id: stockEntries[0].id,
+          sale_price_unit: stockEntries[0].sale_price_unit,
+          sale_price_wholesale: stockEntries[0].sale_price_wholesale,
+          current_quantity: stockEntries[0].current_quantity,
+          purchase_price: stockEntries[0].purchase_price,
+          barcode: stockEntries[0].barcode,
+          expiration_date: stockEntries[0].expiration_date
         } : null;
 
         return NextResponse.json({
           success: true,
           product,
-          stockEntry, // Mantenemos compatibilidad si el front lo usa
+          stockEntries, // NUEVO: Array completo con lógica FEFO
+          stockEntry, // DEPRECATED: Mantener para compatibilidad
           message: totalStock > 0 ? 'Producto encontrado' : 'Producto sin stock'
         });
 
