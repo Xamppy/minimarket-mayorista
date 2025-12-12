@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { addProduct } from '../actions';
 
 interface Brand {
@@ -20,6 +21,7 @@ interface ProductFormProps {
 }
 
 export default function ProductForm({ brands, productTypes, onSuccess }: ProductFormProps) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -32,6 +34,9 @@ export default function ProductForm({ brands, productTypes, onSuccess }: Product
     try {
       await addProduct(formData);
       setSuccess('¡Producto registrado en el catálogo!');
+      
+      // Refrescar para mostrar el nuevo producto en la lista
+      router.refresh();
       
       // Limpiar el formulario
       const form = document.getElementById('product-form') as HTMLFormElement;

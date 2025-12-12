@@ -365,8 +365,18 @@ export default function SaleModal({
     resetForm();
   };
 
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      handleClose();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ pointerEvents: 'auto' }}>
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" 
+      style={{ pointerEvents: 'auto' }}
+      onClick={handleBackdropClick}
+    >
       <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto" style={{ pointerEvents: 'auto' }}>
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-black">

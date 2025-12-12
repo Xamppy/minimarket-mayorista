@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { createBrand, updateBrand } from '../actions';
 
 interface Brand {
@@ -16,6 +17,7 @@ interface BrandFormProps {
 }
 
 export default function BrandForm({ brand, onSuccess, onCancel }: BrandFormProps) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -60,6 +62,9 @@ export default function BrandForm({ brand, onSuccess, onCancel }: BrandFormProps
         setSuccess('¡Marca creada exitosamente!');
         setName(''); // Limpiar el campo en modo creación
       }
+      
+      // Refrescar para mostrar los cambios en la lista
+      router.refresh();
       
       // Llamar callback de éxito si existe
       if (onSuccess) {

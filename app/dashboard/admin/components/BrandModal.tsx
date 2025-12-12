@@ -15,11 +15,19 @@ interface BrandModalProps {
   onClose: () => void;
   brand?: Brand; // Si se pasa, es modo edición
   title?: string;
+  onSuccess?: () => void; // Callback para recargar datos después del éxito
 }
 
-export default function BrandModal({ isOpen, onClose, brand, title }: BrandModalProps) {
+export default function BrandModal({ isOpen, onClose, brand, title, onSuccess }: BrandModalProps) {
   const isEditMode = !!brand;
   const modalTitle = title || (isEditMode ? 'Editar Marca' : 'Crear Nueva Marca');
+  
+  const handleSuccess = () => {
+    if (onSuccess) {
+      onSuccess(); // Recargar datos
+    }
+    onClose(); // Cerrar modal
+  };
 
   return (
     <Transition appear show={isOpen} as={Fragment}>
@@ -36,7 +44,7 @@ export default function BrandModal({ isOpen, onClose, brand, title }: BrandModal
           <div className="fixed inset-0 bg-black bg-opacity-25" />
         </Transition.Child>
 
-        <div className="fixed inset-0 overflow-y-auto">
+        <div className="fixed inset-0 overflow-y-auto" onClick={(e) => e.target === e.currentTarget && onClose()}>
           <div className="flex min-h-full items-center justify-center p-4 text-center">
             <Transition.Child
               as={Fragment}
@@ -81,7 +89,7 @@ export default function BrandModal({ isOpen, onClose, brand, title }: BrandModal
                 <div className="mt-2">
                   <BrandForm 
                     brand={brand}
-                    onSuccess={onClose}
+                    onSuccess={handleSuccess}
                     onCancel={onClose}
                   />
                 </div>

@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import VendorPageClient from './components/VendorPageClient';
 import { authenticatedFetchServer } from '../../utils/auth/server-api';
 import { getCurrentUserServer } from '../../utils/auth/server';
@@ -148,9 +149,22 @@ function renderPage(
                 {user?.email || 'Usuario'}
               </p>
             </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="text-xs text-gray-600 hidden sm:inline">Online</span>
+            <div className="flex items-center space-x-4">
+              {user?.role === 'administrator' && (
+                <Link
+                  href="/dashboard/admin"
+                  className="inline-flex items-center px-3 py-1.5 border border-indigo-600 rounded-md text-xs sm:text-sm font-medium text-indigo-600 bg-white hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+                >
+                  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v4" />
+                  </svg>
+                  Volver al Admin
+                </Link>
+              )}
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-xs text-gray-600 hidden sm:inline">Online</span>
+              </div>
             </div>
           </div>
         </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { createProductType, updateProductType } from '../actions';
 
 interface ProductType {
@@ -16,6 +17,7 @@ interface ProductTypeFormProps {
 }
 
 export default function ProductTypeForm({ productType, onSuccess, onCancel }: ProductTypeFormProps) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -60,6 +62,9 @@ export default function ProductTypeForm({ productType, onSuccess, onCancel }: Pr
         setSuccess('¡Tipo de producto creado exitosamente!');
         setName(''); // Limpiar el campo en modo creación
       }
+      
+      // Refrescar para mostrar los cambios en la lista
+      router.refresh();
       
       // Llamar callback de éxito si existe
       if (onSuccess) {

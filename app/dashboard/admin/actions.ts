@@ -307,6 +307,7 @@ export async function addProduct(formData: FormData) {
 
     // Revalidar la página para mostrar los cambios
     revalidatePath('/dashboard/admin');
+    revalidatePath('/dashboard/admin/products');
 
   } catch (error) {
     console.error('Error en addProduct:', error);
@@ -622,6 +623,7 @@ export async function createBrand(formData: FormData) {
 
     // Revalidar la página para mostrar los cambios
     revalidatePath('/dashboard/admin');
+    revalidatePath('/dashboard/admin/products');
 
   } catch (error) {
     console.error('Error en createBrand:', error);
@@ -754,6 +756,7 @@ export async function createProductType(formData: FormData) {
 
     // Revalidar la página para mostrar los cambios
     revalidatePath('/dashboard/admin');
+    revalidatePath('/dashboard/admin/products');
 
   } catch (error) {
     console.error('Error en createProductType:', error);
