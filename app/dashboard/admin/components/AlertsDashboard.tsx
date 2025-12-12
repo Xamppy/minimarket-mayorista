@@ -208,7 +208,7 @@ export default function AlertsDashboard() {
               <p className="text-sm">✅ No hay productos con bajo stock</p>
             </div>
           ) : (
-            <div className="space-y-3 max-h-96 overflow-y-auto">
+            <div className="space-y-3 max-h-[250px] overflow-y-auto pr-2 scrollbar-thin">
               {lowStockItems.map((item: any) => (
                 <div
                   key={item.product_id}
@@ -221,9 +221,6 @@ export default function AlertsDashboard() {
                       </h4>
                       <p className="text-sm text-gray-600">
                         {item.brand_name || 'Sin marca'}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Umbral configurado: {item.min_stock} unidades
                       </p>
                     </div>
                     <div className="ml-4 text-right">
@@ -252,7 +249,7 @@ export default function AlertsDashboard() {
               <p className="text-sm">✅ No hay productos próximos a vencer</p>
             </div>
           ) : (
-            <div className="space-y-3 max-h-96 overflow-y-auto">
+            <div className="space-y-3 max-h-[250px] overflow-y-auto pr-2 scrollbar-thin">
               {expiringItems.map((item: any) => {
                 const daysUntilExp = item.days_until_expiration;
                 const urgencyClass = getExpirationUrgency(daysUntilExp);
@@ -269,9 +266,6 @@ export default function AlertsDashboard() {
                         </h4>
                         <p className="text-sm text-gray-600">
                           {item.brand_name || 'Sin marca'}
-                        </p>
-                        <p className="text-xs mt-1">
-                          Stock: {item.remaining_quantity} unidades
                         </p>
                       </div>
                       <div className="ml-4 text-right">
