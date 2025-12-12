@@ -39,12 +39,7 @@ interface CartItem {
   quantity: number;
   saleFormat: 'unitario' | 'display' | 'pallet';
   unitPrice: number;
-
-  wholesalePrice?: number;
-  appliedPrice: number;
-  appliedPriceType: 'unit' | 'wholesale';
   totalPrice: number;
-  savings?: number;
   // Enhanced stock entry information
   stockEntry?: {
     barcode?: string;
@@ -196,34 +191,13 @@ export default function VendorPageClient({
           return prevCart;
         }
 
-        // Incrementar cantidad por la cantidad especificada y recalcular precios
-        
-        // Crear stock entry para el cálculo unificado
-        const stockEntryForCalc = {
-          id: stockEntry.id,
-          product_id: product.id,
-          barcode: stockEntry.barcode || '',
-          current_quantity: stockEntry.current_quantity,
-          initial_quantity: stockEntry.current_quantity,
-          expiration_date: stockEntry.expiration_date || null,
-          created_at: new Date().toISOString(),
-          purchase_price: 0,
-          sale_price_unit: existingItem.unitPrice,
-  
-          sale_price_wholesale: existingItem.wholesalePrice || stockEntry.sale_price_wholesale || null
-        };
-        
-        const pricingInfo = calculateUnifiedPricing(stockEntryForCalc, newQuantity, 'unitario');
-
+        // Incrementar cantidad y recalcular precio total
         return prevCart.map(item =>
           item.product.id === product.id && item.stockEntryId === stockEntry.id
             ? {
               ...item,
               quantity: newQuantity,
-              appliedPrice: pricingInfo.appliedPrice,
-              appliedPriceType: pricingInfo.priceType as 'unit' | 'wholesale',
-              totalPrice: pricingInfo.totalPrice,
-              savings: pricingInfo.savings
+              totalPrice: item.unitPrice * newQuantity
             }
             : item
         );
@@ -234,40 +208,16 @@ export default function VendorPageClient({
           return prevCart;
         }
 
-        // Añadir nuevo item con cálculo de wholesale pricing
-        const baseItem = {
+        // Añadir nuevo item
+        const unitPrice = stockEntry.sale_price_unit || 0;
+        
+        return [...prevCart, {
           product,
           stockEntryId: stockEntry.id,
           quantity: quantityToAdd,
           saleFormat: 'unitario' as const,
-          unitPrice: stockEntry.sale_price_unit || 0,
-
-          wholesalePrice: stockEntry.sale_price_wholesale
-        };
-
-        // Crear stock entry para el cálculo unificado
-        const stockEntryForCalc = {
-          id: stockEntry.id,
-          product_id: product.id,
-          barcode: stockEntry.barcode || '',
-          current_quantity: stockEntry.current_quantity,
-          initial_quantity: stockEntry.current_quantity,
-          expiration_date: stockEntry.expiration_date || null,
-          created_at: new Date().toISOString(),
-          purchase_price: 0,
-          sale_price_unit: baseItem.unitPrice,
-
-          sale_price_wholesale: baseItem.wholesalePrice || null
-        };
-        
-        const pricingInfo = calculateUnifiedPricing(stockEntryForCalc, quantityToAdd, 'unitario');
-
-        return [...prevCart, {
-          ...baseItem,
-          appliedPrice: pricingInfo.appliedPrice,
-          appliedPriceType: pricingInfo.priceType as 'unit' | 'wholesale',
-          totalPrice: pricingInfo.totalPrice,
-          savings: pricingInfo.savings,
+          unitPrice: unitPrice,
+          totalPrice: unitPrice * quantityToAdd,
           stockEntry: {
             barcode: stockEntry.barcode,
             expiration_date: stockEntry.expiration_date,
@@ -287,30 +237,10 @@ export default function VendorPageClient({
     setCart(prevCart =>
       prevCart.map(item => {
         if (item.product.id === productId && item.stockEntryId === stockEntryId) {
-          // Crear stock entry para el cálculo unificado
-          const stockEntryForCalc = {
-            id: stockEntryId,
-            product_id: productId,
-            barcode: '',
-            current_quantity: 999, // Usar un valor alto para no limitar el cálculo
-            initial_quantity: 999,
-            expiration_date: null,
-            created_at: new Date().toISOString(),
-            purchase_price: 0,
-            sale_price_unit: item.unitPrice,
-    
-            sale_price_wholesale: item.wholesalePrice || null
-          };
-          
-          const pricingInfo = calculateUnifiedPricing(stockEntryForCalc, newQuantity, 'unitario');
-
           return {
             ...item,
             quantity: newQuantity,
-            appliedPrice: pricingInfo.appliedPrice,
-            appliedPriceType: pricingInfo.priceType as 'unit' | 'wholesale',
-            totalPrice: pricingInfo.totalPrice,
-            savings: pricingInfo.savings
+            totalPrice: item.unitPrice * newQuantity
           };
         }
         return item;
@@ -435,73 +365,28 @@ export default function VendorPageClient({
       );
 
       if (existingItem) {
-        // Incrementar cantidad del item existente y recalcular precios
+        // Incrementar cantidad del item existente
         const newQuantity = existingItem.quantity + item.quantity;
         
-        // Crear stock entry para el cálculo unificado
-        const stockEntryForCalc = {
-          id: item.stockEntryId,
-          product_id: item.product.id,
-          barcode: '',
-          current_quantity: 999,
-          initial_quantity: 999,
-          expiration_date: null,
-          created_at: new Date().toISOString(),
-          purchase_price: 0,
-          sale_price_unit: existingItem.unitPrice,
-  
-          sale_price_wholesale: existingItem.wholesalePrice || null
-        };
-        
-        const pricingInfo = calculateUnifiedPricing(stockEntryForCalc, newQuantity, item.saleFormat);
-
         return prevCart.map(cartItem =>
           cartItem.product.id === item.product.id && cartItem.stockEntryId === item.stockEntryId
             ? {
               ...cartItem,
               quantity: newQuantity,
-              appliedPrice: pricingInfo.appliedPrice,
-              appliedPriceType: pricingInfo.priceType as 'unit' | 'wholesale',
-              totalPrice: pricingInfo.totalPrice,
-              savings: pricingInfo.savings
+              totalPrice: cartItem.unitPrice * newQuantity
             }
             : cartItem
         );
       } else {
-        // Añadir nuevo item al carrito con estructura completa
-        const baseItem = {
+        // Añadir nuevo item al carrito
+        return [...prevCart, {
           product: item.product,
           stockEntryId: item.stockEntryId,
           quantity: item.quantity,
           saleFormat: item.saleFormat,
           unitPrice: item.price,
-
-          wholesalePrice: item.wholesalePrice
-        };
-
-        // Crear stock entry para el cálculo unificado
-        const stockEntryForCalc = {
-          id: item.stockEntryId,
-          product_id: item.product.id,
-          barcode: '',
-          current_quantity: 999,
-          initial_quantity: 999,
-          expiration_date: null,
-          created_at: new Date().toISOString(),
-          purchase_price: 0,
-          sale_price_unit: item.price,
-
-          sale_price_wholesale: item.wholesalePrice || null
-        };
-        
-        const pricingInfo = calculateUnifiedPricing(stockEntryForCalc, item.quantity, item.saleFormat);
-
-        return [...prevCart, {
-          ...baseItem,
-          appliedPrice: pricingInfo.appliedPrice,
-          appliedPriceType: pricingInfo.priceType as 'unit' | 'wholesale',
-          totalPrice: pricingInfo.totalPrice,
-          savings: pricingInfo.savings
+          totalPrice: item.price * item.quantity,
+          stockEntry: item.product.id === scannedProduct?.product.id ? scannedProduct.stockEntry : undefined
         }];
       }
     });
@@ -684,27 +569,9 @@ export default function VendorPageClient({
                       <div className="space-y-1 mt-2">
                         <div className="flex items-center justify-between">
                           <p className="text-sm font-medium text-black">
-                            <span style={{color: '#000000'}}>{formatAsCLP(item.appliedPrice)}</span>
-                            {item.appliedPriceType === 'wholesale' && (
-                              <span className="text-xs text-purple-600 ml-1">🎉 Mayorista</span>
-                            )}
+                            <span style={{color: '#000000'}}>{formatAsCLP(item.unitPrice)}</span>
                           </p>
-                          {item.wholesalePrice && item.quantity >= 3 && item.appliedPriceType !== 'wholesale' && (
-                            <span className="text-xs text-purple-500 bg-purple-50 px-1 rounded">
-                              ¡Mayorista disponible!
-                            </span>
-                          )}
                         </div>
-                        {item.savings && item.savings > 0 && (
-                          <p className="text-xs text-green-600 font-medium">
-                            💰 Ahorro: {formatAsCLP(item.savings)}
-                          </p>
-                        )}
-                        {item.appliedPriceType === 'wholesale' && (
-                          <p className="text-xs text-purple-600">
-                            Precio mayorista aplicado (3+ unidades)
-                          </p>
-                        )}
                       </div>
 
                       {/* Controles de cantidad */}

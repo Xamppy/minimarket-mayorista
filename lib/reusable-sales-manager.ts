@@ -49,10 +49,15 @@ export interface TicketData {
   total_amount: number;
   created_at: string;
   formattedDate: string;
-  formattedTime: string;
   itemCount: number;
   totalSavings: number;
+  subtotal?: number;
   sale_items: TicketItem[];
+  discount?: {
+    type: 'amount' | 'percentage';
+    value: number;
+    amount: number; // Monto calculado del descuento
+  };
 }
 
 export interface TicketItem {
@@ -145,7 +150,7 @@ export class ReusableSalesManager {
    * @param user - Contexto del usuario que realiza la venta
    * @returns Resultado de la venta con ticket generado
    */
-  async processSale(cartItems: CartItem[], user: UserContext): Promise<SaleResult> {
+  async processSale(cartItems: CartItem[], user: UserContext, discount?: { type: 'amount' | 'percentage', value: number }): Promise<SaleResult> {
     try {
       // Validar datos de entrada
       const validationResult = this.validateCartItems(cartItems);
@@ -184,8 +189,24 @@ export class ReusableSalesManager {
           totalAmount += itemResult.totalPrice!;
         }
 
+        // Calcular total con descuento
+        let finalTotalAmount = totalAmount;
+        let discountType: string | undefined = undefined;
+        let discountValue: number | undefined = undefined;
+
+        if (discount) {
+          discountType = discount.type;
+          discountValue = discount.value;
+          
+          if (discount.type === 'amount') {
+            finalTotalAmount = Math.max(0, totalAmount - discount.value);
+          } else if (discount.type === 'percentage') {
+            finalTotalAmount = Math.max(0, totalAmount - (totalAmount * (discount.value / 100)));
+          }
+        }
+
         // Crear la venta principal
-        const saleId = await this.createSale(user.id, totalAmount);
+        const saleId = await this.createSale(user.id, finalTotalAmount, discountType, discountValue);
         this.log(`Venta creada con ID: ${saleId}`);
 
         // Crear los items de venta
@@ -597,15 +618,15 @@ export class ReusableSalesManager {
     return result.rows;
   }
 
-  private async createSale(userId: string, totalAmount: number): Promise<string> {
+  private async createSale(userId: string, totalAmount: number, discountType?: string, discountValue?: number): Promise<string> {
     // Validar que totalAmount sea un número válido
-    if (isNaN(totalAmount) || totalAmount <= 0) {
+    if (isNaN(totalAmount) || totalAmount < 0) {
       throw new Error(`Monto total inválido: ${totalAmount}`);
     }
     
     const result = await this.client!.query(
-      'INSERT INTO sales (user_id, total_amount, payment_method) VALUES ($1, $2, $3) RETURNING id, ticket_number',
-      [userId, totalAmount, 'pending']
+      'INSERT INTO sales (user_id, total_amount, payment_method, discount_type, discount_value) VALUES ($1, $2, $3, $4, $5) RETURNING id, ticket_number',
+      [userId, totalAmount, 'pending', discountType, discountValue]
     );
     // Retornamos tanto el ID como el ticket_number (aunque el método solo devuelve string por compatibilidad, 
     // podríamos ajustar esto si fuera necesario, pero por ahora lo manejamos internamente o cambiamos la firma)
@@ -910,12 +931,21 @@ export class ReusableSalesManager {
       seller_id: saleData.seller_id,
       seller_email: saleData.seller_email,
       total_amount: saleData.total_amount,
+      subtotal: saleData.subtotal || saleData.total_amount, // Fallback si no hay subtotal calculado
       created_at: saleData.created_at,
       formattedDate,
       formattedTime,
       itemCount,
+      itemCount,
       totalSavings,
-      sale_items: processedItems
+      sale_items: processedItems,
+      discount: saleData.discount_type ? {
+        type: saleData.discount_type,
+        value: parseFloat(saleData.discount_value),
+        amount: saleData.discount_type === 'amount' 
+          ? parseFloat(saleData.discount_value)
+          : (saleData.subtotal * parseFloat(saleData.discount_value) / 100)
+      } : undefined
     };
   }
 
@@ -929,6 +959,9 @@ export class ReusableSalesManager {
            s.user_id as seller_id,
            s.total_amount,
            s.sale_date as created_at,
+           s.discount_type,
+           s.discount_value,
+           (SELECT SUM(total_price) FROM sale_items WHERE sale_id = s.id) as subtotal,
            u.email as seller_email,
            json_agg(
              json_build_object(
@@ -952,7 +985,7 @@ export class ReusableSalesManager {
          LEFT JOIN products p ON se.product_id = p.id
          LEFT JOIN brands b ON p.brand_id = b.id
          WHERE s.id = $1
-         GROUP BY s.id, s.ticket_number, s.user_id, s.total_amount, s.sale_date, u.email`,
+         GROUP BY s.id, s.ticket_number, s.user_id, s.total_amount, s.sale_date, s.discount_type, s.discount_value, u.email`,
         [saleId]
       );
       return result.rows[0] || null;
@@ -1021,10 +1054,11 @@ export async function processSimpleSale(
 export async function processCartSale(
   cartItems: CartItem[],
   user: UserContext,
-  config?: Partial<SalesManagerConfig>
+  config?: Partial<SalesManagerConfig>,
+  discount?: { type: 'amount' | 'percentage', value: number }
 ): Promise<SaleResult> {
   const salesManager = createSalesManager(config || {});
-  return await salesManager.processSale(cartItems, user);
+  return await salesManager.processSale(cartItems, user, discount);
 }
 
 /**

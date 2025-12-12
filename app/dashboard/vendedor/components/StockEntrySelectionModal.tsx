@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { formatAsCLP } from '@/lib/formatters';
-import { calculateUnifiedPricing, getWholesalePricingInfo, validateQuantity } from '@/lib/unified-pricing-service';
+import { calculateUnifiedPricing, validateQuantity } from '@/lib/unified-pricing-service';
 import { Product, StockEntry } from '@/lib/cart-types';
 import { authenticatedFetch } from '../../../utils/auth/api';
 
@@ -211,7 +211,6 @@ export default function StockEntrySelectionModal({
               </label>
               <div className="space-y-3 max-h-60 overflow-y-auto">
                 {stockEntries.map((entry, index) => {
-                  const wholesaleInfo = getWholesalePricingInfo(entry);
                   const expirationStatus = getExpirationStatus(entry.expiration_date);
                   const isRecommended = index === 0; // First one is FIFO recommended
                   
@@ -292,17 +291,7 @@ export default function StockEntrySelectionModal({
                                 <p className="text-sm text-gray-600">Precio unitario:</p>
                                 <p className="font-medium text-green-600">{formatAsCLP(entry.sale_price_unit)}</p>
                               </div>
-                              {wholesaleInfo.hasWholesalePrice && (
-                                <div>
-                                  <p className="text-sm text-gray-600">Precio mayorista (3+):</p>
-                                  <p className="font-medium text-purple-600">
-                                    {formatAsCLP(wholesaleInfo.wholesalePrice!)}
-                                    <span className="text-xs text-gray-500 ml-1">
-                                      (Ahorro: {formatAsCLP(wholesaleInfo.potentialSavings!)})
-                                    </span>
-                                  </p>
-                                </div>
-                              )}
+
                             </div>
                           </div>
                         </div>
@@ -401,22 +390,8 @@ export default function StockEntrySelectionModal({
                         <span className="font-bold text-lg text-black">{formatAsCLP(pricingInfo.totalPrice)}</span>
                       </div>
                       
-                      {pricingInfo.priceType === 'wholesale' && pricingInfo.savings > 0 && (
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-purple-600 font-medium">
-                            🎉 Precio Mayorista Aplicado
-                          </span>
-                          <span className="text-green-600 font-medium">
-                            Ahorro: {formatAsCLP(pricingInfo.savings)}
-                          </span>
-                        </div>
-                      )}
-                      
                       <div className="text-xs text-gray-600">
                         Precio por unidad: <span style={{color: '#000000'}}>{formatAsCLP(pricingInfo.appliedPrice)}</span>
-                        {pricingInfo.priceType === 'wholesale' && (
-                          <span className="text-purple-600 ml-1">(mayorista)</span>
-                        )}
                       </div>
                     </div>
                   </div>

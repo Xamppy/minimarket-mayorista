@@ -13,13 +13,13 @@ const dbConfig = {
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: Promise<{ productId: string }> }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     return withVendedorAuth(request, async (req, user) => {
         try {
-            const { productId } = await params;
+            const { id } = await params;
 
-            if (!productId) {
+            if (!id) {
                 return NextResponse.json(
                     {
                         error: {
@@ -31,11 +31,11 @@ export async function GET(
                 );
             }
 
-            console.log('API: Fetching stock entries for product ID:', productId);
+            console.log('API: Fetching stock entries for product ID:', id);
 
-            // Validar que productId sea un UUID válido
+            // Validar que id sea un UUID válido
             const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-            if (!uuidRegex.test(productId)) {
+            if (!uuidRegex.test(id)) {
                 return NextResponse.json(
                     {
                         error: {
@@ -73,7 +73,7 @@ export async function GET(
                         entry_date ASC
                 `;
 
-                const stockResult = await client.query(stockQuery, [productId]);
+                const stockResult = await client.query(stockQuery, [id]);
 
                 if (stockResult.rows.length === 0) {
                     return NextResponse.json({

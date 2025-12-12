@@ -220,6 +220,22 @@ export default function TicketPage() {
 
         <div className="thermal-separator"></div>
         
+        <div className="thermal-separator"></div>
+        
+        {saleData.discount ? (
+          <>
+            <div className="thermal-row">
+              <span>Subtotal:</span>
+              <span>{formatCurrency(saleData.subtotal || (saleData.total_amount + saleData.discount.amount))}</span>
+            </div>
+            <div className="thermal-row">
+              <span>Descuento ({saleData.discount.type === 'amount' ? '$' : `${saleData.discount.value}%`}):</span>
+              <span>-{formatCurrency(saleData.discount.amount)}</span>
+            </div>
+            <div className="thermal-separator" style={{ margin: '2mm 0', borderTopStyle: 'dashed' }}></div>
+          </>
+        ) : null}
+
         <div className="thermal-row thermal-section">
           <span>TOTAL A PAGAR:</span>
           <span className="thermal-bold">{formatCurrency(saleData.total_amount)}</span>

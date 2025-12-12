@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { formatAsCLP } from '@/lib/formatters';
-import { calculateUnifiedPricing } from '@/lib/unified-pricing-service';
+
 import { StockEntry } from '@/lib/cart-types';
-import WholesalePricingIndicator from './WholesalePricingIndicator';
+
 
 // Función para prevenir cambios de valor en inputs numéricos al hacer scroll
 const preventScrollChange = (e: WheelEvent) => {
@@ -29,12 +29,7 @@ interface CartItem {
   quantity: number;
   saleFormat: 'unitario' | 'display' | 'pallet';
   unitPrice: number;
-
-  wholesalePrice?: number;
-  appliedPrice: number;
-  appliedPriceType: 'unit' | 'wholesale';
   totalPrice: number;
-  savings?: number;
 }
 
 interface ScannedItem {
@@ -64,7 +59,6 @@ interface SaleModalProps {
     quantity: number;
     saleFormat: 'unitario';
     price: number;
-    wholesalePrice?: number;
   }) => void;
   // Para modo finalize-sale  
   cartItems?: CartItem[];
@@ -180,55 +174,10 @@ export default function SaleModal({
     // Usar el lote seleccionado o el lote por defecto
     const activeStockEntry = selectedStockEntry || scannedItem.stockEntry;
     
-    // Crear stock entry para el cálculo unificado
-    const stockEntry: StockEntry = {
-      id: activeStockEntry.id,
-      product_id: scannedItem.product.id,
-      barcode: '',
-      current_quantity: activeStockEntry.current_quantity,
-      initial_quantity: activeStockEntry.current_quantity,
-      expiration_date: null,
-      created_at: new Date().toISOString(),
-      purchase_price: 0,
-      sale_price_unit: activeStockEntry.sale_price_unit,
-
-      sale_price_wholesale: activeStockEntry.sale_price_wholesale || null
-    };
-    
-    const pricingInfo = calculateUnifiedPricing(stockEntry, quantity, saleFormat);
-    return pricingInfo.appliedPrice;
+    return activeStockEntry.sale_price_unit;
   };
 
-  const getPricingInfo = () => {
-    if (!isAddToCartMode || !scannedItem) return null;
-    
-    // Usar el lote seleccionado o el lote por defecto
-    const activeStockEntry = selectedStockEntry || scannedItem.stockEntry;
-    
-    // Crear stock entry para el cálculo unificado
-    const stockEntry: StockEntry = {
-      id: activeStockEntry.id,
-      product_id: scannedItem.product.id,
-      barcode: '',
-      current_quantity: activeStockEntry.current_quantity,
-      initial_quantity: activeStockEntry.current_quantity,
-      expiration_date: null,
-      created_at: new Date().toISOString(),
-      purchase_price: 0,
-      sale_price_unit: activeStockEntry.sale_price_unit,
-      sale_price_wholesale: activeStockEntry.sale_price_wholesale || null
-    };
-    
-    const pricingInfo = calculateUnifiedPricing(stockEntry, quantity, saleFormat);
-    
-    // Convertir a formato compatible con la UI existente
-    return {
-      applicablePrice: pricingInfo.appliedPrice,
-      priceType: pricingInfo.priceType,
-      totalPrice: pricingInfo.totalPrice,
-      savings: pricingInfo.savings
-    };
-  };
+  /* getPricingInfo removido ya que no se usa unified pricing */
 
   const getTotalAmount = () => {
     if (isFinalizeSaleMode) {
@@ -293,7 +242,6 @@ export default function SaleModal({
       quantity,
       saleFormat,
       price: getPrice(),
-      wholesalePrice: activeStockEntry.sale_price_wholesale
     });
 
     // Cerrar modal y resetear
@@ -363,7 +311,7 @@ export default function SaleModal({
       stockEntryId: item.stockEntryId,
       quantity: item.quantity,
       saleFormat: item.saleFormat,
-      specificPrice: item.appliedPrice
+      specificPrice: item.unitPrice
     }));
 
     // Procesar toda la venta como un carrito usando el sistema reutilizable
@@ -601,27 +549,10 @@ export default function SaleModal({
                 <p className="text-black text-sm">
                   Precio unitario: <span className="font-medium text-green-600">{formatAsCLP(scannedItem.stockEntry.sale_price_unit)}</span>
                 </p>
-                {scannedItem.stockEntry.sale_price_wholesale && (
-                  <p className="text-black text-sm">
-                    Precio mayorista: <span className="font-medium text-purple-600">{formatAsCLP(scannedItem.stockEntry.sale_price_wholesale)}</span>
-                    <span className="text-xs text-gray-500 ml-1">(3+ unidades)</span>
-                  </p>
-                )}
+
               </div>
 
-              {/* Wholesale Pricing Indicator */}
-              {scannedItem.stockEntry.sale_price_wholesale && (
-                <div className="mt-3">
-                  <WholesalePricingIndicator
-                    unitPrice={scannedItem.stockEntry.sale_price_unit}
-                    wholesalePrice={scannedItem.stockEntry.sale_price_wholesale}
-                    currentQuantity={quantity}
-                    wholesaleThreshold={3}
-                    size="medium"
-                    showSavings={true}
-                  />
-                </div>
-              )}
+
             </div>
           ) : isFinalizeSaleMode ? (
             /* Resumen del carrito */
@@ -637,7 +568,7 @@ export default function SaleModal({
                       <span className="text-gray-600 block">{item.product.brand_name}</span>
                     </div>
                     <div className="text-right">
-                      <span className="text-black">{item.quantity}x <span style={{color: '#000000'}}>{formatAsCLP(item.appliedPrice)}</span></span>
+                      <span className="text-black">{item.quantity}x <span style={{color: '#000000'}}>{formatAsCLP(item.unitPrice)}</span></span>
                       <div className="font-medium text-black" style={{color: '#000000'}}>{formatAsCLP(item.totalPrice)}</div>
                     </div>
                   </div>
@@ -809,31 +740,18 @@ export default function SaleModal({
                 {/* Total para modo add-to-cart con información de wholesale pricing */}
                 <div className="p-3 bg-blue-50 rounded-md">
                   {(() => {
-                    const pricingInfo = getPricingInfo();
+                    const price = getPrice();
+                    const total = price * quantity;
                     return (
                       <div className="space-y-2">
                         <div className="flex justify-between items-center">
                           <span className="font-medium text-black">Subtotal:</span>
-                          <span className="font-bold text-lg text-black">{formatAsCLP(getTotalAmount())}</span>
+                          <span className="font-bold text-lg text-black">{formatAsCLP(total)}</span>
                         </div>
                         
-                        {pricingInfo && pricingInfo.priceType === 'wholesale' && pricingInfo.savings > 0 && (
-                          <div className="flex justify-between items-center text-sm">
-                            <span className="text-purple-600 font-medium">
-                              🎉 Precio Mayorista Aplicado
-                            </span>
-                            <span className="text-green-600 font-medium">
-                              Ahorro: {formatAsCLP(pricingInfo.savings)}
-                            </span>
-                          </div>
-                        )}
-                        
-                        {pricingInfo && saleFormat === 'unitario' && (
+                        {saleFormat === 'unitario' && (
                           <div className="text-xs text-gray-600">
-                            Precio por unidad: <span style={{color: '#000000'}}>{formatAsCLP(pricingInfo.applicablePrice)}</span>
-                            {pricingInfo.priceType === 'wholesale' && (
-                              <span className="text-purple-600 ml-1">(mayorista)</span>
-                            )}
+                            Precio por unidad: <span style={{color: '#000000'}}>{formatAsCLP(price)}</span>
                           </div>
                         )}
                       </div>

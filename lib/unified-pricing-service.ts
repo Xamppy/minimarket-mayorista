@@ -57,11 +57,14 @@ export function calculateUnifiedPricing(
   let savings = 0;
 
   // Apply wholesale pricing if conditions are met
+  // Wholesale pricing disabled - always use unit price
+  /*
   if (quantity >= WHOLESALE_THRESHOLD && wholesalePrice && wholesalePrice > 0) {
     appliedPrice = wholesalePrice;
     priceType = 'wholesale';
     savings = (baseUnitPrice - wholesalePrice) * quantity;
   }
+  */
 
   const totalPrice = appliedPrice * quantity;
 
@@ -106,35 +109,7 @@ export function recalculateCartItemPricing(
  * Get wholesale pricing information for display
  * Shows potential savings and pricing tiers
  */
-export function getWholesalePricingInfo(stockEntry: StockEntry): {
-  hasWholesalePrice: boolean;
-  wholesalePrice?: number;
-  threshold: number;
-  potentialSavings?: number;
-  savingsPercentage?: number;
-} {
-  const hasWholesalePrice = !!(stockEntry.sale_price_wholesale && stockEntry.sale_price_wholesale > 0);
-  
-  if (!hasWholesalePrice) {
-    return {
-      hasWholesalePrice: false,
-      threshold: WHOLESALE_THRESHOLD
-    };
-  }
-
-  const unitPrice = stockEntry.sale_price_unit;
-  const wholesalePrice = stockEntry.sale_price_wholesale!;
-  const potentialSavings = unitPrice - wholesalePrice;
-  const savingsPercentage = (potentialSavings / unitPrice) * 100;
-
-  return {
-    hasWholesalePrice: true,
-    wholesalePrice,
-    threshold: WHOLESALE_THRESHOLD,
-    potentialSavings,
-    savingsPercentage
-  };
-}
+// getWholesalePricingInfo removed - wholesale system deprecated
 
 /**
  * Validate quantity against stock entry limits
@@ -174,7 +149,8 @@ export function validateQuantity(
     }
   }
 
-  // Check wholesale pricing opportunities
+  // Wholesale pricing check removed
+  /*
   const wholesaleInfo = getWholesalePricingInfo(stockEntry);
   if (wholesaleInfo.hasWholesalePrice && requestedQuantity >= WHOLESALE_THRESHOLD) {
     warnings.push(`¡Precio mayorista aplicado! Ahorro: $${wholesaleInfo.potentialSavings?.toFixed(0)}`);
@@ -182,6 +158,7 @@ export function validateQuantity(
     const needed = WHOLESALE_THRESHOLD - requestedQuantity;
     warnings.push(`Agregue ${needed} unidad${needed > 1 ? 'es' : ''} más para precio mayorista`);
   }
+  */
 
   return {
     isValid: errors.length === 0,
@@ -293,10 +270,13 @@ export function calculateItemPrice(input: PriceCalculationInput): PriceCalculati
   let priceType: 'unit' | 'wholesale' = 'unit';
 
   // Check if wholesale pricing applies
+  // Wholesale pricing disabled
+  /*
   if (quantity >= wholesaleThreshold && wholesalePrice && wholesalePrice > 0) {
     applicablePrice = wholesalePrice;
     priceType = 'wholesale';
   }
+  */
 
   const totalPrice = applicablePrice * quantity;
   const baseTotal = baseUnitPrice * quantity;

@@ -14,6 +14,9 @@ const CategoryManagementModal = dynamic(() => import('./CategoryManagementModal'
 const BarcodeGeneratorModal = dynamic(() => import('./BarcodeGeneratorModal'), {
   ssr: false
 });
+const ProductImportModal = dynamic(() => import('./ProductImportModal'), {
+  ssr: false
+});
 import { getAllBrands, getAllProductTypes } from '../actions';
 
 interface Product {
@@ -60,6 +63,7 @@ export default function AdminDashboard({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [barcodeModalOpen, setBarcodeModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
   const [currentBrands, setCurrentBrands] = useState(brands);
   const [currentProductTypes, setCurrentProductTypes] = useState(productTypes);
   
@@ -161,6 +165,16 @@ export default function AdminDashboard({
                   </svg>
                   Gestionar Categorías
                 </button>
+
+                <button
+                  onClick={() => setImportModalOpen(true)}
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 cursor-pointer"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                  Importar CSV
+                </button>
                 <button
                   onClick={() => setIsModalOpen(true)}
                   className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer"
@@ -214,6 +228,12 @@ export default function AdminDashboard({
         <BarcodeGeneratorModal
           isOpen={barcodeModalOpen}
           onClose={() => setBarcodeModalOpen(false)}
+        />
+
+        {/* Modal para Importación Masiva */}
+        <ProductImportModal
+          isOpen={importModalOpen}
+          onClose={() => setImportModalOpen(false)}
         />
 
 

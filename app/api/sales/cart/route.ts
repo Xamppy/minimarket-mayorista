@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
   return withVendedorAuth(request, async (request: NextRequest, userInfo: any) => {
   try {
     const body = await request.json();
-    const { cartItems } = body;
+    const { cartItems, discountType, discountValue } = body;
 
     // Validar que se proporcionaron items del carrito
     if (!cartItems || !Array.isArray(cartItems)) {
@@ -79,8 +79,20 @@ export async function POST(request: NextRequest) {
       userInfo.role || 'vendedor'
     );
 
+    // Preparar objeto de descuento si existe
+    let discountObj: { type: 'amount' | 'percentage', value: number } | undefined = undefined;
+    if (discountType && discountValue !== undefined) {
+      const value = parseFloat(discountValue);
+      if (!isNaN(value) && value > 0 && (discountType === 'amount' || discountType === 'percentage')) {
+        discountObj = {
+          type: discountType as 'amount' | 'percentage',
+          value
+        };
+      }
+    }
+
     // Procesar la venta usando el sistema reutilizable
-    const saleResult = await processCartSale(processedCartItems, userContext);
+    const saleResult = await processCartSale(processedCartItems, userContext, undefined, discountObj);
 
     // Formatear respuesta para API
     const formattedResponse = formatSaleResultForAPI(saleResult);

@@ -73,6 +73,13 @@ export interface ThermalTicketData {
   formattedTime?: string;
   totalSavings?: number;
   itemCount?: number;
+  totalSavings?: number;
+  subtotal?: number;
+  discount?: {
+    type: 'amount' | 'percentage';
+    value: number;
+    amount: number;
+  };
 }
 
 export interface ThermalTicketItem {
