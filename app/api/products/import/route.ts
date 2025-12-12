@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Client } from 'pg';
 import { parse } from 'csv-parse/sync';
-import { withVendedorAuth } from '../../../utils/auth/middleware';
+import { withVendedorAuth, withAdminAuth } from '../../../utils/auth/middleware';
 
 // Configuración de la Base de Datos
 const dbConfig = {
@@ -22,7 +22,7 @@ type CacheMap = Map<string, any>;
 // export async function POST(request: NextRequest) {
 //   return withVendedorAuth(request, async (req, user) => {
 export async function POST(request: NextRequest) {
-  return withVendedorAuth(request, async (req, user) => {
+  return withAdminAuth(request, async (req, user) => {
     const client = new Client(dbConfig);
     const results = {
       total: 0,

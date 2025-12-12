@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Client } from 'pg';
-import { withVendedorAuth } from '../../utils/auth/middleware';
+import { withVendedorAuth, withAdminAuth } from '../../utils/auth/middleware';
 
 const dbConfig = {
   host: process.env.POSTGRES_HOST,
@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
 
 // POST - Crear nuevo producto (VERSIÓN BLINDADA)
 export async function POST(request: NextRequest) {
-  return withVendedorAuth(request, async (req, user) => {
+  return withAdminAuth(request, async (req, user) => {
     const client = new Client(dbConfig);
     
     try {
