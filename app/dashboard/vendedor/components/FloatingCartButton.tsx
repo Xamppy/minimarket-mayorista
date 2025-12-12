@@ -19,12 +19,13 @@ interface CartItem {
   quantity: number;
   saleFormat: 'unitario' | 'display' | 'pallet';
   unitPrice: number;
-
-  wholesalePrice?: number;
-  appliedPrice: number;
-  appliedPriceType: 'unit' | 'wholesale';
   totalPrice: number;
-  savings?: number;
+  // Enhanced stock entry information
+  stockEntry?: {
+    barcode?: string;
+    expiration_date?: string | null;
+    current_quantity?: number;
+  };
 }
 
 interface FloatingCartButtonProps {

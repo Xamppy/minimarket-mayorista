@@ -237,6 +237,7 @@ export async function addProduct(formData: FormData) {
   const typeId = formData.get('typeId') as string;
   const imageUrl = formData.get('imageUrl') as string;
   const barcode = formData.get('barcode') as string;
+  const minStock = formData.get('minStock') as string;
 
   // Validar campos requeridos
   if (!name?.trim()) {
@@ -255,6 +256,10 @@ export async function addProduct(formData: FormData) {
     throw new Error('El código de barras es requerido');
   }
 
+  if (!minStock || isNaN(parseInt(minStock)) || parseInt(minStock) < 0) {
+    throw new Error('El stock mínimo debe ser un número mayor o igual a 0');
+  }
+
   try {
     if (productId) {
       // Actualizar producto existente
@@ -268,7 +273,8 @@ export async function addProduct(formData: FormData) {
           brand_id: brandId,
           type_id: typeId,
           image_url: imageUrl?.trim() || null,
-          barcode: barcode.trim()
+          barcode: barcode.trim(),
+          min_stock: parseInt(minStock)
         })
       });
 
@@ -288,7 +294,8 @@ export async function addProduct(formData: FormData) {
           brand_id: brandId,
           type_id: typeId,
           image_url: imageUrl?.trim() || null,
-          barcode: barcode.trim()
+          barcode: barcode.trim(),
+          min_stock: parseInt(minStock)
         })
       });
 

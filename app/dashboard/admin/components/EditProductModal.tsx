@@ -16,10 +16,12 @@ interface ProductType {
 interface Product {
   id: string;
   name: string;
+  barcode?: string;
   brand_name: string;
   type_name: string;
   image_url: string | null;
   total_stock: number;
+  min_stock?: number;
 }
 
 interface EditProductModalProps {
@@ -117,22 +119,42 @@ export default function EditProductModal({
             />
           </div>
 
+          {/* Código de Barras */}
+          <div>
+            <label htmlFor="edit-barcode" className="block text-sm font-medium text-black mb-1">
+              Código de Barras *
+            </label>
+            <input
+              type="text"
+              id="edit-barcode"
+              name="barcode"
+              required
+              disabled={loading}
+              defaultValue={product.barcode || ''}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-black"
+              placeholder="Ej: 7790123456789"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Escanea o ingresa el código de barras del producto
+            </p>
+          </div>
+
           {/* Marca */}
           <div>
-            <label htmlFor="edit-brand_name" className="block text-sm font-medium text-black mb-1">
+            <label htmlFor="edit-brandId" className="block text-sm font-medium text-black mb-1">
               Marca *
             </label>
             <select
-              id="edit-brand_name"
-              name="brand_name"
+              id="edit-brandId"
+              name="brandId"
               required
               disabled={loading}
-              defaultValue={product.brand_name || ''}
+              defaultValue={selectedBrand?.id || ''}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-black"
             >
               <option value="">Selecciona una marca</option>
               {brands.map((brand) => (
-                <option key={brand.id} value={brand.name}>
+                <option key={brand.id} value={brand.id}>
                   {brand.name}
                 </option>
               ))}
@@ -141,12 +163,12 @@ export default function EditProductModal({
 
           {/* Tipo de producto */}
           <div>
-            <label htmlFor="edit-product_type_id" className="block text-sm font-medium text-black mb-1">
+            <label htmlFor="edit-typeId" className="block text-sm font-medium text-black mb-1">
               Tipo de Producto *
             </label>
             <select
-              id="edit-product_type_id"
-              name="product_type_id"
+              id="edit-typeId"
+              name="typeId"
               required
               disabled={loading}
               defaultValue={selectedType?.id || ''}
@@ -175,6 +197,27 @@ export default function EditProductModal({
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-black"
               placeholder="https://ejemplo.com/imagen.jpg"
             />
+          </div>
+
+          {/* Stock Mínimo para Alerta */}
+          <div>
+            <label htmlFor="edit-minStock" className="block text-sm font-medium text-black mb-1">
+              Stock Mínimo para Alerta *
+            </label>
+            <input
+              type="number"
+              id="edit-minStock"
+              name="minStock"
+              required
+              min="0"
+              defaultValue={product.min_stock || 10}
+              disabled={loading}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-black"
+              placeholder="10"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Umbral para recibir alertas cuando el stock esté por debajo de este valor
+            </p>
           </div>
 
           {/* Mensajes de error y éxito */}

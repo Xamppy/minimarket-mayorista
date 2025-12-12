@@ -12,6 +12,7 @@ interface Product {
   type_name: string;
   image_url: string | null;
   total_stock: number;
+  min_stock?: number;
   barcode?: string;
 }
 

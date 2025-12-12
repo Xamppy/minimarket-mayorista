@@ -32,7 +32,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       const result = await client.query(
         `SELECT 
           p.id, p.name, p.barcode, p.image_url, 
-          p.brand_id, p.brand_name, p.type_id,
+          p.brand_id, p.brand_name, p.type_id, p.min_stock,
           p.created_at, p.updated_at,
           pt.name as type_name
         FROM products p
@@ -177,13 +177,25 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const body = await request.json();
-    const { name, barcode, image_url, brand_id, type_id } = body;
+    const { name, barcode, image_url, brand_id, type_id, min_stock } = body;
     
     if (!name?.trim()) {
       return NextResponse.json(
         { error: 'El nombre del producto es requerido' },
         { status: 400 }
       );
+    }
+
+    // Validar min_stock si se proporciona
+    let minStockInt = 10; // Valor por defecto
+    if (min_stock !== undefined && min_stock !== null) {
+      minStockInt = parseInt(String(min_stock), 10);
+      if (isNaN(minStockInt) || minStockInt < 0) {
+        return NextResponse.json(
+          { error: 'El stock mínimo debe ser un número mayor o igual a 0' },
+          { status: 400 }
+        );
+      }
     }
 
     const client = new Client(dbConfig);
@@ -239,11 +251,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
              image_url = $3, 
              brand_id = $4, 
              brand_name = $5,
-             type_id = $6, 
+             type_id = $6,
+             min_stock = $7,
              updated_at = CURRENT_TIMESTAMP 
-         WHERE id = $7 
-         RETURNING id, name, barcode, image_url, brand_id, brand_name, type_id, created_at, updated_at`,
-        [name.trim(), barcode || null, image_url || null, brand_id || null, brandName, type_id || null, id]
+         WHERE id = $8 
+         RETURNING id, name, barcode, image_url, brand_id, brand_name, type_id, min_stock, created_at, updated_at`,
+        [name.trim(), barcode || null, image_url || null, brand_id || null, brandName, type_id || null, minStockInt, id]
       );
       
       return NextResponse.json(result.rows[0]);

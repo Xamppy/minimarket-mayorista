@@ -82,7 +82,6 @@ export default function VendorPageClient({
       id: string;
       sale_price_unit: number;
     
-      sale_price_wholesale?: number;
       current_quantity: number;
       expiration_date?: string | null;
       barcode?: string;
@@ -163,7 +162,6 @@ export default function VendorPageClient({
         id: stockEntry.id,
         sale_price_unit: stockEntry.sale_price_unit,
   
-        sale_price_wholesale: stockEntry.sale_price_wholesale,
         current_quantity: stockEntry.current_quantity,
         expiration_date: stockEntry.expiration_date,
         barcode: stockEntry.barcode,
@@ -355,7 +353,6 @@ export default function VendorPageClient({
     quantity: number;
     saleFormat: 'unitario';
     price: number;
-    wholesalePrice?: number;
   }) => {
 
     setCart(prevCart => {

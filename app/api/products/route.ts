@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
           p.created_at,
           p.brand_id,
           p.type_id,
+          p.min_stock,
           b.name as brand_name,
           pt.name as type_name
         FROM products p
@@ -61,6 +62,7 @@ export async function GET(request: NextRequest) {
             brand_name: product.brand_name || 'Sin marca',
             type_name: product.type_name || 'Sin tipo',
             image_url: product.image_url,
+            min_stock: product.min_stock || 10,
             total_stock: totalStock,
             created_at: product.created_at
           };
@@ -113,11 +115,15 @@ export async function POST(request: NextRequest) {
       // Type: Buscar en múltiples nombres de campo  
       const rawTypeId = body.type_id || body.typeId || body.product_type_id || body.productTypeId;
       
+      // Min Stock: Buscar en múltiples nombres de campo con default
+      const rawMinStock = body.min_stock || body.minStock || 10;
+      
       console.log('📊 Valores extraídos:');
       console.log('   - name:', name);
       console.log('   - barcode:', barcode);
       console.log('   - rawBrandId:', rawBrandId, '(tipo:', typeof rawBrandId, ')');
       console.log('   - rawTypeId:', rawTypeId, '(tipo:', typeof rawTypeId, ')');
+      console.log('   - rawMinStock:', rawMinStock, '(tipo:', typeof rawMinStock, ')');
       
       // ========================================
       // PASO 3: Validaciones
@@ -166,12 +172,22 @@ export async function POST(request: NextRequest) {
       // type_id es UUID (string)
       const typeIdUuid = String(rawTypeId).trim();
       
+      // min_stock debe ser INTEGER >= 0
+      const minStockInt = parseInt(String(rawMinStock), 10);
+      if (isNaN(minStockInt) || minStockInt < 0) {
+        return NextResponse.json(
+          { error: { message: `min_stock inválido: "${rawMinStock}" debe ser un número mayor o igual a 0`, status: 400 } },
+          { status: 400 }
+        );
+      }
+      
       // brand_name para columna legacy - lo obtendremos de la BD
       let brandNameLegacy = '';
       
       console.log('🔧 Valores preparados para INSERT:');
       console.log('   - brandIdInt (INTEGER):', brandIdInt);
       console.log('   - typeIdUuid (UUID):', typeIdUuid);
+      console.log('   - minStockInt (INTEGER):', minStockInt);
       
       // ========================================
       // PASO 5: Conectar y verificar duplicados
@@ -228,9 +244,10 @@ export async function POST(request: NextRequest) {
           brand_id,
           brand_name,
           product_type_id,
-          type_id
+          type_id,
+          min_stock
         ) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
         RETURNING *
       `;
       
@@ -241,7 +258,8 @@ export async function POST(request: NextRequest) {
         brandIdInt,            // $4: brand_id (INTEGER) - CRÍTICO
         brandNameLegacy,       // $5: brand_name (legacy VARCHAR)
         typeIdUuid,            // $6: product_type_id (UUID)
-        typeIdUuid             // $7: type_id (UUID) - Mismo valor que product_type_id
+        typeIdUuid,            // $7: type_id (UUID) - Mismo valor que product_type_id
+        minStockInt            // $8: min_stock (INTEGER)
       ];
       
       console.log('📝 Ejecutando INSERT SQL:');

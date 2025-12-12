@@ -38,7 +38,6 @@ interface ScannedItem {
     id: string;
     sale_price_unit: number;
   
-    sale_price_wholesale?: number;
     current_quantity: number;
     expiration_date?: string | null;
     barcode?: string;

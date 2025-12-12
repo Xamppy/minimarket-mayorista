@@ -146,17 +146,22 @@ export async function POST(request: NextRequest) {
              productId = existingProduct.rows[0].id;
           } else {
             // Crear Producto
+            // Leer Stock_Minimo (opcional, default 10)
+            const minStock = parseInt(row.Stock_Minimo || '10');
+            const finalMinStock = isNaN(minStock) || minStock < 0 ? 10 : minStock;
+            
             const insertProd = await client.query(`
               INSERT INTO products (
-                name, barcode, brand_id, brand_name, type_id, product_type_id
-              ) VALUES ($1, $2, $3, $4, $5, $5)
+                name, barcode, brand_id, brand_name, type_id, product_type_id, min_stock
+              ) VALUES ($1, $2, $3, $4, $5, $5, $6)
               RETURNING id
             `, [
               row.Nombre.trim(),
               row.CodigoBarra.trim(),
               brandId,
               brandName, // Legacy column support
-              typeId
+              typeId,
+              finalMinStock
             ]);
             productId = insertProd.rows[0].id;
             results.created++;

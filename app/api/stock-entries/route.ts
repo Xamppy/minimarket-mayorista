@@ -29,25 +29,28 @@ export async function GET(request: NextRequest) {
       if (lowStockThreshold) {
         const threshold = parseInt(lowStockThreshold);
         
+        // Query actualizado: Compara contra min_stock individual de cada producto
         const lowStockQuery = `
           SELECT 
             p.id as product_id,
             p.name as product_name,
             p.brand_name,
+            p.min_stock,
             COALESCE(SUM(se.current_quantity), 0) as total_stock
           FROM products p
           LEFT JOIN stock_entries se ON p.id = se.product_id AND se.current_quantity > 0
-          GROUP BY p.id, p.name, p.brand_name
-          HAVING COALESCE(SUM(se.current_quantity), 0) <= $1
+          GROUP BY p.id, p.name, p.brand_name, p.min_stock
+          HAVING COALESCE(SUM(se.current_quantity), 0) <= p.min_stock
           ORDER BY total_stock ASC, p.name ASC
         `;
         
-        const result = await client.query(lowStockQuery, [threshold]);
+        // Ya no necesitamos pasar el threshold como parámetro porque usamos p.min_stock
+        const result = await client.query(lowStockQuery);
         
         return NextResponse.json({
           success: true,
           low_stock_products: result.rows,
-          threshold: threshold,
+          threshold: threshold, // Mantener para compatibilidad, pero ya no se usa
           count: result.rows.length
         });
       }

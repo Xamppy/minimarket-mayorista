@@ -73,14 +73,39 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       const stockEntryId = id;
       const body = await request.json();
       
-      const {
-        current_quantity,
-        barcode,
-        purchase_price,
-        sale_price_unit,
-        sale_price_wholesale,
-        expiration_date
-      } = body;
+      // Normalización robusta de variables (aceptar múltiples nombres de campo)
+      const current_quantity = parseInt(
+        body.current_quantity ?? body.remaining_quantity ?? body.quantity ?? body.stock ?? '0'
+      );
+      const barcode = body.barcode?.trim() || null;
+      const purchase_price = parseFloat(body.purchase_price ?? '0');
+      const sale_price_unit = parseFloat(body.sale_price_unit ?? '0');
+      
+      // Manejar precio mayorista (legacy) - usar null si no viene o es undefined
+      const sale_price_wholesale = body.sale_price_wholesale 
+        ? parseFloat(body.sale_price_wholesale) 
+        : null;
+      
+      const expiration_date = body.expiration_date || null;
+      
+      // Validaciones básicas
+      if (isNaN(current_quantity) || current_quantity < 0) {
+        return NextResponse.json({ 
+          error: { 
+            message: 'La cantidad debe ser un número mayor o igual a 0', 
+            status: 400 
+          } 
+        }, { status: 400 });
+      }
+      
+      if (!barcode) {
+        return NextResponse.json({ 
+          error: { 
+            message: 'El código de barras es requerido', 
+            status: 400 
+          } 
+        }, { status: 400 });
+      }
       
       // Verificar que la entrada de stock existe
       const checkResult = await client.query(

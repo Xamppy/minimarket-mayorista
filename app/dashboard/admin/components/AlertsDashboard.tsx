@@ -7,6 +7,7 @@ interface StockAlert {
   product_id: string;
   product_name: string;
   brand_name: string;
+  min_stock: number;
   total_stock: number;
 }
 
@@ -67,6 +68,79 @@ export default function AlertsDashboard() {
     return diffDays;
   };
 
+  // Función para imprimir lista de reposición
+  const handlePrintReplenishmentList = () => {
+    if (lowStockItems.length === 0) {
+      alert('No hay productos con bajo stock para imprimir.');
+      return;
+    }
+
+    const today = new Date().toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Lista de Reposición - ${today}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          h1 { font-size: 18px; text-align: center; margin-bottom: 5px; }
+          .date { text-align: center; font-size: 12px; color: #666; margin-bottom: 20px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+          th, td { border: 1px solid #333; padding: 8px; text-align: left; font-size: 12px; }
+          th { background-color: #f0f0f0; font-weight: bold; }
+          .stock { text-align: center; font-weight: bold; color: #c00; }
+          .qty-column { width: 100px; }
+          .footer { font-size: 10px; color: #666; text-align: center; margin-top: 20px; }
+          @media print {
+            body { padding: 10mm; }
+          }
+        </style>
+      </head>
+      <body>
+        <h1>🛒 Lista de Reposición</h1>
+        <p class="date">${today}</p>
+        
+        <table>
+          <thead>
+            <tr>
+              <th>Producto</th>
+              <th>Marca</th>
+              <th>Stock Actual</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${lowStockItems.map((item: any) => `
+              <tr>
+                <td>${item.product_name || 'Sin nombre'}</td>
+                <td>${item.brand_name || 'Sin marca'}</td>
+                <td class="stock">${item.total_stock} un.</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        
+        <p class="footer">Generado por Minimarket Don Ale - ${today}</p>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+      }, 250);
+    }
+  };
+
   const getExpirationUrgency = (days: number) => {
     if (days <= 0) return 'text-red-600 bg-red-50 border-red-200';
     if (days <= 7) return 'text-orange-600 bg-orange-50 border-orange-200';
@@ -110,12 +184,24 @@ export default function AlertsDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Alertas de Bajo Stock */}
         <div className="border rounded-lg p-4">
-          <h3 className="text-lg font-medium text-orange-700 mb-4 flex items-center">
+          <h3 className="text-lg font-medium text-orange-700 flex items-center flex-1">
             ⚠️ Alerta: Bajo Stock
             <span className="ml-2 px-2 py-1 bg-orange-100 text-orange-800 text-sm rounded-full">
               {lowStockItems.length}
             </span>
           </h3>
+          {lowStockItems.length > 0 && (
+            <button
+              onClick={handlePrintReplenishmentList}
+              className="ml-4 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-sm rounded-md flex items-center gap-1.5 transition-colors"
+              title="Imprimir lista de reposición"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+              </svg>
+              Imprimir Lista
+            </button>
+          )}
           
           {lowStockItems.length === 0 ? (
             <div className="text-center py-6 text-gray-500">
@@ -137,7 +223,7 @@ export default function AlertsDashboard() {
                         {item.brand_name || 'Sin marca'}
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
-                        ID: {item.product_id}
+                        Umbral configurado: {item.min_stock} unidades
                       </p>
                     </div>
                     <div className="ml-4 text-right">
@@ -183,9 +269,6 @@ export default function AlertsDashboard() {
                         </h4>
                         <p className="text-sm text-gray-600">
                           {item.brand_name || 'Sin marca'}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          ID: {item.product_id}
                         </p>
                         <p className="text-xs mt-1">
                           Stock: {item.remaining_quantity} unidades

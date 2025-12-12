@@ -215,10 +215,6 @@ export default function StockModal({ isOpen, onClose, productId, productName, pr
                     <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
                       Precio Venta Unit.
                     </th>
-
-                    <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
-                      Precio Mayorista
-                    </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
                       Fecha de Vencimiento
                     </th>
@@ -249,17 +245,6 @@ export default function StockModal({ isOpen, onClose, productId, productName, pr
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
                         <span className="text-green-600 font-medium">${(Number(entry.sale_price_unit) || 0).toFixed(2)}</span>
-                      </td>
-
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
-                        {entry.sale_price_wholesale ? (
-                          <span className="text-purple-600 font-medium">
-                            ${(Number(entry.sale_price_wholesale) || 0).toFixed(2)}
-                            <span className="text-xs text-gray-500 ml-1">(3+ unidades)</span>
-                          </span>
-                        ) : (
-                          <span className="text-gray-400">N/A</span>
-                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
                         {entry.expiration_date ? (
