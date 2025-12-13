@@ -5,6 +5,9 @@ import VendorPageClient from './components/VendorPageClient';
 import { authenticatedFetchServer } from '../../utils/auth/server-api';
 import { getCurrentUserServer } from '../../utils/auth/server';
 
+// Force dynamic rendering since this page uses searchParams
+export const dynamic = 'force-dynamic';
+
 interface Product {
   id: string;
   name: string;

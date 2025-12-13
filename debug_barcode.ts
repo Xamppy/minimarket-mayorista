@@ -45,7 +45,7 @@ async function check() {
         console.log(`LIKE match found: ${likeRes.rows.length}`);
         likeRes.rows.forEach(r => {
             console.log(` - Match: '${r.barcode}' (Length: ${r.barcode.length}), Name: ${r.name}`);
-            console.log(`   (Char codes: ${r.barcode.split('').map(c => c.charCodeAt(0)).join(',')})`);
+            console.log(`   (Char codes: ${r.barcode.split('').map((c: string) => c.charCodeAt(0)).join(',')})`);
         });
     }
 

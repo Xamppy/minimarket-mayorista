@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
       const content = buffer.toString('utf-8');
 
       // 3. Parsear CSV
-      const records = parse(content, {
+      const records: any[] = parse(content, {
         columns: true,
         skip_empty_lines: true,
         trim: true

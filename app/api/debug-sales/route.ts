@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
     );
     
     console.log('=== ITEMS DE VENTAS ===');
-    const itemsBySale = {};
+    const itemsBySale: Record<string, any> = {};
     itemsResult.rows.forEach(item => {
       if (!itemsBySale[item.sale_id]) {
         itemsBySale[item.sale_id] = {
@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
       console.log(`Venta ${saleId}:`);
       console.log(`  Total en tabla sales: ${data.sale_total}`);
       console.log(`  Total calculado de items: ${data.calculated_total}`);
-      console.log(`  Items:`, data.items.map(item => ({
+      console.log(`  Items:`, data.items.map((item: any) => ({
         quantity: item.quantity,
         price: item.unit_price,
         total: item.total_price
@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
       items_by_sale: itemsBySale
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error en debug-sales:', error);
     return NextResponse.json({ 
       error: error.message,

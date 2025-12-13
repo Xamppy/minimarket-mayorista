@@ -22,11 +22,21 @@ interface UseThermalPrintOptions {
   onPrintError?: (error: Error) => void;
 }
 
+interface ThermalPrinterSettings {
+  config: ThermalPrintConfig;
+  printDelay: number;
+  retryAttempts: number;
+  capabilities: PrintCapabilities;
+  printerType: string;
+  recommendations: string[];
+}
+
 interface UseThermalPrintReturn {
   print: () => Promise<void>;
   isPrinting: boolean;
   printError: string | null;
   browserCapabilities: PrintCapabilities;
+  thermalSettings: ThermalPrinterSettings;
   injectStyles: () => void;
   removeStyles: () => void;
 }

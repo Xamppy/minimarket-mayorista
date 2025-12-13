@@ -112,7 +112,7 @@ class SalesManagerTester {
       {
         productId: "", // ID vacío
         quantity: 0, // Cantidad inválida
-        saleFormat: "" // Formato vacío
+        saleFormat: "" as any // Formato vacío
       }
     ];
     
@@ -214,7 +214,10 @@ class SalesManagerTester {
       maxRetries: 5,
       database: {
         host: 'custom-host',
-        port: 3306
+        port: 3306,
+        database: 'test_db',
+        user: 'test_user',
+        password: 'test_pass'
       }
     });
 

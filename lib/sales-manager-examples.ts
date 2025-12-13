@@ -147,7 +147,9 @@ export async function ejemploConfiguracionPersonalizada() {
     database: {
       host: process.env.CUSTOM_DB_HOST || 'localhost',
       port: parseInt(process.env.CUSTOM_DB_PORT || '5432'),
-      database: 'mi_tienda_personalizada'
+      database: 'mi_tienda_personalizada',
+      user: process.env.CUSTOM_DB_USER || 'postgres',
+      password: process.env.CUSTOM_DB_PASSWORD || ''
     }
   });
 
@@ -263,7 +265,7 @@ export async function ejemploValidacionPrevia() {
     {
       productId: "prod_008",
       quantity: 1,
-      saleFormat: "", // Error: formato vacío
+      saleFormat: "" as any, // Error: formato vacío
       specificPrice: -5 // Error: precio negativo
     }
   ];

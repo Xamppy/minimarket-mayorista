@@ -49,6 +49,7 @@ export interface TicketData {
   total_amount: number;
   created_at: string;
   formattedDate: string;
+  formattedTime: string;
   itemCount: number;
   totalSavings: number;
   subtotal?: number;
@@ -935,7 +936,7 @@ export class ReusableSalesManager {
       created_at: saleData.created_at,
       formattedDate,
       formattedTime,
-      itemCount,
+
       itemCount,
       totalSavings,
       sale_items: processedItems,

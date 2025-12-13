@@ -1,4 +1,5 @@
 import LoginForm from './components/auth/LoginForm';
+import Image from 'next/image';
 
 export default function HomePage() {
   return (
@@ -11,21 +12,15 @@ export default function HomePage() {
           <div className="text-center text-white max-w-md">
             {/* Logo/Ilustración Placeholder */}
             <div className="mb-8">
-              <div className="mx-auto w-32 h-32 lg:w-48 lg:h-48 bg-white bg-opacity-20 rounded-full flex items-center justify-center mb-6">
-                {/* Icono de Minimarket - Carrito de Compras Estilizado */}
-                <svg 
-                  className="w-16 h-16 lg:w-24 lg:h-24 text-white" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
-                  <path 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    strokeWidth={1.5} 
-                    d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.293 2.293c-.63.63-.184 1.707.707 1.707H19M7 13v4a2 2 0 002 2h2m8-2a2 2 0 11-4 0 2 2 0 014 0zM9 19a2 2 0 11-4 0 2 2 0 014 0z" 
-                  />
-                </svg>
+              <div className="mx-auto w-32 h-32 lg:w-48 lg:h-48 bg-white rounded-full flex items-center justify-center mb-6 overflow-hidden p-4">
+                <Image 
+                  src="/logo_minimarket.png" 
+                  alt="Logo Minimarket Don Ale" 
+                  width={150} 
+                  height={150} 
+                  className="object-contain w-full h-full"
+                  priority
+                />
               </div>
               
               {/* Código de Barras Decorativo */}

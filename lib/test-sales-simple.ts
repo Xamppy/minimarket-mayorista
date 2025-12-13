@@ -9,7 +9,8 @@ import {
   processCartSale, 
   validateCartItemsUtility,
   createCustomSalesConfig,
-  processCartSaleWithValidation 
+  processCartSaleWithValidation,
+  createUserContextFromRequest
 } from './reusable-sales-manager';
 import type { CartItem } from './reusable-sales-manager';
 
@@ -64,9 +65,9 @@ async function ejecutarPruebasSimples() {
     // Prueba 4: Configuración personalizada
     console.log('📋 Prueba 4: Configuración personalizada');
     const configPersonalizada = createCustomSalesConfig({
-      autoGenerateTicket: true,
+      enableAutoTicketGeneration: true,
       ticketBaseUrl: 'https://test.com/ticket',
-      dbConfig: {
+      database: {
         host: 'localhost',
         port: 5432,
         database: 'minimarket_test',
@@ -81,8 +82,7 @@ async function ejecutarPruebasSimples() {
     try {
       const resultadoVenta = await processCartSale(
         carritoValido,
-        'test-user-123',
-        'test@example.com'
+        createUserContextFromRequest('test-user-123', 'test@example.com', 'tester')
       );
       mostrarResultado('Procesamiento de Venta', resultadoVenta, resultadoVenta.success);
     } catch (error) {
@@ -97,8 +97,7 @@ async function ejecutarPruebasSimples() {
     try {
       const resultadoValidacion = await processCartSaleWithValidation(
         carritoValido,
-        'test-user-456',
-        'test2@example.com'
+        createUserContextFromRequest('test-user-456', 'test2@example.com', 'tester')
       );
       mostrarResultado('Venta con Validación', resultadoValidacion, resultadoValidacion.success);
     } catch (error) {

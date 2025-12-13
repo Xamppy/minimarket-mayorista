@@ -13,10 +13,10 @@ const dbConfig = {
 };
 
 // GET - Obtener tipo de producto por ID
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   return withAdminAuth(request, async (req, user) => {
     const client = new Client(dbConfig);
-    const { id } = params;
+    const { id } = await params;
     
     try {
       await client.connect();
@@ -48,10 +48,10 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 }
 
 // PUT - Actualizar tipo de producto
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   return withAdminAuth(request, async (req, user) => {
     const client = new Client(dbConfig);
-    const { id } = params;
+    const { id } = await params;
     
     try {
       const body = await request.json();
@@ -123,10 +123,10 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 }
 
 // DELETE - Eliminar tipo de producto
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   return withAdminAuth(request, async (req, user) => {
     const client = new Client(dbConfig);
-    const { id } = params;
+    const { id } = await params;
     
     try {
       await client.connect();

@@ -14,7 +14,7 @@ const dbConfig = {
 };
 
 // GET - Obtener una entrada de stock específica
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   return withAdminAuth(request, async (request: NextRequest, user: AuthenticatedUser) => {
     const client = new Client(dbConfig);
     
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 }
 
 // PUT - Actualizar una entrada de stock
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   return withAdminAuth(request, async (request: NextRequest, user: AuthenticatedUser) => {
     const client = new Client(dbConfig);
     
@@ -162,7 +162,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 }
 
 // DELETE - Eliminar una entrada de stock
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   return withAdminAuth(request, async (request: NextRequest, user: AuthenticatedUser) => {
     const client = new Client(dbConfig);
     
