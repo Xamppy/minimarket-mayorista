@@ -749,6 +749,7 @@ export default function VendorPageClient({
           onUpdateQuantity={updateCartItemQuantity}
           onRemoveItem={removeFromCart}
           onSaleCompleted={handleSaleCompleted}
+          onOpenScanner={() => setCameraModalOpen(true)}
         />
       )}
 
@@ -771,6 +772,10 @@ export default function VendorPageClient({
         onUpdateQuantity={updateCartItemQuantity}
         onRemoveItem={removeFromCart}
         onSaleCompleted={handleSaleCompleted}
+        onOpenScanner={() => {
+          setCartModalOpen(false);
+          setCameraModalOpen(true);
+        }}
       />
 
       {/* Modal de escáner con cámara */}

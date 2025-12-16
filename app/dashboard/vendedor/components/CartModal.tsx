@@ -30,6 +30,8 @@ interface CartModalProps {
   cartItems?: CartItem[];
   onUpdateQuantity?: (stockEntryId: string, productId: string, newQuantity: number) => void;
   onRemoveItem?: (stockEntryId: string, productId: string) => void;
+  // Prop para abrir el escáner de cámara
+  onOpenScanner?: () => void;
 }
 
 export default function CartModal({
@@ -39,7 +41,8 @@ export default function CartModal({
   initialProduct,
   cartItems: externalCartItems,
   onUpdateQuantity,
-  onRemoveItem
+  onRemoveItem,
+  onOpenScanner
 }: CartModalProps) {
   // Usar carrito externo si está disponible, sino usar estado interno
   const cartItems = externalCartItems || [];
@@ -396,7 +399,13 @@ export default function CartModal({
                   <h3 className="text-lg font-semibold text-black">Productos en el carrito:</h3>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => setShowAddProduct(!showAddProduct)}
+                      onClick={() => {
+                        if (onOpenScanner) {
+                          onOpenScanner();
+                        } else {
+                          setShowAddProduct(!showAddProduct);
+                        }
+                      }}
                       className="text-sm bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 transition-colors"
                       disabled={loading}
                     >

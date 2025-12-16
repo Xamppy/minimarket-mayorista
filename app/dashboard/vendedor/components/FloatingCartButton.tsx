@@ -34,6 +34,7 @@ interface FloatingCartButtonProps {
   onUpdateQuantity?: (stockEntryId: string, productId: string, newQuantity: number) => void;
   onRemoveItem?: (stockEntryId: string, productId: string) => void;
   onSaleCompleted?: (saleData?: { productIds?: string[] }) => void;
+  onOpenScanner?: () => void;
 }
 
 export default function FloatingCartButton({ 
@@ -41,7 +42,8 @@ export default function FloatingCartButton({
   totalItems = 0,
   onUpdateQuantity, 
   onRemoveItem, 
-  onSaleCompleted 
+  onSaleCompleted,
+  onOpenScanner
 }: FloatingCartButtonProps) {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const router = useRouter();
@@ -94,6 +96,7 @@ export default function FloatingCartButton({
         onUpdateQuantity={onUpdateQuantity}
         onRemoveItem={onRemoveItem}
         onSaleCompleted={handleSaleCompleted}
+        onOpenScanner={onOpenScanner}
       />
     </>
   );
