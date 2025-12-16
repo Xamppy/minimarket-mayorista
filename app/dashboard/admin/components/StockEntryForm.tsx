@@ -3,18 +3,27 @@
 import { useState, useEffect } from 'react';
 import { addStockEntry, updateStockEntry } from '../actions';
 
+// Función para prevenir cambios de valor en inputs numéricos al hacer scroll
+const preventScrollChange = (e: WheelEvent) => {
+  const target = e.target as HTMLInputElement;
+  if (target.type === 'number' && document.activeElement === target) {
+    e.preventDefault();
+  }
+};
+
 interface StockEntryFormProps {
   productId: string;
   productName?: string;
+  productBarcode?: string;
   onStockEntryAdded?: () => void;
   editingStockEntry?: {
     id: string;
     current_quantity: number;
     barcode: string;
-    purchase_price: number;
-    sale_price_unit: number;
-    sale_price_box: number;
-    sale_price_wholesale?: number;
+    purchase_price: number | string | null;
+    sale_price_unit: number | string | null;
+
+    sale_price_wholesale?: number | string | null;
     expiration_date?: string;
   };
   onCancelEdit?: () => void;
@@ -22,7 +31,8 @@ interface StockEntryFormProps {
 
 export default function StockEntryForm({ 
   productId, 
-  productName, 
+  productName,
+  productBarcode,
   onStockEntryAdded, 
   editingStockEntry, 
   onCancelEdit 
@@ -30,22 +40,24 @@ export default function StockEntryForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [wholesalePriceError, setWholesalePriceError] = useState('');
+  // Wholesale pricing removed - not used anymore
+  const [barcodeValue, setBarcodeValue] = useState(productBarcode || '');
   const isEditing = !!editingStockEntry;
 
   useEffect(() => {
+    // Agregar event listener para prevenir cambios de scroll en inputs numéricos
+    document.addEventListener('wheel', preventScrollChange, { passive: false });
+
     // Pre-llenar el formulario cuando se esté editando
     if (editingStockEntry) {
       const form = document.getElementById('stock-entry-form') as HTMLFormElement;
       if (form) {
         (form.elements.namedItem('quantity') as HTMLInputElement).value = editingStockEntry.current_quantity.toString();
-        (form.elements.namedItem('barcode') as HTMLInputElement).value = editingStockEntry.barcode;
-        (form.elements.namedItem('purchasePrice') as HTMLInputElement).value = editingStockEntry.purchase_price.toString();
-        (form.elements.namedItem('unitPrice') as HTMLInputElement).value = editingStockEntry.sale_price_unit.toString();
-        (form.elements.namedItem('boxPrice') as HTMLInputElement).value = editingStockEntry.sale_price_box.toString();
-        if (editingStockEntry.sale_price_wholesale) {
-          (form.elements.namedItem('wholesalePrice') as HTMLInputElement).value = editingStockEntry.sale_price_wholesale.toString();
-        }
+        setBarcodeValue(editingStockEntry.barcode);
+        (form.elements.namedItem('purchasePrice') as HTMLInputElement).value = (editingStockEntry.purchase_price ?? 0).toString();
+        (form.elements.namedItem('unitPrice') as HTMLInputElement).value = (editingStockEntry.sale_price_unit ?? 0).toString();
+
+        // Wholesale price field removed
         if (editingStockEntry.expiration_date) {
           (form.elements.namedItem('expirationDate') as HTMLInputElement).value = editingStockEntry.expiration_date;
         }
@@ -56,8 +68,15 @@ export default function StockEntryForm({
       if (form) {
         form.reset();
       }
+      // Restaurar el barcode del producto
+      setBarcodeValue(productBarcode || '');
     }
-  }, [editingStockEntry]);
+
+    // Cleanup function para remover el event listener
+    return () => {
+      document.removeEventListener('wheel', preventScrollChange);
+    };
+  }, [editingStockEntry, productBarcode]);
 
   const handleSubmit = async (formData: FormData) => {
     setLoading(true);
@@ -103,61 +122,13 @@ export default function StockEntryForm({
   const handleCancel = () => {
     setError('');
     setSuccess('');
-    setWholesalePriceError('');
+
     if (onCancelEdit) {
       onCancelEdit();
     }
   };
 
-  // Validación en tiempo real del precio mayorista
-  const validateWholesalePriceInput = () => {
-    const form = document.getElementById('stock-entry-form') as HTMLFormElement;
-    if (!form) return;
-
-    const wholesalePrice = (form.elements.namedItem('wholesalePrice') as HTMLInputElement)?.value;
-    const unitPrice = (form.elements.namedItem('unitPrice') as HTMLInputElement)?.value;
-    const purchasePrice = (form.elements.namedItem('purchasePrice') as HTMLInputElement)?.value;
-
-    // Limpiar error anterior
-    setWholesalePriceError('');
-
-    // Si no hay precio mayorista, no validar
-    if (!wholesalePrice || wholesalePrice.trim() === '') {
-      return;
-    }
-
-    const wholesalePriceNum = parseFloat(wholesalePrice);
-    const unitPriceNum = parseFloat(unitPrice);
-    const purchasePriceNum = parseFloat(purchasePrice);
-
-    // Validaciones básicas
-    if (isNaN(wholesalePriceNum) || wholesalePriceNum <= 0) {
-      setWholesalePriceError('El precio mayorista debe ser un número mayor a 0');
-      return;
-    }
-
-    if (wholesalePriceNum > 999999.99) {
-      setWholesalePriceError('El precio mayorista no puede exceder $999,999.99');
-      return;
-    }
-
-    // Validaciones de lógica de negocio (solo si los otros precios están disponibles)
-    if (unitPriceNum && wholesalePriceNum >= unitPriceNum) {
-      setWholesalePriceError('El precio mayorista debe ser menor al precio unitario para ofrecer un descuento');
-      return;
-    }
-
-    if (purchasePriceNum && wholesalePriceNum <= purchasePriceNum) {
-      setWholesalePriceError('El precio mayorista debe ser mayor al precio de compra para mantener rentabilidad');
-      return;
-    }
-
-    if (purchasePriceNum && wholesalePriceNum < purchasePriceNum * 1.05) {
-      const minimumPrice = (purchasePriceNum * 1.05).toFixed(2);
-      setWholesalePriceError(`El precio mayorista debe ser al menos $${minimumPrice} para mantener un margen mínimo del 5%`);
-      return;
-    }
-  };
+  // Wholesale price validation removed - feature deprecated
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
@@ -166,64 +137,84 @@ export default function StockEntryForm({
         {productName && <span className="text-gray-600 font-normal"> - {productName}</span>}
       </h3>
       
-      <form id="stock-entry-form" action={handleSubmit} className="space-y-4">
-        {/* Cantidad */}
-        <div>
-          <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 mb-1">
-            Cantidad *
-          </label>
-          <input
-            type="number"
-            id="quantity"
-            name="quantity"
-            required
-            min="1"
-            step="1"
-            disabled={loading}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900"
-            placeholder="Ej: 50"
-          />
+      <form id="stock-entry-form" action={handleSubmit} className="space-y-3">
+        {/* Primera fila: Cantidad y Fecha de Vencimiento */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 mb-1">
+              Cantidad *
+            </label>
+            <input
+              type="number"
+              id="quantity"
+              name="quantity"
+              required
+              min="1"
+              step="1"
+              disabled={loading}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900 text-center"
+              placeholder="50"
+            />
+          </div>
+          
+          <div className="md:col-span-2">
+            <label htmlFor="expirationDate" className="block text-sm font-medium text-gray-700 mb-1">
+              Fecha de Vencimiento (opcional)
+            </label>
+            <input
+              type="date"
+              id="expirationDate"
+              name="expirationDate"
+              disabled={loading}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900"
+            />
+          </div>
         </div>
 
-        {/* Código de Barras */}
+        {/* Segunda fila: Código de Barras (auto-rellenado del producto) */}
         <div>
           <label htmlFor="barcode" className="block text-sm font-medium text-gray-700 mb-1">
-            Código de Barras *
+            Código de Barras {productBarcode ? '(del producto)' : '*'}
           </label>
           <input
             type="text"
             id="barcode"
             name="barcode"
             required
+            value={barcodeValue}
+            onChange={(e) => setBarcodeValue(e.target.value)}
+            readOnly={!!productBarcode && !isEditing}
             disabled={loading}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900"
+            className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900 ${productBarcode && !isEditing ? 'bg-gray-100 cursor-not-allowed' : ''}`}
             placeholder="Ej: 7790123456789"
           />
+          {productBarcode && !isEditing && (
+            <p className="text-xs text-green-600 mt-1">✓ Heredado del producto</p>
+          )}
         </div>
 
-        {/* Precio de Compra */}
-        <div>
-          <label htmlFor="purchasePrice" className="block text-sm font-medium text-gray-700 mb-1">
-            Precio de Compra *
-          </label>
-          <input
-            type="number"
-            id="purchasePrice"
-            name="purchasePrice"
-            required
-            min="0"
-            step="0.01"
-            disabled={loading}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900"
-            placeholder="0.00"
-          />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Precio de Venta Unitario */}
+        {/* Tercera fila: Precios (Compra y Unitario solamente) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="purchasePrice" className="block text-sm font-medium text-gray-700 mb-1">
+              Precio Compra *
+            </label>
+            <input
+              type="number"
+              id="purchasePrice"
+              name="purchasePrice"
+              required
+              min="0"
+              step="0.01"
+              disabled={loading}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900"
+              placeholder="0.00"
+            />
+          </div>
+          
           <div>
             <label htmlFor="unitPrice" className="block text-sm font-medium text-gray-700 mb-1">
-              Precio de Venta Unitario *
+              Precio Unitario *
             </label>
             <input
               type="number"
@@ -237,79 +228,9 @@ export default function StockEntryForm({
               placeholder="0.00"
             />
           </div>
-
-          {/* Precio de Venta por Caja */}
-          <div>
-            <label htmlFor="boxPrice" className="block text-sm font-medium text-gray-700 mb-1">
-              Precio de Venta por Caja *
-            </label>
-            <input
-              type="number"
-              id="boxPrice"
-              name="boxPrice"
-              required
-              min="0"
-              step="0.01"
-              disabled={loading}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900"
-              placeholder="0.00"
-            />
-          </div>
         </div>
 
-        {/* Precio Mayorista */}
-        <div>
-          <label htmlFor="wholesalePrice" className="block text-sm font-medium text-gray-700 mb-1">
-            Precio Mayorista (opcional)
-            <span className="text-xs text-gray-500 ml-2">
-              💡 Se aplica automáticamente para compras de 3+ unidades
-            </span>
-          </label>
-          <input
-            type="number"
-            id="wholesalePrice"
-            name="wholesalePrice"
-            min="0"
-            step="0.01"
-            disabled={loading}
-            onChange={validateWholesalePriceInput}
-            onBlur={validateWholesalePriceInput}
-            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900 ${
-              wholesalePriceError 
-                ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
-                : 'border-gray-300 focus:ring-indigo-500'
-            }`}
-            placeholder="0.00 (opcional - para ventas de 3+ unidades)"
-          />
-          
-          {/* Mensaje de error específico para precio mayorista */}
-          {wholesalePriceError && (
-            <p className="text-xs text-red-600 mt-1">
-              ⚠️ {wholesalePriceError}
-            </p>
-          )}
-          
-          {/* Mensaje de ayuda (solo si no hay error) */}
-          {!wholesalePriceError && (
-            <p className="text-xs text-gray-500 mt-1">
-              Si se especifica, este precio se aplicará automáticamente cuando el cliente compre 3 o más unidades del producto.
-            </p>
-          )}
-        </div>
-
-        {/* Fecha de Vencimiento */}
-        <div>
-          <label htmlFor="expirationDate" className="block text-sm font-medium text-gray-700 mb-1">
-            Fecha de Vencimiento (opcional)
-          </label>
-          <input
-            type="date"
-            id="expirationDate"
-            name="expirationDate"
-            disabled={loading}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900"
-          />
-        </div>
+        {/* Wholesale pricing info removed */}
 
         {/* Mensajes de error y éxito */}
         {error && (
@@ -352,4 +273,4 @@ export default function StockEntryForm({
       </form>
     </div>
   );
-} 
+}

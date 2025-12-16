@@ -49,6 +49,7 @@ export default function BrandManagement() {
       <BrandModal
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
+        onSuccess={handleRefresh}
         title="Crear Nueva Marca"
       />
     </div>

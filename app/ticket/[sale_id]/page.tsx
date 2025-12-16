@@ -1,392 +1,367 @@
 'use client';
 
-import { createClient } from '../../utils/supabase/client';
-import { useEffect, useState, use } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, useRef } from 'react';
+import { useParams } from 'next/navigation';
+import { ThermalTicketData, ThermalTicketItem } from '../../types/thermal-print';
+import { 
+  formatCurrency, 
+  formatDate, 
+  formatTime, 
+  truncateText,
+  calculateOptimalTextWidth,
+  formatProductName,
+  formatBrandName,
+  formatBarcode,
+  formatWholesaleInfo
+} from '../../utils/thermal-printer';
+import { useThermalPrint } from '../../hooks/useThermalPrint';
+import ThermalPrintStyles from '../../components/ThermalPrintStyles';
 
-interface SaleData {
-  id: string;
-  seller_id: string;
-  total_amount: number;
-  created_at: string;
-  seller_email: string;
-  sale_items: {
-    id: string;
-    quantity_sold: number;
-    price_at_sale: number;
-    sale_format: string;
-    stock_entry: {
-      barcode: string;
-      product: {
-        name: string;
-        brand: {
-          name: string;
-        };
-      };
-    };
-  }[];
-}
-
-interface PageProps {
-  params: Promise<{ sale_id: string }>;
-}
-
-export default function TicketPage({ params }: PageProps) {
-  const [saleData, setSaleData] = useState<any>(null);
+export default function TicketPage() {
+  const params = useParams();
+  const saleId = params.sale_id as string;
+  const [saleData, setSaleData] = useState<ThermalTicketData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
-  const resolvedParams = use(params);
-  const saleId = resolvedParams.sale_id;
+  const [isPDFFormat, setIsPDFFormat] = useState(false);
+  
+  // Use our custom thermal print hook
+  const { print, isPrinting, printError } = useThermalPrint({
+    autoprint: false
+  });
 
+  // Use ref to store print function and avoid dependency issues
+  const printRef = useRef(print);
+  
+  // Update ref when print function changes
   useEffect(() => {
-    if (!saleId) {
-      router.push('/dashboard/vendedor');
-      return;
+    printRef.current = print;
+  }, [print]);
+
+  // Force light mode for this page
+  useEffect(() => {
+    // Add light-mode class to html and body
+    document.documentElement.classList.add('light-mode');
+    document.body.classList.add('light-mode');
+    
+    // Remove dark-mode class if present
+    document.documentElement.classList.remove('dark-mode');
+    document.body.classList.remove('dark-mode');
+    
+    // Force background to white
+    document.body.style.backgroundColor = '#ffffff';
+    document.body.style.color = '#000000';
+
+    // Check if we are in PDF mode (URL param)
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('format') === 'pdf') {
+      setIsPDFFormat(true);
     }
 
+    return () => {
+      // Cleanup
+      document.documentElement.classList.remove('light-mode');
+      document.body.classList.remove('light-mode');
+      document.body.style.backgroundColor = '';
+      document.body.style.color = '';
+    };
+  }, []);
+
+  useEffect(() => {
     const fetchSaleData = async () => {
       try {
-        setLoading(true);
-        const supabase = createClient();
+        const response = await fetch(`/api/sales/${saleId}`);
+        const result = await response.json();
 
-        // Obtener datos de la venta paso a paso para mejor debugging
-        console.log('Fetching sale with ID:', saleId);
-        
-        // Primero obtener los datos básicos de la venta
-        const { data: sale, error: saleError } = await supabase
-          .from('sales')
-          .select(`
-            id,
-            seller_id,
-            total_amount,
-            created_at
-          `)
-          .eq('id', saleId)
-          .single();
-
-        if (saleError) {
-          console.error('Error fetching basic sale data:', saleError);
-          setError(`Error al cargar la venta: ${saleError.message}`);
-          return;
-        }
-
-        if (!sale) {
-          console.error('No sale found with ID:', saleId);
-          setError('Venta no encontrada');
-          return;
-        }
-
-        console.log('Basic sale data:', sale);
-
-        // Obtener información del vendedor
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('email')
-          .eq('id', sale.seller_id)
-          .single();
-
-        if (profileError) {
-          console.warn('Error fetching seller profile:', profileError);
-        }
-
-        // Obtener items de la venta con información completa incluyendo wholesale pricing
-        const { data: saleItems, error: itemsError } = await supabase
-          .from('sale_items')
-          .select(`
-            id,
-            quantity_sold,
-            price_at_sale,
-            sale_format,
-            stock_entry_id,
-            stock_entries (
-              barcode,
-              sale_price_unit,
-              sale_price_wholesale,
-              products (
-                name,
-                brands (name)
-              )
-            )
-          `)
-          .eq('sale_id', saleId);
-
-        if (itemsError) {
-          console.error('Error fetching sale items:', itemsError);
-          setError(`Error al cargar los productos: ${itemsError.message}`);
-          return;
-        }
-
-        console.log('Sale items:', saleItems);
-
-        // Procesar items con información de wholesale pricing
-        const itemsWithProducts = (saleItems || []).map((item: any) => {
-          const stockEntry = item.stock_entries;
-          const product = stockEntry?.products;
+        if (result.success) {
+          const sale = result.data;
           
-          // Determinar si se aplicó wholesale pricing
-          const isWholesale = item.quantity_sold >= 3 && 
-                             stockEntry?.sale_price_wholesale && 
-                             item.price_at_sale === stockEntry.sale_price_wholesale;
+          // Calculate totals if not present
+          const itemCount = sale.sale_items.reduce((sum: number, item: any) => sum + item.quantity_sold, 0);
+          const totalSavings = sale.sale_items.reduce((sum: number, item: any) => {
+            // Calculate savings if wholesale price was applied
+            if (item.is_wholesale && item.unit_price && item.wholesale_price) {
+              return sum + ((item.unit_price - item.wholesale_price) * item.quantity_sold);
+            }
+            return sum;
+          }, 0);
+
+          // Format dates
+          const dateObj = new Date(sale.created_at);
+          const formattedDate = formatDate(dateObj);
+          const formattedTime = formatTime(dateObj);
+
+          setSaleData({
+            ...sale,
+            formattedDate,
+            formattedTime,
+            itemCount,
+            totalSavings
+          });
           
-          // Calcular ahorro si se aplicó wholesale pricing
-          let savings = 0;
-          if (isWholesale && stockEntry?.sale_price_unit) {
-            savings = (stockEntry.sale_price_unit - stockEntry.sale_price_wholesale) * item.quantity_sold;
+          // Auto-print if requested via URL param and not in PDF mode
+          const urlParams = new URLSearchParams(window.location.search);
+          if (urlParams.get('autoprint') === 'true' && !isPDFFormat) {
+            // Small delay to ensure styles are loaded
+            setTimeout(() => {
+              printRef.current();
+            }, 1000);
           }
-
-          return {
-            ...item,
-            product_name: product?.name || 'Producto desconocido',
-            brand_name: product?.brands?.name || 'Sin marca',
-            barcode: stockEntry?.barcode || 'N/A',
-            is_wholesale: isWholesale,
-            unit_price: stockEntry?.sale_price_unit || 0,
-            wholesale_price: stockEntry?.sale_price_wholesale || null,
-            savings: savings
-          };
-        });
-
-        // Construir el objeto final
-        const fullSaleData = {
-          ...sale,
-          seller_email: profile?.email || 'Vendedor desconocido',
-          sale_items: itemsWithProducts
-        };
-
-        console.log('Full sale data:', fullSaleData);
-        setSaleData(fullSaleData);
+        } else {
+          setError(result.error?.message || 'Error al cargar la venta');
+        }
       } catch (err) {
-        console.error('Error:', err);
-        setError('Error al cargar el ticket');
+        setError('Error de conexión');
+        console.error(err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchSaleData();
-  }, [saleId, router]);
-
-  // Efecto para imprimir automáticamente
-  useEffect(() => {
-    if (saleData && !loading) {
-      const timer = setTimeout(() => {
-        window.print();
-      }, 500);
-      return () => clearTimeout(timer);
+    if (saleId) {
+      fetchSaleData();
     }
-  }, [saleData, loading]);
+  }, [saleId, isPDFFormat]);
+
+
+
+
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-          <p>Cargando ticket...</p>
-        </div>
-      </div>
-    );
+    return <div className="thermal-center" style={{ padding: '20px' }}>Cargando ticket...</div>;
   }
 
   if (error || !saleData) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">{error || 'Ticket no encontrado'}</p>
-          <button 
-            onClick={() => window.close()}
-            className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-          >
-            Cerrar Ventana
-          </button>
-        </div>
-      </div>
-    );
+    return <div className="thermal-center" style={{ color: 'red', padding: '20px' }}>{error || 'Venta no encontrada'}</div>;
   }
-  const saleDate = new Date(saleData.created_at);
-  const formattedDate = saleDate.toLocaleDateString('es-ES', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  });
-  const formattedTime = saleDate.toLocaleTimeString('es-ES', {
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+
+  const maxTextWidth = calculateOptimalTextWidth();
 
   return (
     <>
-      {/* Estilos específicos para impresión */}
-      <style jsx global>{`
-        @media print {
-          * {
-            margin: 0 !important;
-            padding: 0 !important;
-            box-shadow: none !important;
-            color: black !important;
-          }
-          
-          body {
-            font-family: monospace !important;
-            font-size: 12px !important;
-            line-height: 1.2 !important;
-            color: black !important;
-            background: white !important;
-          }
-          
-          .ticket {
-            width: 80mm !important;
-            max-width: 80mm !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-          
-          .no-print {
-            display: none !important;
-          }
-          
-          /* Forzar todo el texto a negro en impresión */
-          .ticket * {
-            color: black !important;
-            border-color: black !important;
-          }
-        }
+      {/* Inject thermal print styles */}
+      <ThermalPrintStyles />
+
+      <div className="thermal-ticket">
+        {/* Header Section */}
+        <div className="thermal-center">
+          <div className="thermal-header">MINIMARKET DON ALE</div>
+          <div className="thermal-section">Ticket de Venta</div>
+        </div>
         
-        @media screen {
-          body {
-            background-color: #f5f5f5;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-          }
-          
-          /* Asegurar que el texto sea negro en pantalla también */
-          .ticket {
-            color: black;
-          }
-          
-          .ticket * {
-            color: black !important;
-          }
-        }
-      `}</style>
+        <div className="thermal-separator"></div>
 
-
-
-      <div className="ticket bg-white" style={{ 
-        width: '80mm', 
-        maxWidth: '80mm',
-        fontFamily: 'monospace',
-        fontSize: '12px',
-        lineHeight: '1.2',
-        padding: '10px',
-        margin: '0 auto'
-      }}>
-        {/* Header del ticket */}
-        <div className="text-center mb-4">
-          <div className="font-bold text-lg">MINIMARKET</div>
-          <div className="text-sm">Ticket de Venta</div>
-          <div className="border-b border-dashed border-black my-2"></div>
-        </div>
-
-        {/* Información de la venta */}
-        <div className="mb-4 text-xs">
-          <div className="flex justify-between">
+        {/* Sale Information Section */}
+        <div className="thermal-body">
+          <div className="thermal-row">
             <span>Ticket #:</span>
-            <span className="font-mono">{saleData.id}</span>
+            <span className="thermal-wrap">
+              {saleData.ticket_number ? saleData.ticket_number.toString().padStart(10, '0') : truncateText(saleData.id, 8)}
+            </span>
           </div>
-          <div className="flex justify-between">
+          <div className="thermal-row">
             <span>Fecha:</span>
-            <span>{formattedDate}</span>
+            <span>{saleData.formattedDate}</span>
           </div>
-          <div className="flex justify-between">
+          <div className="thermal-row">
             <span>Hora:</span>
-            <span>{formattedTime}</span>
+            <span>{saleData.formattedTime}</span>
           </div>
-          <div className="flex justify-between">
+          <div className="thermal-row">
             <span>Vendedor:</span>
-            <span className="truncate ml-2">{saleData.seller_email || 'N/A'}</span>
+            <span className="thermal-wrap">{truncateText(saleData.seller_email, 25)}</span>
           </div>
+          {saleData.itemCount && (
+            <div className="thermal-row">
+              <span>Items:</span>
+              <span>{saleData.itemCount}</span>
+            </div>
+          )}
         </div>
 
-        <div className="border-b border-dashed border-black my-2"></div>
+        <div className="thermal-separator"></div>
 
-        {/* Items de la venta */}
-        <div className="mb-4">
-          <div className="text-xs font-bold mb-2">PRODUCTOS VENDIDOS:</div>
+        {/* Products Section */}
+        <div className="thermal-section thermal-center">PRODUCTOS VENDIDOS</div>
+        
+        {saleData.sale_items.map((item, index) => {
+          const wholesaleInfo = formatWholesaleInfo(item);
           
-          {saleData.sale_items.map((item: any, index: number) => (
-            <div key={item.id} className="mb-3 text-xs">
-              <div className="font-semibold">
-                {item.product_name || 'Producto desconocido'}
+          return (
+            <div key={item.id} className="thermal-product-item">
+              <div className="thermal-body thermal-bold thermal-wrap">
+                {formatProductName(item.product_name, maxTextWidth - 5)}
               </div>
-              <div className="text-black text-xs">
-                Marca: {item.brand_name || 'Sin marca'}
+
+              
+              <div className="thermal-price-row">
+                <span className="thermal-price-left">
+                  {item.quantity_sold} x {formatCurrency(item.price_at_sale)}
+                </span>
+                <span className="thermal-price-right thermal-bold">
+                  {formatCurrency(item.quantity_sold * item.price_at_sale)}
+                </span>
               </div>
-              <div className="text-black text-xs">
-                Código: {item.barcode || 'N/A'}
-              </div>
-              <div className="flex justify-between mt-1">
-                <span>{item.quantity_sold} x ${item.price_at_sale.toFixed(2)}</span>
-                <span className="font-bold">${(item.quantity_sold * item.price_at_sale).toFixed(2)}</span>
-              </div>
-              <div className="text-xs text-black">
-                Formato: {item.sale_format}
-                {item.is_wholesale && (
-                  <span className="ml-2 font-bold">🎉 MAYORISTA</span>
-                )}
-              </div>
-              {item.is_wholesale && item.savings > 0 && (
-                <div className="text-xs text-black font-semibold">
-                  Ahorro: ${item.savings.toFixed(2)}
+              
+
+              
+              {wholesaleInfo.showWholesale && (
+                <div className="thermal-small thermal-bold">
+                  Ahorro: {wholesaleInfo.savingsText}
                 </div>
               )}
+              
               {index < saleData.sale_items.length - 1 && (
-                <div className="border-b border-dotted border-black my-2"></div>
+                <div className="thermal-separator" style={{ margin: '2mm 0' }}></div>
               )}
             </div>
-          ))}
+          );
+        })}
+
+        <div className="thermal-separator"></div>
+        
+        <div className="thermal-separator"></div>
+        
+        {saleData.discount ? (
+          <>
+            <div className="thermal-row">
+              <span>Subtotal:</span>
+              <span>{formatCurrency(saleData.subtotal || (saleData.total_amount + saleData.discount.amount))}</span>
+            </div>
+            <div className="thermal-row">
+              <span>Descuento ({saleData.discount.type === 'amount' ? '$' : `${saleData.discount.value}%`}):</span>
+              <span>-{formatCurrency(saleData.discount.amount)}</span>
+            </div>
+            <div className="thermal-separator" style={{ margin: '2mm 0', borderTopStyle: 'dashed' }}></div>
+          </>
+        ) : null}
+
+        <div className="thermal-row thermal-section">
+          <span>TOTAL A PAGAR:</span>
+          <span className="thermal-bold">{formatCurrency(saleData.total_amount)}</span>
         </div>
 
-        <div className="border-b border-dashed border-black my-2"></div>
+        <div className="thermal-separator"></div>
 
-        {/* Total */}
-        <div className="mb-4">
-          <div className="flex justify-between text-sm font-bold">
-            <span>TOTAL:</span>
-            <span>${saleData.total_amount.toFixed(2)}</span>
-          </div>
-        </div>
-
-        <div className="border-b border-dashed border-black my-2"></div>
-
-        {/* Footer */}
-        <div className="text-center text-xs mt-4">
+        {/* Footer Section */}
+        <div className="thermal-center thermal-small">
           <div>¡Gracias por su compra!</div>
-          <div className="mt-2">
+          <div style={{ marginTop: '2mm' }}>
             Conserve este ticket como
           </div>
           <div>
             comprobante de su compra
           </div>
-          <div className="mt-3 text-xs">
-            Sistema de Minimarket
+          <div style={{ marginTop: '3mm' }} className="thermal-small">
+            Sistema MiniMarket Pro
           </div>
         </div>
 
-        {/* Botón para cerrar (solo visible en pantalla) */}
-        <div className="no-print text-center mt-6">
-          <button 
-            onClick={() => window.close()}
-            className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-          >
-            Cerrar Ventana
-          </button>
+        {/* Print Status and Controls (screen only) */}
+        <div className="no-print" style={{ textAlign: 'center', marginTop: '20px' }}>
+          {isPrinting && (
+            <div className="thermal-body" style={{ marginBottom: '10px' }}>
+              🖨️ Preparando impresión...
+            </div>
+          )}
+          {printError && (
+            <div className="thermal-body" style={{ color: 'red', marginBottom: '10px' }}>
+              ❌ Error: {printError}
+            </div>
+          )}
+          
+          {isPDFFormat ? (
+            /* Controles para formato PDF */
+            <>
+              <div className="thermal-small" style={{ marginBottom: '15px', padding: '10px', backgroundColor: '#e8f5e8', borderRadius: '4px' }}>
+                <strong>📄 Modo Guardar como PDF</strong>
+                <p style={{ marginTop: '5px', fontSize: '12px' }}>Usa Ctrl+P o Cmd+P para guardar este ticket como PDF</p>
+              </div>
+
+              <button 
+                onClick={() => window.print()}
+                style={{
+                  padding: '10px 20px',
+                  margin: '5px',
+                  backgroundColor: '#28a745',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 'bold'
+                }}
+              >
+                📄 Guardar como PDF
+              </button>
+              
+              <button 
+                onClick={() => window.close()}
+                style={{
+                  padding: '10px 20px',
+                  margin: '5px',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                ❌ Cerrar Ventana
+              </button>
+            </>
+          ) : (
+            /* Controles para impresión térmica normal */
+            <>
+              <div className="thermal-small" style={{ marginBottom: '15px', padding: '10px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
+                <strong>📋 Instrucciones para Impresora Térmica:</strong>
+                <ul style={{ textAlign: 'left', marginTop: '5px', fontSize: '11px' }}>
+                  <li>Asegúrate de que la impresora térmica esté encendida</li>
+                  <li>Selecciona tu impresora térmica en el diálogo</li>
+                  <li>Verifica que el tamaño de papel sea 80mm</li>
+                  <li>Si no imprime, revisa los drivers de la impresora</li>
+                </ul>
+              </div>
+
+              <button 
+                onClick={() => print()}
+                disabled={isPrinting}
+                style={{
+                  padding: '10px 20px',
+                  margin: '5px',
+                  backgroundColor: isPrinting ? '#6c757d' : '#28a745',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: isPrinting ? 'not-allowed' : 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 'bold'
+                }}
+              >
+                {isPrinting ? '🖨️ Imprimiendo...' : '🖨️ Imprimir Ticket'}
+              </button>
+
+              
+              <button 
+                onClick={() => window.close()}
+                style={{
+                  padding: '10px 20px',
+                  margin: '5px',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                ❌ Cerrar Ventana
+              </button>
+            </>
+          )}
         </div>
       </div>
     </>
   );
-} 
+}

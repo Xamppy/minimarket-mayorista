@@ -1,47 +1,74 @@
-import { createClient } from '../../utils/supabase/server';  
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import ReportsClient from './components/ReportsClient';
 import ReportsErrorBoundary from './components/ReportsErrorBoundary';
+import { getCurrentUser, isAuthenticated, logout } from '../../utils/auth/api';
 
-export default async function ReportsPage() {
-  const cookieStore = cookies();
-  const supabase = createClient(cookieStore);
+interface User {
+  id: string;
+  email: string;
+  role: string;
+}
 
-  // Verificar autenticación
-  const { data: { user } } = await supabase.auth.getUser();
+export default function ReportsPage() {
+  const [user, setUser] = useState<User | null>(null);
+  const [role, setRole] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const router = useRouter();
 
-  if (!user) {
-    redirect('/login');
-  }
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        // Verificar si hay token
+        const authenticated = await isAuthenticated();
+        if (!authenticated) {
+          router.push('/');
+          return;
+        }
 
-  // Obtener rol del usuario usando la función RPC
-  const { data: role, error } = await supabase.rpc('get_user_role', { user_id: user.id });
+        // Obtener datos del usuario
+        const userData = await getCurrentUser();
+        setUser(userData.user);
+        setRole(userData.user.role);
 
-  // Manejo de errores en la llamada RPC
-  if (error) {
-    console.error('Error al obtener rol del usuario:', error);
+        // Verificar si el rol es 'administrator'
+        if (userData.user.role !== 'administrator') {
+          setError('access_denied');
+          setLoading(false);
+          return;
+        }
+        
+      } catch (err) {
+        console.error('Error de autenticación:', err);
+        // Token inválido o expirado - limpiar estado y redirigir
+        setUser(null);
+        setRole('');
+        logout(router);
+        return;
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, [router]);
+
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">Error del Sistema</h1>
-          <p className="text-gray-700 mb-4">
-            No se pudo verificar tu rol de usuario. Por favor, contacta al administrador del sistema.
-          </p>
-          <p className="text-sm text-gray-500">
-            Usuario: <strong>{user.email}</strong>
-          </p>
-          <p className="text-sm text-red-500">
-            Error: {error.message || 'Error desconocido'}
-          </p>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Cargando reportes...</p>
         </div>
       </div>
     );
   }
 
-  // Verificar si el rol es 'administrador'
-  if (!role || role !== 'administrador') {
+  if (error === 'access_denied') {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6">
@@ -51,11 +78,23 @@ export default async function ReportsPage() {
             Solo los administradores pueden ver los reportes.
           </p>
           <p className="text-sm text-gray-500">
-            Usuario: <strong>{user.email}</strong>
+            Usuario: <strong>{user?.email || 'No disponible'}</strong>
           </p>
           <p className="text-sm text-gray-500">
             Rol actual: <strong>{role || 'Sin rol asignado'}</strong>
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Verificación adicional de seguridad
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Verificando autenticación...</p>
         </div>
       </div>
     );
@@ -70,7 +109,7 @@ export default async function ReportsPage() {
             <div>
               <h1 className="text-3xl font-bold text-gray-900">📊 Reportes de Ventas</h1>
               <p className="text-gray-600 mt-2">
-                Análisis y estadísticas del negocio - <strong>{user.email}</strong>
+                Análisis y estadísticas del negocio
               </p>
             </div>
             <div>
@@ -94,4 +133,4 @@ export default async function ReportsPage() {
       </div>
     </div>
   );
-} 
+}

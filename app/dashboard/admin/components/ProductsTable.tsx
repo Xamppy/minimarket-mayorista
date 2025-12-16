@@ -12,6 +12,8 @@ interface Product {
   type_name: string;
   image_url: string | null;
   total_stock: number;
+  min_stock?: number;
+  barcode?: string;
 }
 
 interface Brand {
@@ -41,10 +43,12 @@ export default function ProductsTable({
     isOpen: boolean;
     productId: string;
     productName: string;
+    productBarcode: string;
   }>({
     isOpen: false,
     productId: '',
-    productName: ''
+    productName: '',
+    productBarcode: ''
   });
 
   const [editModalState, setEditModalState] = useState<{
@@ -55,11 +59,12 @@ export default function ProductsTable({
     product: null
   });
 
-  const handleManageStock = (productId: string, productName: string) => {
+  const handleManageStock = (productId: string, productName: string, productBarcode: string) => {
     setStockModalState({
       isOpen: true,
       productId,
-      productName
+      productName,
+      productBarcode
     });
   };
 
@@ -74,7 +79,8 @@ export default function ProductsTable({
     setStockModalState({
       isOpen: false,
       productId: '',
-      productName: ''
+      productName: '',
+      productBarcode: ''
     });
   };
 
@@ -152,6 +158,7 @@ export default function ProductsTable({
         onClose={handleCloseStockModal}
         productId={stockModalState.productId}
         productName={stockModalState.productName}
+        productBarcode={stockModalState.productBarcode}
       />
 
       <EditProductModal

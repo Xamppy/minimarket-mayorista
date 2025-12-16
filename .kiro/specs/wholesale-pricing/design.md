@@ -2,7 +2,7 @@
 
 ## Overview
 
-This design document outlines the implementation of wholesale pricing functionality for the MiniMarket Pro inventory management system. The feature will extend the existing stock entry system to include wholesale pricing (precio mayorista) that automatically applies when customers purchase 3 or more units of a product. The design leverages the existing Next.js 15 App Router architecture, Supabase database, and established FIFO inventory management patterns.
+This design document outlines the implementation of wholesale pricing functionality for the MiniMarket Pro inventory management system. The feature will extend the existing stock entry system to include wholesale pricing (precio mayorista) that automatically applies when customers purchase 3 or more units of a product. The design leverages the existing Next.js 15 App Router architecture, PostgreSQL database, and established FIFO inventory management patterns.
 
 ## Architecture
 

@@ -1,10 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { formatAsCLP } from '@/lib/formatters';
-import { calculateUnifiedPricing } from '@/lib/unified-pricing-service';
+
 import { StockEntry } from '@/lib/cart-types';
-import WholesalePricingIndicator from './WholesalePricingIndicator';
+
+
+// Función para prevenir cambios de valor en inputs numéricos al hacer scroll
+const preventScrollChange = (e: WheelEvent) => {
+  const target = e.target as HTMLInputElement;
+  if (target.type === 'number' && document.activeElement === target) {
+    e.preventDefault();
+  }
+};
 
 interface Product {
   id: string;
@@ -19,14 +27,9 @@ interface CartItem {
   product: Product;
   stockEntryId: string;
   quantity: number;
-  saleFormat: 'unitario' | 'caja' | 'display' | 'pallet';
+  saleFormat: 'unitario' | 'display' | 'pallet';
   unitPrice: number;
-  boxPrice?: number;
-  wholesalePrice?: number;
-  appliedPrice: number;
-  appliedPriceType: 'unit' | 'box' | 'wholesale';
   totalPrice: number;
-  savings?: number;
 }
 
 interface ScannedItem {
@@ -34,31 +37,31 @@ interface ScannedItem {
   stockEntry: {
     id: string;
     sale_price_unit: number;
-    sale_price_box: number;
-    sale_price_wholesale?: number;
+  
     current_quantity: number;
     expiration_date?: string | null;
     barcode?: string;
     purchase_price?: number;
   };
+  stockEntries?: any[]; // Array completo de lotes disponibles
 }
 
 interface SaleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  mode: 'add-to-cart-from-scan' | 'finalize-sale';
+  mode: 'add-to-cart-from-scan' | 'finalize-sale' | 'direct-sale-from-scan';
   // Para modo add-to-cart-from-scan
   scannedItem?: ScannedItem;
   onItemAddedToCart?: (item: {
     product: Product;
     stockEntryId: string;
     quantity: number;
-    saleFormat: 'unitario' | 'caja';
+    saleFormat: 'unitario';
     price: number;
   }) => void;
   // Para modo finalize-sale  
   cartItems?: CartItem[];
-  onSaleCompleted?: () => void;
+  onSaleCompleted?: (saleData?: { productIds?: string[] }) => void;
 }
 
 export default function SaleModal({ 
@@ -71,67 +74,109 @@ export default function SaleModal({
   onSaleCompleted 
 }: SaleModalProps) {
   const [quantity, setQuantity] = useState(1);
-  const [saleFormat, setSaleFormat] = useState<'unitario' | 'caja'>('unitario');
+  const [saleFormat, setSaleFormat] = useState<'unitario'>('unitario');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [saleSuccess, setSaleSuccess] = useState<{ success: boolean; saleId?: string }>({ success: false });
+  const [saleSuccess, setSaleSuccess] = useState<{ success: boolean; saleId?: string; ticketUrl?: string; totalAmount?: number }>({ success: false });
+  const [isButtonPressed, setIsButtonPressed] = useState(false);
+  
+  // Estado para el lote seleccionado manualmente
+  const [selectedStockEntry, setSelectedStockEntry] = useState<any | null>(null);
 
   // Determinar modo de operación
   const isAddToCartMode = mode === 'add-to-cart-from-scan';
   const isFinalizeSaleMode = mode === 'finalize-sale';
+  const isDirectSaleMode = mode === 'direct-sale-from-scan';
+
+  const resetForm = () => {
+    setQuantity(1);
+    setSaleFormat('unitario');
+    setError('');
+    setSaleSuccess({ success: false });
+    setIsButtonPressed(false); // Resetear estado de botones
+  };
+
+  useEffect(() => {
+    // Agregar event listener para prevenir cambios de scroll en inputs numéricos
+    document.addEventListener('wheel', preventScrollChange, { passive: false });
+
+    // Cleanup function para remover el event listener
+    return () => {
+      document.removeEventListener('wheel', preventScrollChange);
+    };
+  }, []);
+
+  // Resetear formulario cuando el modal se abre
+  useEffect(() => {
+    if (isOpen) {
+      resetForm();
+      // Resetear al lote prioritario (FEFO) cuando se abre el modal
+      setSelectedStockEntry(scannedItem?.stockEntry || null);
+    }
+  }, [isOpen, scannedItem]);
+
+  // Debug: Monitorear cambios en quantity y estados de botones
+  useEffect(() => {
+    console.log('Debug - Estados:', {
+      quantity,
+      loading,
+      stock: scannedItem?.stockEntry.current_quantity,
+      isButtonPressed,
+      decreaseDisabled: loading || quantity <= 1 || isButtonPressed,
+      increaseDisabled: loading || quantity >= (scannedItem?.stockEntry.current_quantity || 0) || isButtonPressed
+    });
+  }, [quantity, loading, scannedItem?.stockEntry.current_quantity, isButtonPressed]);
+
+  // Funciones optimizadas para manejar clics de botones
+  const handleDecreaseQuantity = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (isButtonPressed || loading || quantity <= 1) return;
+    
+    setIsButtonPressed(true);
+    console.log('Botón disminuir clickeado, quantity actual:', quantity);
+    setQuantity(prev => {
+      const newQuantity = prev > 1 ? prev - 1 : 1;
+      console.log('Nueva quantity después de disminuir:', newQuantity);
+      return newQuantity;
+    });
+    
+    // Reducir tiempo de bloqueo
+    setTimeout(() => setIsButtonPressed(false), 100);
+  }, [isButtonPressed, loading, quantity]);
+
+  const handleIncreaseQuantity = useCallback((e: React.MouseEvent) => {
+     e.preventDefault();
+     e.stopPropagation();
+     
+     const maxQuantity = scannedItem?.stockEntry.current_quantity || 0;
+     if (isButtonPressed || loading || quantity >= maxQuantity) return;
+    
+    setIsButtonPressed(true);
+    console.log('Botón aumentar clickeado, quantity actual:', quantity);
+    setQuantity(prev => {
+      const newQuantity = prev < maxQuantity ? prev + 1 : prev;
+      console.log('Nueva quantity después de aumentar:', newQuantity);
+      return newQuantity;
+    });
+    
+    // Reducir tiempo de bloqueo
+    setTimeout(() => setIsButtonPressed(false), 100);
+  }, [isButtonPressed, loading, quantity, scannedItem?.stockEntry.current_quantity]);
 
   if (!isOpen) return null;
 
   const getPrice = () => {
     if (!isAddToCartMode || !scannedItem) return 0;
     
-    // Crear stock entry para el cálculo unificado
-    const stockEntry: StockEntry = {
-      id: scannedItem.stockEntry.id,
-      product_id: scannedItem.product.id,
-      barcode: '',
-      current_quantity: scannedItem.stockEntry.current_quantity,
-      initial_quantity: scannedItem.stockEntry.current_quantity,
-      expiration_date: null,
-      created_at: new Date().toISOString(),
-      purchase_price: 0,
-      sale_price_unit: scannedItem.stockEntry.sale_price_unit,
-      sale_price_box: scannedItem.stockEntry.sale_price_box,
-      sale_price_wholesale: scannedItem.stockEntry.sale_price_wholesale || null
-    };
+    // Usar el lote seleccionado o el lote por defecto
+    const activeStockEntry = selectedStockEntry || scannedItem.stockEntry;
     
-    const pricingInfo = calculateUnifiedPricing(stockEntry, quantity, saleFormat);
-    return pricingInfo.appliedPrice;
+    return activeStockEntry.sale_price_unit;
   };
 
-  const getPricingInfo = () => {
-    if (!isAddToCartMode || !scannedItem) return null;
-    
-    // Crear stock entry para el cálculo unificado
-    const stockEntry: StockEntry = {
-      id: scannedItem.stockEntry.id,
-      product_id: scannedItem.product.id,
-      barcode: '',
-      current_quantity: scannedItem.stockEntry.current_quantity,
-      initial_quantity: scannedItem.stockEntry.current_quantity,
-      expiration_date: null,
-      created_at: new Date().toISOString(),
-      purchase_price: 0,
-      sale_price_unit: scannedItem.stockEntry.sale_price_unit,
-      sale_price_box: scannedItem.stockEntry.sale_price_box,
-      sale_price_wholesale: scannedItem.stockEntry.sale_price_wholesale || null
-    };
-    
-    const pricingInfo = calculateUnifiedPricing(stockEntry, quantity, saleFormat);
-    
-    // Convertir a formato compatible con la UI existente
-    return {
-      applicablePrice: pricingInfo.appliedPrice,
-      priceType: pricingInfo.priceType,
-      totalPrice: pricingInfo.totalPrice,
-      savings: pricingInfo.savings
-    };
-  };
+  /* getPricingInfo removido ya que no se usa unified pricing */
 
   const getTotalAmount = () => {
     if (isFinalizeSaleMode) {
@@ -157,6 +202,8 @@ export default function SaleModal({
         await handleAddToCart();
       } else if (isFinalizeSaleMode) {
         await handleFinalizeSale();
+      } else if (isDirectSaleMode) {
+        await handleDirectSaleFromScan();
       } else {
         throw new Error('Modo de operación no válido');
       }
@@ -173,24 +220,27 @@ export default function SaleModal({
       throw new Error('Información del producto no disponible');
     }
 
+    // Usar el lote seleccionado o el lote por defecto
+    const activeStockEntry = selectedStockEntry || scannedItem.stockEntry;
+
     // Validaciones
     if (quantity <= 0) {
       setError('La cantidad debe ser mayor a 0');
       return;
     }
 
-    if (quantity > scannedItem.stockEntry.current_quantity) {
-      setError(`Stock insuficiente. Solo hay ${scannedItem.stockEntry.current_quantity} unidades disponibles.`);
+    if (quantity > activeStockEntry.current_quantity) {
+      setError(`Stock insuficiente. Solo hay ${activeStockEntry.current_quantity} unidades disponibles.`);
       return;
     }
 
-    // Llamar al callback para añadir al carrito
+    // Llamar al callback para añadir al carrito con el lote seleccionado
     onItemAddedToCart({
       product: scannedItem.product,
-      stockEntryId: scannedItem.stockEntry.id,
+      stockEntryId: activeStockEntry.id,
       quantity,
       saleFormat,
-      price: getPrice()
+      price: getPrice(),
     });
 
     // Cerrar modal y resetear
@@ -198,46 +248,97 @@ export default function SaleModal({
     onClose();
   };
 
+  const handleDirectSaleFromScan = async () => {
+    if (!scannedItem) {
+      throw new Error('No hay producto escaneado para procesar');
+    }
+
+    // Validaciones
+    if (quantity <= 0) {
+      throw new Error('La cantidad debe ser mayor a 0');
+    }
+
+    if (quantity > scannedItem.stockEntry.current_quantity) {
+      throw new Error(`Stock insuficiente. Solo hay ${scannedItem.stockEntry.current_quantity} unidades disponibles.`);
+    }
+
+    // Convertir el producto escaneado al formato esperado por la API del carrito
+    const cartItemsForAPI = [{
+      productId: scannedItem.product.id,
+      stockEntryId: scannedItem.stockEntry.id,
+      quantity: quantity,
+      saleFormat: saleFormat,
+      specificPrice: getPrice()
+    }];
+
+    // Procesar la venta usando el mismo sistema del carrito
+    const response = await fetch('/api/sales/cart', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ cartItems: cartItemsForAPI }),
+      credentials: 'include', // Incluir cookies de autenticación
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error?.message || 'Error al procesar la venta del producto escaneado');
+    }
+
+    if (result.success) {
+      setSaleSuccess({ 
+        success: true, 
+        saleId: result.data?.saleId,
+        ticketUrl: result.data?.ticketUrl,
+        totalAmount: result.data?.totalAmount
+      });
+    } else {
+      throw new Error(result.error?.message || 'Error procesando la venta');
+    }
+  };
+
   const handleFinalizeSale = async () => {
     if (cartItems.length === 0) {
       throw new Error('No hay productos en el carrito');
     }
 
-    // Crear múltiples ventas para cada item del carrito
-    const salePromises = cartItems.map(async (item) => {
-      const formData = new FormData();
-      formData.append('productId', item.product.id);
-      formData.append('stockEntryId', item.stockEntryId);
-      formData.append('quantity', item.quantity.toString());
-      formData.append('saleFormat', 'unitario');
-      formData.append('price', item.appliedPrice.toString());
+    // Convertir items del carrito al formato esperado por la nueva API
+    const cartItemsForAPI = cartItems.map(item => ({
+      productId: item.product.id,
+      stockEntryId: item.stockEntryId,
+      quantity: item.quantity,
+      saleFormat: item.saleFormat,
+      specificPrice: item.unitPrice
+    }));
 
-      const response = await fetch('/api/sales', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || `Error al procesar la venta de ${item.product.name}`);
-      }
-
-      return result;
+    // Procesar toda la venta como un carrito usando el sistema reutilizable
+    const response = await fetch('/api/sales/cart', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ cartItems: cartItemsForAPI }),
+      credentials: 'include', // Incluir cookies de autenticación
     });
 
-    const results = await Promise.all(salePromises);
-    
-    // Tomar el ID de la primera venta para el ticket
-    const firstSaleId = results[0]?.saleId;
-    setSaleSuccess({ success: true, saleId: firstSaleId });
-  };
+    const result = await response.json();
 
-  const resetForm = () => {
-    setQuantity(1);
-    setSaleFormat('unitario');
-    setError('');
-    setSaleSuccess({ success: false });
+    if (!response.ok) {
+      throw new Error(result.error?.message || 'Error al procesar la venta del carrito');
+    }
+
+    if (result.success) {
+      setSaleSuccess({ 
+        success: true, 
+        saleId: result.data?.saleId,
+        ticketUrl: result.data?.ticketUrl,
+        totalAmount: result.data?.totalAmount
+      });
+    } else {
+      throw new Error(result.error?.message || 'Error procesando la venta');
+    }
   };
 
   const handleClose = () => {
@@ -256,18 +357,30 @@ export default function SaleModal({
 
   const handleCompleteSale = () => {
     if (onSaleCompleted) {
-      onSaleCompleted();
+      // Extraer IDs únicos de productos vendidos
+      const productIds = [...new Set(cartItems.map(item => item.product.id))];
+      onSaleCompleted({ productIds });
     }
     onClose();
     resetForm();
   };
 
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      handleClose();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" 
+      style={{ pointerEvents: 'auto' }}
+      onClick={handleBackdropClick}
+    >
+      <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto" style={{ pointerEvents: 'auto' }}>
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-black">
-            {isAddToCartMode ? 'Añadir al Carrito' : 'Finalizar Venta'}
+            {isAddToCartMode ? 'Añadir al Carrito' : isDirectSaleMode ? 'Confirmar Venta' : 'Finalizar Venta'}
           </h2>
           <button
             onClick={handleClose}
@@ -355,6 +468,44 @@ export default function SaleModal({
                   )}
                 </div>
               </div>
+                {/* Lot Selection Dropdown - Solo si hay múltiples lotes disponibles */}
+              {scannedItem.stockEntries && scannedItem.stockEntries.length > 1 && (
+                <div className="mt-3">
+                  <label htmlFor="lotSelect" className="block text-sm font-medium text-gray-700 mb-1">
+                    🔄 Seleccionar Lote Alternativo
+                  </label>
+                  <select
+                    id="lotSelect"
+                    value={selectedStockEntry?.id || scannedItem.stockEntry.id}
+                    onChange={(e) => {
+                      const selected = scannedItem.stockEntries!.find(lot => lot.id === e.target.value);
+                      if (selected) {
+                        setSelectedStockEntry(selected);
+                        // Resetear cantidad si excede el nuevo stock
+                        if (quantity > selected.current_quantity) {
+                          setQuantity(selected.current_quantity);
+                        }
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black bg-white text-sm"
+                  >
+                    {scannedItem.stockEntries.map((lot: any, index) => {
+                      const expirationText = lot.expiration_date 
+                        ? `Vence: ${new Date(lot.expiration_date).toLocaleDateString('es-CL')}` 
+                        : 'Sin vencimiento';
+                      const priceText = formatAsCLP(lot.sale_price_unit);
+                      return (
+                        <option key={lot.id} value={lot.id}>
+                          {index === 0 ? '⭐ ' : ''}{expirationText} - Stock: {lot.current_quantity} - {priceText}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    El lote marcado con ⭐ vence primero (FEFO)
+                  </p>
+                </div>
+              )}
 
               {/* Expiration Warning */}
               {scannedItem.stockEntry.expiration_date && (() => {
@@ -407,27 +558,10 @@ export default function SaleModal({
                 <p className="text-black text-sm">
                   Precio unitario: <span className="font-medium text-green-600">{formatAsCLP(scannedItem.stockEntry.sale_price_unit)}</span>
                 </p>
-                {scannedItem.stockEntry.sale_price_wholesale && (
-                  <p className="text-black text-sm">
-                    Precio mayorista: <span className="font-medium text-purple-600">{formatAsCLP(scannedItem.stockEntry.sale_price_wholesale)}</span>
-                    <span className="text-xs text-gray-500 ml-1">(3+ unidades)</span>
-                  </p>
-                )}
+
               </div>
 
-              {/* Wholesale Pricing Indicator */}
-              {scannedItem.stockEntry.sale_price_wholesale && (
-                <div className="mt-3">
-                  <WholesalePricingIndicator
-                    unitPrice={scannedItem.stockEntry.sale_price_unit}
-                    wholesalePrice={scannedItem.stockEntry.sale_price_wholesale}
-                    currentQuantity={quantity}
-                    wholesaleThreshold={3}
-                    size="medium"
-                    showSavings={true}
-                  />
-                </div>
-              )}
+
             </div>
           ) : isFinalizeSaleMode ? (
             /* Resumen del carrito */
@@ -443,15 +577,15 @@ export default function SaleModal({
                       <span className="text-gray-600 block">{item.product.brand_name}</span>
                     </div>
                     <div className="text-right">
-                      <span className="text-black">{item.quantity}x {formatAsCLP(item.appliedPrice)}</span>
-                      <div className="font-medium text-black">{formatAsCLP(item.totalPrice)}</div>
+                      <span className="text-black">{item.quantity}x <span style={{color: '#000000'}}>{formatAsCLP(item.unitPrice)}</span></span>
+                      <div className="font-medium text-black" style={{color: '#000000'}}>{formatAsCLP(item.totalPrice)}</div>
                     </div>
                   </div>
                 ))}
               </div>
               <div className="border-t border-gray-300 mt-3 pt-3 flex justify-between items-center">
                 <span className="font-semibold text-black">Total ({getTotalItems()} items):</span>
-                <span className="font-bold text-lg text-black">{formatAsCLP(getTotalAmount())}</span>
+                <span className="font-bold text-lg text-black" style={{color: '#000000'}}>{formatAsCLP(getTotalAmount())}</span>
               </div>
             </div>
           ) : (
@@ -515,24 +649,28 @@ export default function SaleModal({
                   <label htmlFor="quantity" className="block text-sm font-medium text-black mb-1">
                     Cantidad *
                   </label>
-                  <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-3" style={{ pointerEvents: 'auto', position: 'relative', zIndex: 20 }}>
                     {/* Botón de disminuir */}
                     <button
                       type="button"
-                      onClick={() => {
-                        if (quantity > 1) {
-                          setQuantity(quantity - 1);
-                        }
+                      onClick={handleDecreaseQuantity}
+                      onMouseEnter={() => console.log('Mouse enter en botón disminuir, disabled:', loading || quantity <= 1)}
+                      disabled={loading || quantity <= 1 || isButtonPressed}
+                      className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white hover:bg-blue-600 disabled:opacity-50 disabled:bg-gray-400 transition-colors shadow-md"
+                      style={{ 
+                        pointerEvents: 'auto', 
+                        position: 'relative', 
+                        zIndex: 30, 
+                        cursor: (loading || quantity <= 1 || isButtonPressed) ? 'not-allowed' : 'pointer',
+                        userSelect: 'none'
                       }}
-                      disabled={loading || quantity <= 1}
-                      className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
                       </svg>
                     </button>
 
-                    {/* Input de cantidad */}
+                    {/* Input de cantidad - optimizado para móviles */}
                     <input
                       type="number"
                       id="quantity"
@@ -552,23 +690,32 @@ export default function SaleModal({
                       max={scannedItem?.stockEntry.current_quantity || 1}
                       required
                       disabled={loading}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500 text-black text-center"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500 text-black text-center no-spinner"
                       placeholder="1"
+                      style={{
+                        /* Eliminar iconos nativos de incremento/decremento en móviles */
+                        WebkitAppearance: 'none',
+                        MozAppearance: 'textfield'
+                      }}
+                      onWheel={(e) => e.currentTarget.blur()} // Prevenir cambios con scroll
                     />
 
                     {/* Botón de aumentar */}
                     <button
                       type="button"
-                      onClick={() => {
-                        const maxQuantity = scannedItem?.stockEntry.current_quantity || 1;
-                        if (quantity < maxQuantity) {
-                          setQuantity(quantity + 1);
-                        }
+                      onClick={handleIncreaseQuantity}
+                      onMouseEnter={() => console.log('Mouse enter en botón aumentar, disabled:', loading || quantity >= (scannedItem?.stockEntry.current_quantity || 0))}
+                      disabled={loading || quantity >= (scannedItem?.stockEntry.current_quantity || 0) || isButtonPressed}
+                      className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white hover:bg-blue-600 disabled:opacity-50 disabled:bg-gray-400 transition-colors shadow-md"
+                      style={{ 
+                        pointerEvents: 'auto', 
+                        position: 'relative', 
+                        zIndex: 30, 
+                        cursor: (loading || quantity >= (scannedItem?.stockEntry.current_quantity || 0) || isButtonPressed) ? 'not-allowed' : 'pointer',
+                        userSelect: 'none'
                       }}
-                      disabled={loading || quantity >= (scannedItem?.stockEntry.current_quantity || 1)}
-                      className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                       </svg>
                     </button>
@@ -590,44 +737,30 @@ export default function SaleModal({
                   <select
                     id="saleFormat"
                     value={saleFormat}
-                    onChange={(e) => setSaleFormat(e.target.value as 'unitario' | 'caja')}
+                    onChange={(e) => setSaleFormat(e.target.value as 'unitario')}
                     required
                     disabled={loading}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500 text-black"
                   >
                     <option value="unitario">Unitario - {scannedItem && formatAsCLP(scannedItem.stockEntry.sale_price_unit)}</option>
-                    <option value="caja">Caja - {scannedItem && formatAsCLP(scannedItem.stockEntry.sale_price_box)}</option>
                   </select>
                 </div>
 
                 {/* Total para modo add-to-cart con información de wholesale pricing */}
                 <div className="p-3 bg-blue-50 rounded-md">
                   {(() => {
-                    const pricingInfo = getPricingInfo();
+                    const price = getPrice();
+                    const total = price * quantity;
                     return (
                       <div className="space-y-2">
                         <div className="flex justify-between items-center">
                           <span className="font-medium text-black">Subtotal:</span>
-                          <span className="font-bold text-lg text-black">{formatAsCLP(getTotalAmount())}</span>
+                          <span className="font-bold text-lg text-black">{formatAsCLP(total)}</span>
                         </div>
                         
-                        {pricingInfo && pricingInfo.priceType === 'wholesale' && pricingInfo.savings > 0 && (
-                          <div className="flex justify-between items-center text-sm">
-                            <span className="text-purple-600 font-medium">
-                              🎉 Precio Mayorista Aplicado
-                            </span>
-                            <span className="text-green-600 font-medium">
-                              Ahorro: {formatAsCLP(pricingInfo.savings)}
-                            </span>
-                          </div>
-                        )}
-                        
-                        {pricingInfo && saleFormat === 'unitario' && (
+                        {saleFormat === 'unitario' && (
                           <div className="text-xs text-gray-600">
-                            Precio por unidad: {formatAsCLP(pricingInfo.applicablePrice)}
-                            {pricingInfo.priceType === 'wholesale' && (
-                              <span className="text-purple-600 ml-1">(mayorista)</span>
-                            )}
+                            Precio por unidad: <span style={{color: '#000000'}}>{formatAsCLP(price)}</span>
                           </div>
                         )}
                       </div>
@@ -656,10 +789,10 @@ export default function SaleModal({
               </button>
               <button
                 type="submit"
-                disabled={loading || (isAddToCartMode && (quantity <= 0 || (scannedItem && quantity > scannedItem.stockEntry.current_quantity)))}
+                disabled={loading || ((isAddToCartMode || isDirectSaleMode) && (quantity <= 0 || (scannedItem && quantity > scannedItem.stockEntry.current_quantity)))}
                 className="flex-1 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'Procesando...' : (isAddToCartMode ? 'Añadir al Carrito' : 'Confirmar Venta')}
+                {loading ? 'Procesando...' : (isAddToCartMode ? 'Añadir al Carrito' : isDirectSaleMode ? 'Confirmar Venta' : 'Finalizar Venta')}
               </button>
             </div>
           </form>
@@ -671,4 +804,4 @@ export default function SaleModal({
       </div>
     </div>
   );
-} 
+}

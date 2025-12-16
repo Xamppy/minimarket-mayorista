@@ -1,129 +1,128 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/app/utils/supabase/server';
-import { cookies } from 'next/headers';
+import { Client } from 'pg';
+import { withVendedorAuth } from '../../../utils/auth/middleware';
+
+const dbConfig = {
+  host: process.env.POSTGRES_HOST,
+  port: parseInt(process.env.POSTGRES_PORT || '5432'),
+  database: process.env.POSTGRES_DB,
+  user: process.env.POSTGRES_USER,
+  password: process.env.POSTGRES_PASSWORD,
+  ssl: process.env.POSTGRES_SSL === 'true'
+};
 
 export async function GET(request: NextRequest) {
-  try {
-    const cookieStore = cookies();
-    const supabase = createClient(cookieStore);
-    
-    // Verificar autenticación
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-    }
+  return withVendedorAuth(request, async (req, user) => {
+    try {
+      const { searchParams } = req.nextUrl;
+      const rawBarcode = searchParams.get('barcode');
 
-    const { searchParams } = request.nextUrl;
-    const barcode = searchParams.get('barcode');
+      if (!rawBarcode) {
+        return NextResponse.json(
+          { error: 'Código de barras es requerido' },
+          { status: 400 }
+        );
+      }
 
-    if (!barcode) {
-      return NextResponse.json({ error: 'Código de barras es requerido' }, { status: 400 });
-    }
+      // Limpieza como solicitó el usuario: .trim()
+      // Mantengo la sanitización extra por robustez
+      const barcode = rawBarcode.trim();
 
-    // Buscar en stock_entries por código de barras y obtener información del producto
-    // Implementar FIFO: seleccionar el stock entry con fecha de vencimiento más próxima
-    const { data: stockEntries, error: stockError } = await supabase
-      .from('stock_entries')
-      .select(`
-        id,
-        product_id,
-        current_quantity,
-        barcode,
-        sale_price_unit,
-        sale_price_box,
-        sale_price_wholesale,
-        purchase_price,
-        expiration_date,
-        created_at,
-        products (
-          id,
-          name,
-          image_url,
-          brands (
-            name
-          ),
-          product_types (
-            name
-          )
-        )
-      `)
-      .eq('barcode', barcode.trim())
-      .gt('current_quantity', 0) // Solo productos con stock disponible
-      .order('expiration_date', { ascending: true, nullsFirst: false })
-      .order('created_at', { ascending: true });
+      const client = new Client(dbConfig);
+      await client.connect();
 
-    if (stockError) {
-      // Si no se encuentra, devolver null en lugar de error
-      if (stockError.code === 'PGRST116') {
-        return NextResponse.json({ 
-          product: null, 
-          message: 'No se encontró producto con ese código de barras o sin stock disponible' 
+      try {
+        // Paso 1: Buscar el producto por código de barras
+        const productQuery = `
+          SELECT 
+            p.id, 
+            p.name, 
+            p.barcode, 
+            p.image_url,
+            p.brand_name,
+            pt.name as type_name
+          FROM products p
+          LEFT JOIN product_types pt ON p.product_type_id = pt.id
+          WHERE p.barcode = $1
+        `;
+
+        const productResult = await client.query(productQuery, [barcode]);
+
+        if (productResult.rows.length === 0) {
+          return NextResponse.json(
+            { error: 'Producto no encontrado' }, 
+            { status: 404 }
+          );
+        }
+
+        const productData = productResult.rows[0];
+
+        // Paso 2: Obtener todos los stock entries con lógica FEFO
+        const stockEntriesQuery = `
+          SELECT 
+            id,
+            product_id,
+            current_quantity,
+            initial_quantity,
+            sale_price_unit,
+            sale_price_wholesale,
+            purchase_price,
+            barcode,
+            expiration_date,
+            entry_date
+          FROM stock_entries
+          WHERE product_id = $1 AND current_quantity > 0
+          ORDER BY 
+            CASE WHEN expiration_date IS NULL THEN 1 ELSE 0 END,
+            expiration_date ASC, 
+            entry_date ASC
+        `;
+
+        const stockEntriesResult = await client.query(stockEntriesQuery, [productData.id]);
+        const stockEntries = stockEntriesResult.rows;
+
+        // Calcular stock total
+        const totalStock = stockEntries.reduce((sum, entry) => sum + entry.current_quantity, 0);
+
+        // Estructura de respuesta del producto
+        const product = {
+          id: productData.id,
+          name: productData.name,
+          brand_name: productData.brand_name || 'Sin marca',
+          type_name: productData.type_name || 'Sin tipo',
+          total_stock: totalStock,
+          image_url: productData.image_url
+        };
+
+        // DEPRECATED: Mantener compatibilidad con código anterior
+        const stockEntry = stockEntries.length > 0 ? {
+          id: stockEntries[0].id,
+          sale_price_unit: stockEntries[0].sale_price_unit,
+          sale_price_wholesale: stockEntries[0].sale_price_wholesale,
+          current_quantity: stockEntries[0].current_quantity,
+          purchase_price: stockEntries[0].purchase_price,
+          barcode: stockEntries[0].barcode,
+          expiration_date: stockEntries[0].expiration_date
+        } : null;
+
+        return NextResponse.json({
+          success: true,
+          product,
+          stockEntries, // NUEVO: Array completo con lógica FEFO
+          stockEntry, // DEPRECATED: Mantener para compatibilidad
+          message: totalStock > 0 ? 'Producto encontrado' : 'Producto sin stock'
         });
+
+      } finally {
+        await client.end();
       }
-      
-      console.error('Error searching by barcode:', stockError);
-      return NextResponse.json({ error: 'Error al buscar producto' }, { status: 500 });
+
+    } catch (error) {
+      console.error('Error in by-barcode API:', error);
+      return NextResponse.json(
+        { error: 'Error interno del servidor' },
+        { status: 500 }
+      );
     }
-
-    if (!stockEntries || stockEntries.length === 0) {
-      return NextResponse.json({ 
-        product: null, 
-        message: 'No se encontró producto con ese código de barras' 
-      });
-    }
-
-    // Seleccionar el primer stock entry (FIFO - más próximo a vencer o más antiguo)
-    const stockEntry = stockEntries[0];
-
-    if (!stockEntry || !stockEntry.products) {
-      return NextResponse.json({ 
-        product: null, 
-        message: 'No se encontró producto con ese código de barras' 
-      });
-    }
-
-    // Obtener el stock total del producto usando la función RPC
-    const { data: totalStockData, error: totalStockError } = await supabase
-      .rpc('get_products_with_stock');
-
-    let totalStock = stockEntry.current_quantity;
-    
-    if (!totalStockError && totalStockData) {
-      const productWithStock = totalStockData.find((p: any) => p.id === stockEntry.product_id);
-      if (productWithStock) {
-        totalStock = productWithStock.total_stock;
-      }
-    }
-
-    // Construir el objeto producto
-    const productData = stockEntry.products as any;
-    const product = {
-      id: productData.id,
-      name: productData.name,
-      brand_name: productData.brands?.name || 'Sin marca',
-      type_name: productData.product_types?.name || 'Sin tipo',
-      total_stock: totalStock,
-      image_url: productData.image_url
-    };
-
-    return NextResponse.json({ 
-      product,
-      stockEntry: {
-        id: stockEntry.id,
-        sale_price_unit: stockEntry.sale_price_unit,
-        sale_price_box: stockEntry.sale_price_box,
-        sale_price_wholesale: stockEntry.sale_price_wholesale,
-        current_quantity: stockEntry.current_quantity,
-        purchase_price: stockEntry.purchase_price,
-        expiration_date: stockEntry.expiration_date,
-        barcode: stockEntry.barcode
-      },
-      message: 'Producto encontrado exitosamente'
-    });
-
-  } catch (error) {
-    console.error('Error in by-barcode API:', error);
-    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
-  }
-} 
+  });
+}

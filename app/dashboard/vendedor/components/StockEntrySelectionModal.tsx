@@ -2,14 +2,23 @@
 
 import { useState, useEffect } from 'react';
 import { formatAsCLP } from '@/lib/formatters';
-import { calculateUnifiedPricing, getWholesalePricingInfo, validateQuantity } from '@/lib/unified-pricing-service';
+import { calculateUnifiedPricing, validateQuantity } from '@/lib/unified-pricing-service';
 import { Product, StockEntry } from '@/lib/cart-types';
+import { authenticatedFetch } from '../../../utils/auth/api';
+
+// Función para prevenir cambios de valor en inputs numéricos al hacer scroll
+const preventScrollChange = (e: WheelEvent) => {
+  const target = e.target as HTMLInputElement;
+  if (target.type === 'number' && document.activeElement === target) {
+    e.preventDefault();
+  }
+};
 
 interface StockEntrySelectionModalProps {
   isOpen: boolean;
   onClose: () => void;
   product: Product;
-  onStockEntrySelected: (stockEntry: StockEntry, quantity: number, saleFormat: 'unitario' | 'caja') => void;
+  onStockEntrySelected: (stockEntry: StockEntry, quantity: number, saleFormat: 'unitario') => void;
 }
 
 export default function StockEntrySelectionModal({
@@ -21,15 +30,23 @@ export default function StockEntrySelectionModal({
   const [stockEntries, setStockEntries] = useState<StockEntry[]>([]);
   const [selectedStockEntry, setSelectedStockEntry] = useState<StockEntry | null>(null);
   const [quantity, setQuantity] = useState(1);
-  const [saleFormat, setSaleFormat] = useState<'unitario' | 'caja'>('unitario');
+  const [saleFormat, setSaleFormat] = useState<'unitario'>('unitario');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   // Fetch stock entries when modal opens
   useEffect(() => {
+    // Agregar event listener para prevenir cambios de scroll en inputs numéricos
+    document.addEventListener('wheel', preventScrollChange, { passive: false });
+
     if (isOpen && product.id) {
       fetchStockEntries();
     }
+
+    // Cleanup function para remover el event listener
+    return () => {
+      document.removeEventListener('wheel', preventScrollChange);
+    };
   }, [isOpen, product.id]);
 
   const fetchStockEntries = async () => {
@@ -38,14 +55,16 @@ export default function StockEntrySelectionModal({
       setError('');
       
       console.log('Fetching stock entries for product:', product.id);
-      const response = await fetch(`/api/products/${product.id}/stock-entries`);
+      const response = await authenticatedFetch(`/api/products/${product.id}/stock-entries`);
       console.log('Response status:', response.status);
       
       const data = await response.json();
       console.log('Response data:', data);
       
       if (!response.ok) {
-        throw new Error(data.error || 'Error al obtener stock entries');
+        // Manejar estructura de error del endpoint
+        const errorMessage = data.error?.message || data.error || 'Error al obtener stock entries';
+        throw new Error(errorMessage);
       }
       
       if (data.stockEntries && data.stockEntries.length > 0) {
@@ -139,8 +158,17 @@ export default function StockEntrySelectionModal({
   const pricingInfo = getPricingInfo();
   const validation = getValidation();
 
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      handleClose();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      onClick={handleBackdropClick}
+    >
       <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-black">
@@ -192,9 +220,12 @@ export default function StockEntrySelectionModal({
               </label>
               <div className="space-y-3 max-h-60 overflow-y-auto">
                 {stockEntries.map((entry, index) => {
-                  const wholesaleInfo = getWholesalePricingInfo(entry);
                   const expirationStatus = getExpirationStatus(entry.expiration_date);
                   const isRecommended = index === 0; // First one is FIFO recommended
+                  
+                  const daysUntilExpiration = getDaysUntilExpiration(entry.expiration_date);
+                  const isNearExpiration = daysUntilExpiration !== null && daysUntilExpiration <= 7;
+                  const isExpired = daysUntilExpiration !== null && daysUntilExpiration <= 0;
                   
                   return (
                     <div
@@ -202,6 +233,10 @@ export default function StockEntrySelectionModal({
                       className={`border rounded-lg p-4 cursor-pointer transition-colors ${
                         selectedStockEntry?.id === entry.id
                           ? 'border-blue-500 bg-blue-50'
+                          : isExpired
+                          ? 'border-red-300 bg-red-50 hover:border-red-400'
+                          : isNearExpiration
+                          ? 'border-orange-300 bg-orange-50 hover:border-orange-400'
                           : 'border-gray-200 hover:border-gray-300'
                       }`}
                       onClick={() => setSelectedStockEntry(entry)}
@@ -221,6 +256,16 @@ export default function StockEntrySelectionModal({
                             {isRecommended && (
                               <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
                                 Recomendado (FIFO)
+                              </span>
+                            )}
+                            {isExpired && (
+                              <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full flex items-center">
+                                ⚠️ VENCIDO
+                              </span>
+                            )}
+                            {isNearExpiration && !isExpired && (
+                              <span className="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full flex items-center">
+                                ⏰ PRÓXIMO A VENCER
                               </span>
                             )}
                           </div>
@@ -255,17 +300,7 @@ export default function StockEntrySelectionModal({
                                 <p className="text-sm text-gray-600">Precio unitario:</p>
                                 <p className="font-medium text-green-600">{formatAsCLP(entry.sale_price_unit)}</p>
                               </div>
-                              {wholesaleInfo.hasWholesalePrice && (
-                                <div>
-                                  <p className="text-sm text-gray-600">Precio mayorista (3+):</p>
-                                  <p className="font-medium text-purple-600">
-                                    {formatAsCLP(wholesaleInfo.wholesalePrice!)}
-                                    <span className="text-xs text-gray-500 ml-1">
-                                      (Ahorro: {formatAsCLP(wholesaleInfo.potentialSavings!)})
-                                    </span>
-                                  </p>
-                                </div>
-                              )}
+
                             </div>
                           </div>
                         </div>
@@ -348,11 +383,10 @@ export default function StockEntrySelectionModal({
                   <select
                     id="saleFormat"
                     value={saleFormat}
-                    onChange={(e) => setSaleFormat(e.target.value as 'unitario' | 'caja')}
+                    onChange={(e) => setSaleFormat(e.target.value as 'unitario')}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
                   >
                     <option value="unitario">Unitario - {formatAsCLP(selectedStockEntry.sale_price_unit)}</option>
-                    <option value="caja">Caja - {formatAsCLP(selectedStockEntry.sale_price_box)}</option>
                   </select>
                 </div>
 
@@ -365,22 +399,8 @@ export default function StockEntrySelectionModal({
                         <span className="font-bold text-lg text-black">{formatAsCLP(pricingInfo.totalPrice)}</span>
                       </div>
                       
-                      {pricingInfo.priceType === 'wholesale' && pricingInfo.savings > 0 && (
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-purple-600 font-medium">
-                            🎉 Precio Mayorista Aplicado
-                          </span>
-                          <span className="text-green-600 font-medium">
-                            Ahorro: {formatAsCLP(pricingInfo.savings)}
-                          </span>
-                        </div>
-                      )}
-                      
                       <div className="text-xs text-gray-600">
-                        Precio por unidad: {formatAsCLP(pricingInfo.appliedPrice)}
-                        {pricingInfo.priceType === 'wholesale' && (
-                          <span className="text-purple-600 ml-1">(mayorista)</span>
-                        )}
+                        Precio por unidad: <span style={{color: '#000000'}}>{formatAsCLP(pricingInfo.appliedPrice)}</span>
                       </div>
                     </div>
                   </div>

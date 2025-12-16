@@ -2,11 +2,13 @@
  * Custom hook for thermal printing functionality
  */
 
-import { useEffect, useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { 
   THERMAL_PRINT_CONFIG, 
   generateThermalPrintCSS, 
-  getBrowserPrintCapabilities
+  getBrowserPrintCapabilities,
+  detectThermalPrinterSettings,
+  thermalPrint
 } from '../utils/thermal-printer';
 import type { ThermalPrintConfig } from '../types/thermal-print';
 import type { PrintCapabilities } from '../types/thermal-print';
@@ -20,11 +22,21 @@ interface UseThermalPrintOptions {
   onPrintError?: (error: Error) => void;
 }
 
+interface ThermalPrinterSettings {
+  config: ThermalPrintConfig;
+  printDelay: number;
+  retryAttempts: number;
+  capabilities: PrintCapabilities;
+  printerType: string;
+  recommendations: string[];
+}
+
 interface UseThermalPrintReturn {
   print: () => Promise<void>;
   isPrinting: boolean;
   printError: string | null;
   browserCapabilities: PrintCapabilities;
+  thermalSettings: ThermalPrinterSettings;
   injectStyles: () => void;
   removeStyles: () => void;
 }
@@ -43,13 +55,14 @@ export const useThermalPrint = (
 
   const [isPrinting, setIsPrinting] = useState(false);
   const [printError, setPrintError] = useState<string | null>(null);
-  const [stylesInjected, setStylesInjected] = useState(false);
+  const [hasAutoPrinted, setHasAutoPrinted] = useState(false);
 
-  const browserCapabilities = getBrowserPrintCapabilities();
+  const thermalSettings = detectThermalPrinterSettings();
+   const browserCapabilities = getBrowserPrintCapabilities();
 
-  // Inject thermal print styles into the document
+   // Inject thermal print styles into the document
   const injectStyles = useCallback(() => {
-    if (typeof window === 'undefined' || stylesInjected) return;
+    if (typeof window === 'undefined') return;
 
     const styleId = 'thermal-print-styles';
     let styleElement = document.getElementById(styleId) as HTMLStyleElement;
@@ -61,9 +74,9 @@ export const useThermalPrint = (
       document.head.appendChild(styleElement);
     }
 
+    // Always update the content in case config changed
     styleElement.textContent = generateThermalPrintCSS(config);
-    setStylesInjected(true);
-  }, [config, stylesInjected]);
+  }, [config]);
 
   // Remove thermal print styles from the document
   const removeStyles = useCallback(() => {
@@ -72,15 +85,16 @@ export const useThermalPrint = (
     const styleElement = document.getElementById('thermal-print-styles');
     if (styleElement) {
       styleElement.remove();
-      setStylesInjected(false);
     }
   }, []);
 
-  // Print function with error handling
-  const print = useCallback(async (): Promise<void> => {
+  // Print function with enhanced error handling and retry logic
+  const print = useCallback(async (retryCount: number = 0): Promise<void> => {
     if (typeof window === 'undefined') {
       throw new Error('Print function can only be called in browser environment');
     }
+
+    const retryDelay = 1000; // 1 second
 
     try {
       setIsPrinting(true);
@@ -88,69 +102,152 @@ export const useThermalPrint = (
       onPrintStart?.();
 
       // Ensure styles are injected before printing
-      injectStyles();
+      const styleId = 'thermal-print-styles';
+      let styleElement = document.getElementById(styleId) as HTMLStyleElement;
 
-      // Small delay to ensure styles are applied
-      await new Promise(resolve => setTimeout(resolve, 100));
+      if (!styleElement) {
+        styleElement = document.createElement('style');
+        styleElement.id = styleId;
+        styleElement.type = 'text/css';
+        document.head.appendChild(styleElement);
+      }
+      styleElement.textContent = generateThermalPrintCSS(config);
 
-      // Configure print settings based on browser capabilities
-      if (browserCapabilities.isChrome || browserCapabilities.isEdge) {
-        // Chrome and Edge support more print configuration
-        const printOptions = {
-          silent: false,
-          printBackground: true,
-          color: false,
-          margin: {
-            marginType: 'none' as const,
-          },
-          landscape: false,
-          pagesPerSheet: 1,
-          collate: true,
-          copies: 1,
-        };
-
-        // Try to use the newer print API if available
-        if ('print' in window) {
-          window.print();
-        }
-      } else {
-        // Fallback for other browsers
-        window.print();
+      // Wait for ticket element to be available with timeout
+      let ticketElement = document.querySelector('.thermal-ticket');
+      let attempts = 0;
+      const maxAttempts = 10;
+      
+      while (!ticketElement && attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        ticketElement = document.querySelector('.thermal-ticket');
+        attempts++;
+      }
+      
+      if (!ticketElement) {
+        throw new Error('Ticket element not found for printing after waiting');
       }
 
-      onPrintEnd?.();
+      // Check if ticket has content
+      const hasContent = ticketElement.textContent && ticketElement.textContent.trim().length > 0;
+      if (!hasContent) {
+        throw new Error('Ticket appears to be empty');
+      }
+
+      // Use optimized delay from thermal settings
+       await new Promise(resolve => setTimeout(resolve, thermalSettings.printDelay));
+
+       // Enhanced thermal printing with better feedback
+      try {
+        console.log('Initiating thermal print...');
+        
+        // Add print event listeners for better feedback
+        const handleBeforePrint = () => {
+          console.log('Print dialog opened');
+          setPrintError(null);
+        };
+        
+        const handleAfterPrint = () => {
+          console.log('Print dialog closed');
+          window.removeEventListener('beforeprint', handleBeforePrint);
+          window.removeEventListener('afterprint', handleAfterPrint);
+          onPrintEnd?.();
+        };
+
+        window.addEventListener('beforeprint', handleBeforePrint);
+        window.addEventListener('afterprint', handleAfterPrint);
+        
+        // Use enhanced thermal print function
+        await thermalPrint();
+        
+        // Cleanup timeout in case events don't fire
+        setTimeout(() => {
+          window.removeEventListener('beforeprint', handleBeforePrint);
+          window.removeEventListener('afterprint', handleAfterPrint);
+        }, 15000);
+        
+      } catch (printError) {
+        console.warn('Thermal print failed, falling back to basic print:', printError);
+        
+        // Fallback to basic print
+        window.print();
+        
+        // Wait for print dialog
+        await new Promise(resolve => setTimeout(resolve, 500));
+        onPrintEnd?.();
+      }
     } catch (error) {
       const printError = error instanceof Error ? error : new Error('Unknown print error');
+      console.error('Print error:', printError);
+
+      // Retry logic for transient errors using thermal settings
+       if (retryCount < thermalSettings.retryAttempts && (
+        printError.message.includes('not found') ||
+        printError.message.includes('empty') ||
+        printError.message.includes('ready')
+      )) {
+        console.log(`Print attempt ${retryCount + 1} failed, retrying in ${retryDelay}ms...`);
+        
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        return print(retryCount + 1);
+      }
+
       setPrintError(printError.message);
       onPrintError?.(printError);
       throw printError;
     } finally {
       setIsPrinting(false);
     }
-  }, [injectStyles, browserCapabilities, onPrintStart, onPrintEnd, onPrintError]);
+  }, [config, onPrintStart, onPrintEnd, onPrintError, thermalSettings]);
 
-  // Auto-print functionality
+  // Auto-print functionality with element availability check
   useEffect(() => {
-    if (autoprint && !isPrinting) {
-      const timer = setTimeout(() => {
-        print().catch(error => {
-          console.error('Auto-print failed:', error);
-        });
-      }, autoprintDelay);
+    if (autoprint && !isPrinting && !hasAutoPrinted) {
+      const checkAndPrint = () => {
+        // Check if the thermal ticket element exists
+        const ticketElement = document.querySelector('.thermal-ticket');
+        if (ticketElement) {
+          setHasAutoPrinted(true);
+          print().catch(error => {
+            console.error('Auto-print failed:', error);
+          });
+        } else {
+          // If element doesn't exist yet, wait a bit more and try again
+          setTimeout(checkAndPrint, 100);
+        }
+      };
 
+      const timer = setTimeout(checkAndPrint, autoprintDelay);
       return () => clearTimeout(timer);
     }
-  }, [autoprint, autoprintDelay, print, isPrinting]);
+  }, [autoprint, autoprintDelay, print, isPrinting, hasAutoPrinted]);
 
-  // Inject styles on mount
+  // Inject styles on mount (only once)
   useEffect(() => {
-    injectStyles();
+    // Inject styles immediately on mount
+    if (typeof window !== 'undefined') {
+      const styleId = 'thermal-print-styles';
+      let styleElement = document.getElementById(styleId) as HTMLStyleElement;
+
+      if (!styleElement) {
+        styleElement = document.createElement('style');
+        styleElement.id = styleId;
+        styleElement.type = 'text/css';
+        document.head.appendChild(styleElement);
+      }
+      styleElement.textContent = generateThermalPrintCSS(config);
+    }
     
     // Cleanup on unmount
     return () => {
-      removeStyles();
+      if (typeof window !== 'undefined') {
+        const styleElement = document.getElementById('thermal-print-styles');
+        if (styleElement) {
+          styleElement.remove();
+        }
+      }
     };
-  }, [injectStyles, removeStyles]);
+  }, [config]); // Only depend on config
 
   // Handle print media query changes
   useEffect(() => {
@@ -160,8 +257,11 @@ export const useThermalPrint = (
     
     const handlePrintChange = (e: MediaQueryListEvent) => {
       if (e.matches) {
-        // Print mode activated
-        injectStyles();
+        // Print mode activated - ensure styles are current
+        const styleElement = document.getElementById('thermal-print-styles') as HTMLStyleElement;
+        if (styleElement) {
+          styleElement.textContent = generateThermalPrintCSS(config);
+        }
       }
     };
 
@@ -175,14 +275,15 @@ export const useThermalPrint = (
       printMediaQuery.addListener(handlePrintChange);
       return () => printMediaQuery.removeListener(handlePrintChange);
     }
-  }, [injectStyles, browserCapabilities.supportsCSSPrint]);
+  }, [config, browserCapabilities.supportsCSSPrint]);
 
   return {
     print,
     isPrinting,
     printError,
-    browserCapabilities,
-    injectStyles,
+     browserCapabilities,
+     thermalSettings,
+     injectStyles,
     removeStyles,
   };
 };

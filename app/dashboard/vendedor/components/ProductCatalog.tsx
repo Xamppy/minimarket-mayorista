@@ -20,7 +20,7 @@ interface ProductCatalogProps {
   searchTerm: string;
   categoryFilter: string;
   brandFilter: string;
-  onAddToCart?: (product: Product, stockEntry: any) => void;
+  onAddToCart?: (product: Product, stockEntry: any, quantity?: number) => void;
 }
 
 export default function ProductCatalog({ products, searchTerm, categoryFilter, brandFilter, onAddToCart }: ProductCatalogProps) {
@@ -67,14 +67,14 @@ export default function ProductCatalog({ products, searchTerm, categoryFilter, b
     });
   };
 
-  const handleStockEntrySelected = (stockEntry: StockEntry, _quantity: number, _saleFormat: 'unitario' | 'caja') => {
+  const handleStockEntrySelected = (stockEntry: StockEntry, quantity: number, _saleFormat: 'unitario') => {
     if (!stockSelectionModal.selectedProduct || !onAddToCart) return;
 
     // Convertir StockEntry a formato compatible con onAddToCart
     const stockEntryForCart = {
       id: stockEntry.id,
       sale_price_unit: stockEntry.sale_price_unit,
-      sale_price_box: stockEntry.sale_price_box,
+
       sale_price_wholesale: stockEntry.sale_price_wholesale,
       current_quantity: stockEntry.current_quantity,
       barcode: stockEntry.barcode,
@@ -82,7 +82,7 @@ export default function ProductCatalog({ products, searchTerm, categoryFilter, b
     };
 
     // Llamar a onAddToCart con la información del stock entry seleccionado
-    onAddToCart(stockSelectionModal.selectedProduct, stockEntryForCart);
+    onAddToCart(stockSelectionModal.selectedProduct, stockEntryForCart, quantity);
 
     // Cerrar modal
     setStockSelectionModal({
@@ -213,4 +213,4 @@ export default function ProductCatalog({ products, searchTerm, categoryFilter, b
       )}
     </>
   );
-} 
+}

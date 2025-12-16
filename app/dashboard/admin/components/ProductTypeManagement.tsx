@@ -49,6 +49,7 @@ export default function ProductTypeManagement() {
       <ProductTypeModal
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
+        onSuccess={handleRefresh}
         title="Crear Nuevo Tipo de Producto"
       />
     </div>

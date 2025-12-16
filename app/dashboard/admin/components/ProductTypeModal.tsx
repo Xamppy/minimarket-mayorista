@@ -15,11 +15,19 @@ interface ProductTypeModalProps {
   onClose: () => void;
   productType?: ProductType; // Si se pasa, es modo edición
   title?: string;
+  onSuccess?: () => void; // Callback para recargar datos después del éxito
 }
 
-export default function ProductTypeModal({ isOpen, onClose, productType, title }: ProductTypeModalProps) {
+export default function ProductTypeModal({ isOpen, onClose, productType, title, onSuccess }: ProductTypeModalProps) {
   const isEditMode = !!productType;
   const modalTitle = title || (isEditMode ? 'Editar Tipo de Producto' : 'Crear Nuevo Tipo de Producto');
+  
+  const handleSuccess = () => {
+    if (onSuccess) {
+      onSuccess(); // Recargar datos
+    }
+    onClose(); // Cerrar modal
+  };
 
   return (
     <Transition appear show={isOpen} as={Fragment}>
@@ -36,7 +44,7 @@ export default function ProductTypeModal({ isOpen, onClose, productType, title }
           <div className="fixed inset-0 bg-black bg-opacity-25" />
         </Transition.Child>
 
-        <div className="fixed inset-0 overflow-y-auto">
+        <div className="fixed inset-0 overflow-y-auto" onClick={(e) => e.target === e.currentTarget && onClose()}>
           <div className="flex min-h-full items-center justify-center p-4 text-center">
             <Transition.Child
               as={Fragment}
@@ -81,7 +89,7 @@ export default function ProductTypeModal({ isOpen, onClose, productType, title }
                 <div className="mt-2">
                   <ProductTypeForm 
                     productType={productType}
-                    onSuccess={onClose}
+                    onSuccess={handleSuccess}
                     onCancel={onClose}
                   />
                 </div>

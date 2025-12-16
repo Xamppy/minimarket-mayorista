@@ -13,9 +13,9 @@
 - **Recharts**: Data visualization and charting library
 
 ## Backend & Database
-- **Supabase**: PostgreSQL database with real-time features
-- **Supabase Auth**: Authentication and user management
-- **Supabase SSR**: Server-side rendering integration
+- **PostgreSQL**: Robust relational database
+- **JWT Auth**: Custom authentication and user management
+- **Custom API**: RESTful API for database operations
 - **RPC Functions**: Custom database functions for complex queries
 
 ## Development Tools
@@ -34,8 +34,8 @@ npm run lint         # Run ESLint
 ```
 
 ### Environment Setup
-- Copy `.env.local` with Supabase credentials
-- Required variables: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- Copy `.env.local` with PostgreSQL credentials
+- Required variables: `DATABASE_URL`, `JWT_SECRET`
 
 ## Key Patterns
 - **Server Components**: Default for data fetching

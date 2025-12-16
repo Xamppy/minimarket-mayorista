@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { addProduct } from '../actions';
 
 interface Brand {
@@ -20,6 +21,7 @@ interface ProductFormProps {
 }
 
 export default function ProductForm({ brands, productTypes, onSuccess }: ProductFormProps) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -31,7 +33,10 @@ export default function ProductForm({ brands, productTypes, onSuccess }: Product
 
     try {
       await addProduct(formData);
-      setSuccess('¡Producto registrado en el catálogo exitosamente!');
+      setSuccess('¡Producto registrado en el catálogo!');
+      
+      // Refrescar para mostrar el nuevo producto en la lista
+      router.refresh();
       
       // Limpiar el formulario
       const form = document.getElementById('product-form') as HTMLFormElement;
@@ -43,7 +48,7 @@ export default function ProductForm({ brands, productTypes, onSuccess }: Product
       if (onSuccess) {
         setTimeout(() => {
           onSuccess();
-        }, 1500); // Esperar un poco para mostrar el mensaje de éxito
+        }, 1500);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
@@ -67,8 +72,27 @@ export default function ProductForm({ brands, productTypes, onSuccess }: Product
             required
             disabled={loading}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900"
-            placeholder="Ej: Leche Entera La Serenísima 1L"
+            placeholder="Ej: Coca-Cola 500ml"
           />
+        </div>
+
+        {/* Código de Barras */}
+        <div>
+          <label htmlFor="barcode" className="block text-sm font-medium text-gray-700 mb-1">
+            Código de Barras *
+          </label>
+          <input
+            type="text"
+            id="barcode"
+            name="barcode"
+            required
+            disabled={loading}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900"
+            placeholder="Ej: 7790123456789"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Escanea o ingresa el código de barras del producto
+          </p>
         </div>
 
         {/* Marca */}
@@ -113,6 +137,27 @@ export default function ProductForm({ brands, productTypes, onSuccess }: Product
           </select>
         </div>
 
+        {/* Stock Mínimo para Alerta */}
+        <div>
+          <label htmlFor="minStock" className="block text-sm font-medium text-gray-700 mb-1">
+            Stock Mínimo para Alerta *
+          </label>
+          <input
+            type="number"
+            id="minStock"
+            name="minStock"
+            required
+            min="0"
+            defaultValue="10"
+            disabled={loading}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900"
+            placeholder="10"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Umbral para recibir alertas cuando el stock esté por debajo de este valor
+          </p>
+        </div>
+
         {/* URL de la imagen */}
         <div>
           <label htmlFor="imageUrl" className="block text-sm font-medium text-gray-700 mb-1">
@@ -150,10 +195,10 @@ export default function ProductForm({ brands, productTypes, onSuccess }: Product
           {loading ? 'Registrando...' : 'Registrar en Catálogo'}
         </button>
 
-        <p className="text-xs text-gray-500 text-center">
-          Los campos marcados con * son obligatorios.<br/>
-          Este formulario registra productos en el catálogo general sin precio ni stock.
-        </p>
+        <div className="text-xs text-gray-500 text-center bg-blue-50 p-2 rounded-md">
+          <p className="font-medium">ℹ️ Los precios se definen al ingresar stock</p>
+          <p>Este formulario solo registra la identidad del producto.</p>
+        </div>
       </form>
     );
-} 
+}

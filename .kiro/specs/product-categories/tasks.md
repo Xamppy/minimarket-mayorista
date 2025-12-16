@@ -1,13 +1,13 @@
 # Implementation Plan
 
-- [x] 1. Set up Supabase MCP integration for database schema management
+- [x] 1. Set up PostgreSQL MCP integration for database schema management
 
 
 
 
 
 
-  - Configure Supabase MCP connection for direct database operations
+  - Configure PostgreSQL MCP connection for direct database operations
   - Test MCP connectivity and permissions for schema modifications
   - Verify ability to create, modify, and query database tables through MCP
   - _Requirements: 1.1, 2.1, 3.1, 3.2_
@@ -21,7 +21,7 @@
 
 
 
-  - Create server actions for CRUD operations on brands table using Supabase MCP
+  - Create server actions for CRUD operations on brands table using PostgreSQL MCP
   - Add validation for brand name uniqueness and required fields
   - Implement error handling and authentication checks
   - Use MCP for direct database schema validation and constraints
@@ -31,7 +31,7 @@
 
 
 
-  - Create server actions for CRUD operations on product_types table using Supabase MCP
+  - Create server actions for CRUD operations on product_types table using PostgreSQL MCP
   - Add validation for type name uniqueness and required fields
   - Implement error handling and authentication checks
   - Use MCP for direct database schema validation and constraints
@@ -43,7 +43,7 @@
 
   - Build reusable BrandForm component for create and edit operations
   - Implement client-side validation for brand names
-  - Add form submission handling with server actions that use Supabase MCP
+  - Add form submission handling with server actions that use PostgreSQL MCP
   - Include loading states and error display with MCP operation feedback
   - _Requirements: 1.1, 1.2, 1.4, 4.1, 4.2, 4.4_
 
@@ -53,7 +53,7 @@
 
   - Build reusable ProductTypeForm component for create and edit operations
   - Implement client-side validation for type names
-  - Add form submission handling with server actions that use Supabase MCP
+  - Add form submission handling with server actions that use PostgreSQL MCP
   - Include loading states and error display with MCP operation feedback
   - _Requirements: 2.1, 2.2, 2.4, 4.1, 4.2, 4.4_
 

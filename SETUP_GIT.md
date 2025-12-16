@@ -37,7 +37,7 @@ git commit -m "🎉 Initial commit: Sistema de inventario para minimarket
 1. Ve a [GitHub](https://github.com)
 2. Click en "New repository"
 3. Nombre: `minimarket` o `sistema-inventario-minimarket`
-4. Descripción: "Sistema completo de inventario para minimarket con Next.js y Supabase"
+4. Descripción: "Sistema completo de inventario para minimarket con Next.js y PostgreSQL"
 5. Asegúrate de que sea **público** o **privado** según tu preferencia
 6. **NO** marques "Initialize with README" (ya tenemos uno)
 7. Click "Create repository"
@@ -98,9 +98,9 @@ git commit -m "💄 style: Mejorar diseño responsive en móviles"
 ### **Agregar archivo .env.example**
 Crea manualmente un archivo `.env.example` con:
 ```env
-# Configuración de Supabase
-NEXT_PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_clave_publica_aqui
+# Configuración de PostgreSQL
+DATABASE_URL=postgresql://usuario:contraseña@localhost:5432/minimarket
+JWT_SECRET=tu_jwt_secret_aqui
 ```
 
 ### **Verificar .gitignore**
@@ -146,4 +146,4 @@ npm install
 
 ---
 
-¡Listo! Tu proyecto estará disponible en GitHub y otros podrán clonarlo y contribuir. 🚀 
+¡Listo! Tu proyecto estará disponible en GitHub y otros podrán clonarlo y contribuir. 🚀

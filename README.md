@@ -1,6 +1,6 @@
 # 🏪 Sistema de Inventario para Minimarket
 
-Un sistema completo de gestión de inventario desarrollado con **Next.js 15**, **TypeScript**, **Tailwind CSS** y **Supabase**. Diseñado específicamente para pequeños comercios que necesitan gestionar productos, stock y ventas de manera eficiente.
+Un sistema completo de gestión de inventario desarrollado con **Next.js 15**, **TypeScript**, **Tailwind CSS** y **PostgreSQL**. Diseñado específicamente para pequeños comercios que necesitan gestionar productos, stock y ventas de manera eficiente.
 
 ## 🚀 Características Principales
 
@@ -20,23 +20,23 @@ Un sistema completo de gestión de inventario desarrollado con **Next.js 15**, *
 
 ### 🔐 **Sistema de Autenticación**
 - **Roles de Usuario**: Administrador y Vendedor con permisos diferenciados
-- **Autenticación Segura**: Integración con Supabase Auth
+- **Autenticación Segura**: Sistema JWT personalizado
 - **Protección de Rutas**: Middleware para control de acceso
 
 ## 🛠️ Tecnologías Utilizadas
 
 - **Frontend**: Next.js 15, React 18, TypeScript
 - **Estilos**: Tailwind CSS
-- **Base de Datos**: Supabase (PostgreSQL)
-- **Autenticación**: Supabase Auth
-- **Integración MCP**: Supabase MCP Server para gestión de esquemas
+- **Base de Datos**: PostgreSQL
+- **Autenticación**: JWT personalizado
+- **Integración MCP**: PostgreSQL MCP Server para gestión de esquemas
 - **Deployment**: Vercel (recomendado)
 
 ## 📋 Prerrequisitos
 
 - Node.js 18+ 
 - npm o yarn
-- Cuenta de Supabase
+- PostgreSQL 12+
 
 ## ⚙️ Instalación
 
@@ -56,14 +56,14 @@ npm install
 cp .env.example .env.local
 ```
 
-Editar `.env.local` con tus credenciales de Supabase:
+Editar `.env.local` con tus credenciales de PostgreSQL:
 ```env
-NEXT_PUBLIC_SUPABASE_URL=tu_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_supabase_anon_key
+DATABASE_URL=postgresql://usuario:contraseña@localhost:5432/minimarket
+JWT_SECRET=tu_jwt_secret_aqui
 ```
 
 4. **Configurar la base de datos**
-Ejecutar el script SQL incluido en `/database/schema.sql` en tu proyecto de Supabase.
+Ejecutar los scripts SQL incluidos en la carpeta `/database/` en tu instancia de PostgreSQL.
 
 5. **Ejecutar en desarrollo**
 ```bash
@@ -84,7 +84,7 @@ La aplicación estará disponible en `http://localhost:3000`
 - **`sale_items`**: Detalles de items vendidos
 - **`profiles`**: Perfiles de usuario con roles
 
-### Funciones RPC
+### Funciones de Base de Datos
 
 - **`get_user_role(user_id)`**: Obtiene el rol del usuario
 - **`get_products_with_stock()`**: Calcula stock total por producto
@@ -190,43 +190,19 @@ REFERENCES products(id)
 ON DELETE CASCADE;
 ```
 
-### **Integración MCP de Supabase**
-El proyecto incluye integración con Model Context Protocol (MCP) para gestión avanzada de esquemas de base de datos:
+### **Integración MCP de PostgreSQL**
+El proyecto incluye integración con Model Context Protocol (MCP) para gestión avanzada de base de datos PostgreSQL:
 
 #### Configuración MCP
-- **Servidor**: `@supabase/mcp-server-supabase@latest`
-- **Funcionalidades**: Gestión directa de esquemas, migraciones y consultas
+- **Servidor**: PostgreSQL MCP Server personalizado
+- **Funcionalidades**: Gestión directa de esquemas, consultas y operaciones CRUD
 - **Auto-aprobación**: Configurada para operaciones comunes de base de datos
 
 #### Capacidades MCP Disponibles
 - ✅ **Gestión de Esquemas**: Crear, modificar y eliminar tablas
-- ✅ **Migraciones**: Aplicar cambios de esquema con versionado
-- ✅ **Consultas Directas**: Ejecutar SQL directamente en la base de datos
+- ✅ **Consultas Directas**: Ejecutar SQL directamente en PostgreSQL
 - ✅ **Listado de Tablas**: Inspeccionar estructura de base de datos
-- ✅ **Gestión de Extensiones**: Ver y gestionar extensiones de PostgreSQL
-
-#### Configuración en `.kiro/settings/mcp.json`
-```json
-{
-  "mcpServers": {
-    "supabase": {
-      "command": "npx",
-      "args": ["-y", "@supabase/mcp-server-supabase@latest", "--project-ref=tu-project-ref"],
-      "env": {
-        "SUPABASE_ACCESS_TOKEN": "tu-access-token"
-      },
-      "disabled": false,
-      "autoApprove": [
-        "supabase_query",
-        "supabase_insert",
-        "supabase_update",
-        "supabase_delete",
-        "supabase_schema"
-      ]
-    }
-  }
-}
-```
+- ✅ **Operaciones CRUD**: Insertar, actualizar y eliminar registros
 
 ## 📁 Estructura del Proyecto
 
@@ -246,7 +222,7 @@ minimarket/
 │   │   └── stock-entries/  # Gestión de stock
 │   ├── login/              # Autenticación
 │   └── utils/              # Utilidades
-│       └── supabase/       # Cliente Supabase
+│       └── auth/           # Utilidades de autenticación
 ├── database/               # Scripts SQL
 ├── public/                # Archivos estáticos
 └── README.md              # Este archivo
@@ -301,7 +277,7 @@ Este proyecto está bajo la Licencia MIT. Ver `LICENSE` para más detalles.
 ## 🙏 Agradecimientos
 
 - Equipo de Next.js por el framework
-- Supabase por la infraestructura backend
+- PostgreSQL por la base de datos robusta
 - Tailwind CSS por el sistema de estilos
 - Comunidad open source por las herramientas
 

@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "postgresql": {
+      "command": "node",
+      "args": ["./postgresql-mcp-server/dist/index.js"],
+      "env": {
+        "LOG_LEVEL": "info"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "connect",
+        "query", 
+        "transaction",
+        "disconnect",
+        "health_check"
+      ]
+    }
+  }
+}

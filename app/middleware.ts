@@ -1,38 +1,33 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
+import jwt from 'jsonwebtoken';
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
-  });
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
-        },
-        set(name: string, value: string, options) {
-          request.cookies.set({ name, value, ...options });
-          response = NextResponse.next({ request });
-          response.cookies.set({ name, value, ...options });
-        },
-        remove(name: string, options) {
-          request.cookies.set({ name, value: '', ...options });
-          response = NextResponse.next({ request });
-          response.cookies.set({ name, value: '', ...options });
-        },
-      },
-    }
+  const response = NextResponse.next();
+  
+  // Verificar rutas protegidas
+  const protectedPaths = ['/dashboard', '/admin'];
+  const isProtectedPath = protectedPaths.some(path => 
+    request.nextUrl.pathname.startsWith(path)
   );
-
-  // Refresca la sesión del usuario si existe.
-  await supabase.auth.getUser();
-
+  
+  if (isProtectedPath) {
+    const token = request.cookies.get('auth_token')?.value;
+    
+    if (!token) {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+    
+    try {
+      // Verificar el token JWT
+      jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+    } catch (error) {
+      // Token inválido, redirigir al login
+      const response = NextResponse.redirect(new URL('/', request.url));
+      response.cookies.delete('auth_token');
+      return response;
+    }
+  }
+  
   return response;
 }
 

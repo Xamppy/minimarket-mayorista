@@ -28,7 +28,7 @@ app/
 │
 ├── login/             # Authentication pages
 ├── utils/             # Utility functions
-│   └── supabase/      # Database client configuration
+│   └── auth/          # Authentication utilities
 │       ├── client.ts  # Browser client
 │       └── server.ts  # Server client
 │
@@ -56,7 +56,7 @@ app/
 - Route-specific components in `[route]/components/`
 
 ### Database Integration
-- Supabase clients separated by environment (client/server)
+- Authentication utilities for JWT handling
 - RPC functions for complex database operations
 - Server actions for mutations and form handling
 

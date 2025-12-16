@@ -10,19 +10,51 @@ interface DailySalesData {
 
 interface DailySalesChartProps {
   data: DailySalesData[];
+  period?: 'day' | 'week' | 'month';
 }
 
-export default function DailySalesChart({ data }: DailySalesChartProps) {
-  // Formatear datos para el gráfico
-  const chartData = data.map(item => ({
-    ...item,
-    total_sales: Number(item.total_sales)
-  }));
+export default function DailySalesChart({ data, period = 'month' }: DailySalesChartProps) {
+  // Formatear y ordenar datos para el gráfico (cronológicamente de menor a mayor)
+  const chartData = data
+    .map(item => ({
+      ...item,
+      total_sales: Number(item.total_sales)
+    }))
+    .sort((a, b) => new Date(a.sale_date).getTime() - new Date(b.sale_date).getTime());
 
-  // Función para formatear la fecha en el eje X (evita problemas de zona horaria)
+  // Función para formatear la fecha en el eje X según el período
   const formatXAxisLabel = (dateString: string) => {
-    const [year, month, day] = dateString.split('-');
-    return `${day}/${parseInt(month)}`;
+    const date = new Date(dateString);
+    
+    switch (period) {
+      case 'day':
+        // Para días: mostrar día-mes (22-08)
+        const day = date.getDate().toString().padStart(2, '0');
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        return `${day}-${month}`;
+        
+      case 'week':
+        // Para semanas: mostrar rango de fechas
+        const startOfWeek = new Date(date);
+        startOfWeek.setDate(date.getDate() - date.getDay());
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+        
+        const startDay = startOfWeek.getDate();
+        const endDay = endOfWeek.getDate();
+        const monthName = startOfWeek.toLocaleDateString('es-ES', { month: 'long' });
+        
+        return `Semana ${startDay} al ${endDay} de ${monthName}`;
+        
+      case 'month':
+        // Para meses: mostrar nombre del mes
+        return date.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+        
+      default:
+        const defaultDay = date.getDate().toString().padStart(2, '0');
+        const defaultMonth = (date.getMonth() + 1).toString().padStart(2, '0');
+        return `${defaultDay}-${defaultMonth}`;
+    }
   };
 
   // Tooltip personalizado
@@ -78,14 +110,14 @@ export default function DailySalesChart({ data }: DailySalesChartProps) {
     <div className="bg-white rounded-lg shadow-md p-6">
       <div className="mb-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-2">
-          📊 Ventas Diarias - Últimos 30 Días
+          📊 {period === 'day' ? 'Ventas por Día' : period === 'week' ? 'Ventas por Semana' : 'Ventas por Mes'}
         </h2>
         <p className="text-sm text-gray-600">
           Evolución de las ventas día a día. Haz hover sobre las barras para ver detalles.
         </p>
       </div>
       
-      <div className="h-80">
+      <div className="h-96">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={chartData}
@@ -93,17 +125,18 @@ export default function DailySalesChart({ data }: DailySalesChartProps) {
               top: 20,
               right: 30,
               left: 20,
-              bottom: 5,
+              bottom: 80,
             }}
           >
             <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
             <XAxis 
               dataKey="sale_date" 
               tickFormatter={formatXAxisLabel}
-              tick={{ fontSize: 12 }}
+              tick={{ fontSize: 11 }}
               angle={-45}
               textAnchor="end"
-              height={60}
+              height={80}
+              interval={0}
             />
             <YAxis 
               tickFormatter={(value) => formatAsCLP(value)}
@@ -134,4 +167,4 @@ export default function DailySalesChart({ data }: DailySalesChartProps) {
       </div>
     </div>
   );
-} 
+}

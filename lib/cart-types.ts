@@ -22,7 +22,7 @@ export interface StockEntry {
   created_at: string;
   purchase_price: number;
   sale_price_unit: number;
-  sale_price_box: number;
+
   sale_price_wholesale: number | null;
 }
 
@@ -66,14 +66,14 @@ export interface EnhancedCartItem {
     current_quantity: number;
     expiration_date: string | null;
     sale_price_unit: number;
-    sale_price_box: number;
+
     sale_price_wholesale: number | null;
     created_at: string;
   };
   
   // Quantity and format
   quantity: number;
-  saleFormat: 'unitario' | 'caja' | 'display' | 'pallet';
+  saleFormat: 'unitario' | 'display' | 'pallet';
   
   // Pricing information
   pricing: PricingInfo;
@@ -102,7 +102,7 @@ export interface AddToCartOptions {
   method: 'scanner' | 'catalog' | 'manual';
   stockEntryId?: string;
   quantity: number;
-  saleFormat: 'unitario' | 'caja';
+  saleFormat: 'unitario';
   autoSelectStockEntry?: boolean;
 }
 
@@ -116,14 +116,14 @@ export interface CartResult {
 export interface PriceCalculationInput {
   quantity: number;
   unitPrice: number;
-  boxPrice?: number;
+
   wholesalePrice?: number;
   wholesaleThreshold?: number;
 }
 
 export interface PriceCalculationResult {
   applicablePrice: number;
-  priceType: 'unit' | 'box' | 'wholesale';
+  priceType: 'unit' | 'wholesale';
   totalPrice: number;
   savings: number;
   breakdown: {
@@ -146,12 +146,12 @@ export interface CartItem {
   product: Product;
   stockEntryId: string;
   quantity: number;
-  saleFormat: 'unitario' | 'caja' | 'display' | 'pallet';
+  saleFormat: 'unitario' | 'display' | 'pallet';
   unitPrice: number;
-  boxPrice?: number;
+
   wholesalePrice?: number;
   appliedPrice: number;
-  appliedPriceType: 'unit' | 'box' | 'wholesale';
+  appliedPriceType: 'unit' | 'wholesale';
   totalPrice: number;
   savings?: number;
 }

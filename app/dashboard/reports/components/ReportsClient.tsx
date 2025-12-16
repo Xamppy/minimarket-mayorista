@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getSalesReport, getTopSellingProducts, getRecentSales, getDailySalesStats } from '../../admin/actions';
+// Removed admin actions import - now using direct API calls
 import { formatAsCLP } from '../../../../lib/formatters';
 import { safeEmailInitial, formatSafeEmail, validateSaleData, SafeRecentSale } from '../../../../lib/safe-data-utils';
 import DailySalesChart from './DailySalesChart';
+import SalesHistorySearch from './SalesHistorySearch';
 
 interface SalesReport {
   totalSales: number;
@@ -50,12 +51,26 @@ export default function ReportsClient() {
       setLoading(true);
       setError(null);
       
-      const [salesData, topProductsData, recentSalesData, dailySalesStats] = await Promise.all([
-        getSalesReport(period),
-        getTopSellingProducts(5),
-        getRecentSales(10),
-        getDailySalesStats()
-      ]);
+      // Fetch all reports data from the new endpoint
+      const response = await fetch('/api/reports', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for authentication
+        body: JSON.stringify({
+          action: 'getAllReports',
+          period: period
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
+      }
+
+      const { data } = await response.json();
+      const { salesReport: salesData, topProducts: topProductsData, recentSales: recentSalesData, dailyStats: dailySalesStats } = data;
       
       // Validate and sanitize data before setting state
       setSalesReport(salesData as SalesReport);
@@ -70,7 +85,9 @@ export default function ReportsClient() {
       setDailySalesData(dailySalesStats as DailySalesData[]);
       
       // Log data quality issues for debugging
-      const invalidSales = recentSalesData?.filter((sale: any) => !sale?.seller_email) || [];
+      const invalidSales = Array.isArray(recentSalesData) 
+        ? recentSalesData.filter((sale: any) => !sale?.seller_email) 
+        : [];
       if (invalidSales.length > 0) {
         console.warn(`Found ${invalidSales.length} sales with missing seller information`, invalidSales);
       }
@@ -167,33 +184,51 @@ export default function ReportsClient() {
 
   return (
     <div className="space-y-6">
-      {/* Gráfico de Ventas Diarias - Posición prominente */}
-      <DailySalesChart data={dailySalesData} />
-
-      {/* Selector de período */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">
-          📅 Período de Análisis
-        </h2>
-        <p className="text-sm text-gray-600 mb-4">
-          Selecciona el período para ver el resumen de ventas y estadísticas
-        </p>
-        <div className="flex flex-wrap gap-3">
-          {(['day', 'week', 'month'] as const).map((period) => (
-            <button
-              key={period}
-              onClick={() => setSelectedPeriod(period)}
-              className={`px-6 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
-                selectedPeriod === period
-                  ? 'bg-blue-600 text-white shadow-md transform scale-105'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-sm'
-              }`}
-            >
-              {getPeriodLabel(period)}
-            </button>
-          ))}
+      {/* Filtro de Período - Posición prominente */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg shadow-md p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">
+              📊 Filtro de Período
+            </h2>
+            <p className="text-sm text-gray-600">
+              Selecciona el período para visualizar los datos de ventas
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {(['day', 'week', 'month'] as const).map((period) => {
+              const labels = {
+                day: { text: 'Día', icon: '📅', desc: 'Hoy' },
+                week: { text: 'Semana', icon: '📆', desc: 'Últimos 7 días' },
+                month: { text: 'Mes', icon: '📊', desc: 'Últimos 30 días' }
+              };
+              
+              return (
+                <button
+                  key={period}
+                  onClick={() => setSelectedPeriod(period)}
+                  className={`flex flex-col items-center px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 min-w-[80px] ${
+                    selectedPeriod === period
+                      ? 'bg-blue-600 text-white shadow-lg transform scale-105 ring-2 ring-blue-300'
+                      : 'bg-white text-gray-700 hover:bg-blue-50 hover:shadow-md border border-gray-200'
+                  }`}
+                >
+                  <span className="text-lg mb-1">{labels[period].icon}</span>
+                  <span className="font-semibold">{labels[period].text}</span>
+                  <span className={`text-xs mt-1 ${
+                    selectedPeriod === period ? 'text-blue-100' : 'text-gray-500'
+                  }`}>
+                    {labels[period].desc}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
+
+      {/* Gráfico de Ventas Diarias */}
+      <DailySalesChart data={dailySalesData} period={selectedPeriod} />
 
       {/* Resumen de Ventas */}
       <div className="bg-white rounded-lg shadow-md p-6">
@@ -308,99 +343,8 @@ export default function ReportsClient() {
         )}
       </div>
 
-      {/* Últimas 10 Ventas */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6">
-          📋 Últimas 10 Ventas Realizadas
-        </h2>
-        
-        {recentSales.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
-            <div className="mb-4">
-              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
-            </div>
-            <p className="text-lg font-medium">No hay ventas recientes</p>
-            <p className="text-sm">Las ventas aparecerán aquí una vez que se registren</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    ID Venta
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Fecha y Hora
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Vendedor
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Monto Total
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {recentSales.map((sale) => (
-                  <tr key={sale.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-semibold">
-                        #{sale.id}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(sale.created_at)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <div className="flex items-center">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${
-                          sale.seller_email 
-                            ? 'bg-blue-100 text-blue-700' 
-                            : 'bg-gray-200 text-gray-500'
-                        }`}>
-                          <span className="text-xs font-medium">
-                            {safeEmailInitial(sale.seller_email)}
-                          </span>
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="font-medium">
-                            {formatSafeEmail(sale.seller_email)}
-                          </span>
-                          {!sale.seller_email && (
-                            <span className="text-xs text-amber-600 flex items-center">
-                              <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                              </svg>
-                              Sin info del vendedor
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600">
-                      {formatAsCLP(sale.total_amount)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <button
-                        onClick={() => window.open(`/ticket/${sale.id}`, '_blank')}
-                        className="text-blue-600 hover:text-blue-900 font-medium hover:underline transition-colors"
-                      >
-                        Ver Ticket
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      {/* Búsqueda de Ventas Históricas */}
+      <SalesHistorySearch />
 
       {/* Información adicional mejorada */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
@@ -411,7 +355,7 @@ export default function ReportsClient() {
             </svg>
           </div>
           <div className="ml-4">
-            <h3 className="font-semibold text-blue-900 mb-3">📈 Información sobre los reportes</h3>
+            <h3 className="font-semibold text-blue-900 mb-3">📋 Información sobre los reportes</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-800">
               <ul className="space-y-2">
                 <li className="flex items-center">
@@ -447,4 +391,4 @@ export default function ReportsClient() {
       </div>
     </div>
   );
-} 
+}

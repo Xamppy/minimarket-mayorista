@@ -1,7 +1,12 @@
-import { createClient } from '../../utils/supabase/server';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import VendorPageClient from './components/VendorPageClient';
+import { authenticatedFetchServer } from '../../utils/auth/server-api';
+import { getCurrentUserServer } from '../../utils/auth/server';
+
+// Force dynamic rendering since this page uses searchParams
+export const dynamic = 'force-dynamic';
 
 interface Product {
   id: string;
@@ -27,99 +32,100 @@ interface PageProps {
 }
 
 export default async function VendedorDashboardPage({ searchParams }: PageProps) {
-  const cookieStore = cookies();
-  const supabase = createClient(cookieStore);
+  try {
+    const resolvedSearchParams = await searchParams;
+    const searchTerm = resolvedSearchParams.search || '';
+    const categoryFilter = resolvedSearchParams.category || '';
+    const brandFilter = resolvedSearchParams.brand || '';
 
-  // Verificar autenticación
-  const { data: { user } } = await supabase.auth.getUser();
+    // Obtener datos del usuario autenticado
+    const userData = await getCurrentUserServer();
+    if (!userData) {
+      redirect('/');
+    }
 
-  if (!user) {
-    redirect('/login');
+    // Verificar si el rol es 'vendedor' o 'administrator'
+    if (userData.user.role !== 'vendedor' && userData.user.role !== 'administrator') {
+      redirect('/');
+    }
+
+    // Obtener tipos de productos para las categorías
+    const productTypesResponse = await authenticatedFetchServer('/api/product-types', {
+      method: 'GET'
+    });
+    const productTypes = productTypesResponse.ok ? await productTypesResponse.json() : [];
+
+    // Obtener todas las marcas para el filtrado
+    const brandsResponse = await authenticatedFetchServer('/api/brands', {
+      method: 'GET'
+    });
+    const brands = brandsResponse.ok ? await brandsResponse.json() : [];
+
+    // Obtener productos con stock usando RPC
+    const productsResponse = await authenticatedFetchServer('/api/rpc/get_products_with_stock', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({})
+    });
+
+    if (!productsResponse.ok) {
+      const error = await productsResponse.text();
+      return renderPage(userData.user, [], { message: error }, searchTerm, categoryFilter, brandFilter, productTypes, brands);
+    }
+
+    const productsWithStock = await productsResponse.json();
+
+    // Extraer el array de productos de la respuesta de manera segura
+    let productsArray = [];
+    if (Array.isArray(productsWithStock)) {
+      productsArray = productsWithStock;
+    } else if (productsWithStock && Array.isArray(productsWithStock.result)) {
+      productsArray = productsWithStock.result;
+    } else if (productsWithStock && productsWithStock.data && Array.isArray(productsWithStock.data)) {
+      productsArray = productsWithStock.data;
+    }
+
+    // Mapear los datos para que coincidan con la interfaz esperada
+    const mappedProducts = productsArray.map((product: any) => ({
+      id: product.id,
+      name: product.name,
+      brand_name: product.brand_name || 'Sin marca',
+      type_name: product.product_type_name || 'Sin tipo',
+      image_url: product.image_url,
+      total_stock: parseInt(product.stock_quantity) || 0
+    }));
+
+    let filteredProducts = mappedProducts;
+
+    // Filtrar por búsqueda si hay término
+    if (searchTerm.trim()) {
+      filteredProducts = filteredProducts.filter((product: Product) => 
+        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.brand_name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Filtrar por categoría si hay filtro
+    if (categoryFilter.trim()) {
+      filteredProducts = filteredProducts.filter((product: Product) => 
+        product.type_name?.toLowerCase() === categoryFilter.toLowerCase()
+      );
+    }
+
+    // Filtrar por marca si hay filtro
+    if (brandFilter.trim()) {
+      filteredProducts = filteredProducts.filter((product: Product) => 
+        product.brand_name?.toLowerCase() === brandFilter.toLowerCase()
+      );
+    }
+
+    return renderPage(userData.user, filteredProducts, null, searchTerm, categoryFilter, brandFilter, productTypes, brands);
+  } catch (error) {
+    console.error('Error en VendedorDashboardPage:', error);
+    redirect('/');
   }
-
-  const resolvedSearchParams = await searchParams;
-  const searchTerm = resolvedSearchParams.search || '';
-  const categoryFilter = resolvedSearchParams.category || '';
-  const brandFilter = resolvedSearchParams.brand || '';
-
-  // Obtener tipos de productos para las categorías
-  const { data: productTypes } = await supabase
-    .from('product_types')
-    .select('id, name')
-    .order('name');
-
-  // Obtener todas las marcas para el filtrado
-  const { data: brands } = await supabase
-    .from('brands')
-    .select('id, name')
-    .order('name');
-
-  // Obtener todos los productos con información relacionada de marcas y tipos
-  const { data: products, error: productsError } = await supabase
-    .from('products')
-    .select(`
-      id,
-      name,
-      image_url,
-      brands (
-        name
-      ),
-      product_types (
-        name
-      )
-    `)
-    .order('created_at', { ascending: false });
-
-  if (productsError) {
-    return renderPage(user, [], productsError, searchTerm, categoryFilter, brandFilter, productTypes || [], brands || []);
-  }
-
-  // Obtener stock total para cada producto
-  const productsWithStock = await Promise.all(
-    (products || []).map(async (product) => {
-      const { data: stockData } = await supabase
-        .from('stock_entries')
-        .select('current_quantity')
-        .eq('product_id', product.id);
-      
-      const total_stock = stockData?.reduce((sum, entry) => sum + (entry.current_quantity || 0), 0) || 0;
-      
-      return {
-        id: product.id,
-        name: product.name,
-        brand_name: (product.brands as any)?.name || 'Sin marca',
-        type_name: (product.product_types as any)?.name || 'Sin tipo',
-        image_url: product.image_url,
-        total_stock
-      };
-    })
-  );
-
-  let filteredProducts = productsWithStock;
-
-  // Filtrar por búsqueda si hay término
-  if (searchTerm.trim()) {
-    filteredProducts = filteredProducts.filter((product: Product) => 
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.brand_name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }
-
-  // Filtrar por categoría si hay filtro
-  if (categoryFilter.trim()) {
-    filteredProducts = filteredProducts.filter((product: Product) => 
-      product.type_name?.toLowerCase() === categoryFilter.toLowerCase()
-    );
-  }
-
-  // Filtrar por marca si hay filtro
-  if (brandFilter.trim()) {
-    filteredProducts = filteredProducts.filter((product: Product) => 
-      product.brand_name?.toLowerCase() === brandFilter.toLowerCase()
-    );
-  }
-
-  return renderPage(user, filteredProducts, null, searchTerm, categoryFilter, brandFilter, productTypes || [], brands || []);
 }
 
 function renderPage(
@@ -143,12 +149,25 @@ function renderPage(
                 Vendedor - Venta Rápida
               </h1>
               <p className="text-xs md:text-sm text-gray-600 truncate">
-                {user.email}
+                {user?.email || 'Usuario'}
               </p>
             </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="text-xs text-gray-600 hidden sm:inline">Online</span>
+            <div className="flex items-center space-x-4">
+              {user?.role === 'administrator' && (
+                <Link
+                  href="/dashboard/admin"
+                  className="inline-flex items-center px-3 py-1.5 border border-indigo-600 rounded-md text-xs sm:text-sm font-medium text-indigo-600 bg-white hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+                >
+                  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v4" />
+                  </svg>
+                  Volver al Admin
+                </Link>
+              )}
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-xs text-gray-600 hidden sm:inline">Online</span>
+              </div>
             </div>
           </div>
         </div>

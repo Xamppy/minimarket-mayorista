@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { formatAsCLP } from '../../../../lib/formatters';
+import { authenticatedFetch } from '../../../utils/auth/api';
 
 interface Sale {
   id: string;
+  ticket_number?: number;
   total_amount: number;
   created_at: string;
   sale_items_count?: number;
@@ -26,7 +28,7 @@ export default function SalesHistory() {
       setError(null);
 
       // Obtener ventas del día actual del vendedor autenticado
-      const response = await fetch('/api/vendor-sales');
+      const response = await authenticatedFetch('/api/vendor-sales');
       
       if (!response.ok) {
         throw new Error('Error al obtener ventas del día');
@@ -105,7 +107,7 @@ export default function SalesHistory() {
       {/* Header */}
       <div className="bg-white rounded-lg p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-gray-900 mb-2">
-          📊 Ventas de Hoy
+          📊 Ventas de las Últimas 12 Horas
         </h2>
         <p className="text-sm text-gray-600 mb-3">{todayFormatted}</p>
         
@@ -134,8 +136,8 @@ export default function SalesHistory() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
             </svg>
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No hay ventas hoy</h3>
-          <p className="text-gray-500">Las ventas aparecerán aquí una vez que realices transacciones</p>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No hay ventas en las últimas 12 horas</h3>
+          <p className="text-gray-500">Las ventas de las últimas 12 horas aparecerán aquí una vez que realices transacciones</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -145,11 +147,11 @@ export default function SalesHistory() {
                 <div className="flex-1">
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                      <span className="text-blue-600 font-bold text-sm">#{sale.id}</span>
+                      <span className="text-blue-600 font-bold text-sm">{sale.ticket_number || sale.id.slice(-4)}</span>
                     </div>
                     <div>
                       <p className="font-medium text-gray-900">
-                        Venta #{sale.id}
+                        Venta #{sale.ticket_number ? sale.ticket_number.toString().padStart(10, '0') : sale.id}
                       </p>
                       <p className="text-sm text-gray-500">
                         {formatTime(sale.created_at)}
@@ -185,4 +187,4 @@ export default function SalesHistory() {
       </div>
     </div>
   );
-} 
+}

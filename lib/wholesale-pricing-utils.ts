@@ -53,7 +53,7 @@ export function validateWholesalePrice(price: string | number | null | undefined
  * Calculates the applicable price based on quantity and available pricing options
  */
 export function calculateItemPrice(input: PriceCalculationInput): PriceCalculationResult {
-  const { quantity, unitPrice, boxPrice, wholesalePrice, wholesaleThreshold = WHOLESALE_THRESHOLD } = input;
+  const { quantity, unitPrice, wholesalePrice, wholesaleThreshold = WHOLESALE_THRESHOLD } = input;
 
   // Validaciones mejoradas de entrada - permitir 0 para estados temporales de input
   if (quantity < 0) {
@@ -80,7 +80,7 @@ export function calculateItemPrice(input: PriceCalculationInput): PriceCalculati
   }
 
   // Default to unit price if no pricing is available
-  if (!unitPrice && !boxPrice && !wholesalePrice) {
+  if (!unitPrice && !wholesalePrice) {
     throw new Error('Al menos un precio debe estar disponible para calcular el total');
   }
 
@@ -88,9 +88,7 @@ export function calculateItemPrice(input: PriceCalculationInput): PriceCalculati
     throw new Error('El precio unitario no puede ser negativo');
   }
 
-  if (boxPrice && boxPrice < 0) {
-    throw new Error('El precio por caja no puede ser negativo');
-  }
+
 
   if (wholesalePrice && wholesalePrice < 0) {
     throw new Error('El precio mayorista no puede ser negativo');
@@ -98,7 +96,7 @@ export function calculateItemPrice(input: PriceCalculationInput): PriceCalculati
 
   const baseUnitPrice = unitPrice || 0;
   let applicablePrice = baseUnitPrice;
-  let priceType: 'unit' | 'box' | 'wholesale' = 'unit';
+  let priceType: 'unit' | 'wholesale' = 'unit';
 
   // Check if wholesale pricing applies (quantity >= threshold and wholesale price available)
   if (quantity >= wholesaleThreshold && wholesalePrice && wholesalePrice > 0) {
@@ -132,13 +130,11 @@ export function getApplicablePrice(stockEntry: StockEntry, quantity: number): Pr
   const calculation = calculateItemPrice({
     quantity,
     unitPrice: stockEntry.sale_price_unit,
-    boxPrice: stockEntry.sale_price_box,
     wholesalePrice: stockEntry.sale_price_wholesale
   });
 
   return {
     unitPrice: stockEntry.sale_price_unit,
-    boxPrice: stockEntry.sale_price_box,
     wholesalePrice: stockEntry.sale_price_wholesale,
     applicablePrice: calculation.applicablePrice,
     priceType: calculation.priceType,
@@ -158,7 +154,6 @@ export function formatPricingDisplay(pricingInfo: PricingInfo): {
 
   const priceTypeLabels = {
     unit: 'Precio Unitario',
-    box: 'Precio por Caja',
     wholesale: 'Precio Mayorista'
   };
 

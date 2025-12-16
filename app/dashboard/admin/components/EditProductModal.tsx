@@ -16,10 +16,12 @@ interface ProductType {
 interface Product {
   id: string;
   name: string;
+  barcode?: string;
   brand_name: string;
   type_name: string;
   image_url: string | null;
   total_stock: number;
+  min_stock?: number;
 }
 
 interface EditProductModalProps {
@@ -83,8 +85,17 @@ export default function EditProductModal({
     onClose();
   };
 
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      handleClose();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      onClick={handleBackdropClick}
+    >
       <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-black">
@@ -115,6 +126,26 @@ export default function EditProductModal({
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-black"
               placeholder="Ej: Leche Entera La Serenísima 1L"
             />
+          </div>
+
+          {/* Código de Barras */}
+          <div>
+            <label htmlFor="edit-barcode" className="block text-sm font-medium text-black mb-1">
+              Código de Barras *
+            </label>
+            <input
+              type="text"
+              id="edit-barcode"
+              name="barcode"
+              required
+              disabled={loading}
+              defaultValue={product.barcode || ''}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-black"
+              placeholder="Ej: 7790123456789"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Escanea o ingresa el código de barras del producto
+            </p>
           </div>
 
           {/* Marca */}
@@ -177,6 +208,27 @@ export default function EditProductModal({
             />
           </div>
 
+          {/* Stock Mínimo para Alerta */}
+          <div>
+            <label htmlFor="edit-minStock" className="block text-sm font-medium text-black mb-1">
+              Stock Mínimo para Alerta *
+            </label>
+            <input
+              type="number"
+              id="edit-minStock"
+              name="minStock"
+              required
+              min="0"
+              defaultValue={product.min_stock || 10}
+              disabled={loading}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-black"
+              placeholder="10"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Umbral para recibir alertas cuando el stock esté por debajo de este valor
+            </p>
+          </div>
+
           {/* Mensajes de error y éxito */}
           {error && (
             <div className="text-red-600 text-sm bg-red-50 p-3 rounded-md">
@@ -216,4 +268,4 @@ export default function EditProductModal({
       </div>
     </div>
   );
-} 
+}
