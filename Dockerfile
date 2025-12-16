@@ -67,8 +67,10 @@ EXPOSE 3000
 ENV HOSTNAME="0.0.0.0"
 ENV PORT=3000
 
-# Copy Prisma schema for migrations
-COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+# Copy database scripts and migrations
+COPY --from=builder /app/database ./database
+COPY --from=builder /app/migrations ./migrations
+COPY --from=builder /app/scripts ./scripts
 
 # Start the server
 CMD ["node", "server.js"]
