@@ -25,10 +25,8 @@ async function main() {
     console.log('🔌 Conectando a la base de datos...');
     
     // Lista de archivos SQL a ejecutar en orden
-    // IMPORTANTE: Asegúrate de que estos archivos existan en tu imagen Docker
     const sqlFiles = [
-      'database/create-relational-tables.sql',
-      'database/create-barcode-table.sql'
+      'database/init_completo.sql'
     ];
 
     for (const file of sqlFiles) {
