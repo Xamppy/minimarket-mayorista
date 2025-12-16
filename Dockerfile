@@ -11,8 +11,8 @@ WORKDIR /app
 # Copy package files
 COPY package.json package-lock.json* ./
 
-# Install dependencies
-RUN npm ci --omit=dev
+# Install ALL dependencies (including devDependencies for TypeScript/build)
+RUN npm ci
 
 # =========================================
 # Stage 2: Builder
