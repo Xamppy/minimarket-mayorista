@@ -13,6 +13,7 @@ import SalesHistory from './SalesHistory';
 import FloatingCartButton from './FloatingCartButton';
 import MobileNavBar from './MobileNavBar';
 import DesktopNavTabs from './DesktopNavTabs';
+import CameraBarcodeScanner from './CameraBarcodeScanner';
 
 interface Product {
   id: string;
@@ -92,6 +93,7 @@ export default function VendorPageClient({
   const scanInputRef = useRef<HTMLInputElement>(null);
   const scanTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastInputTimeRef = useRef<number>(0);
+  const [cameraModalOpen, setCameraModalOpen] = useState(false);
 
   // Auto-foco en el campo de escaneo al cargar la página (solo en tab de venta rápida)
   useEffect(() => {
@@ -413,23 +415,37 @@ export default function VendorPageClient({
             </div>
           </div>
 
-          <div className="relative">
-            <input
-              ref={scanInputRef}
-              type="text"
-              value={scanInput}
-              onChange={handleScanInputChange}
-              onKeyDown={handleScanInputKeyDown}
-              className="w-full px-4 py-4 text-lg border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black bg-gray-50"
-              placeholder="Escanee código de barras (automático) o escriba para buscar..."
-              autoFocus
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <input
+                ref={scanInputRef}
+                type="text"
+                value={scanInput}
+                onChange={handleScanInputChange}
+                onKeyDown={handleScanInputKeyDown}
+                className="w-full px-4 py-4 text-lg border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black bg-gray-50"
+                placeholder="Escanee código de barras (automático) o escriba para buscar..."
+                autoFocus
+                disabled={isScanning}
+              />
+              {isScanning && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                </div>
+              )}
+            </div>
+            {/* Botón de escaneo con cámara */}
+            <button
+              onClick={() => setCameraModalOpen(true)}
               disabled={isScanning}
-            />
-            {isScanning && (
-              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-              </div>
-            )}
+              className="flex-shrink-0 px-4 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              title="Escanear con cámara"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
           </div>
 
           {/* Mensaje de error */}
@@ -755,6 +771,16 @@ export default function VendorPageClient({
         onUpdateQuantity={updateCartItemQuantity}
         onRemoveItem={removeFromCart}
         onSaleCompleted={handleSaleCompleted}
+      />
+
+      {/* Modal de escáner con cámara */}
+      <CameraBarcodeScanner
+        isOpen={cameraModalOpen}
+        onClose={() => setCameraModalOpen(false)}
+        onScan={(code) => {
+          setCameraModalOpen(false);
+          processBarcode(code);
+        }}
       />
     </div>
   );
