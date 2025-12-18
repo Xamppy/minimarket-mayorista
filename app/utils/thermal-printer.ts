@@ -27,6 +27,7 @@ export const getThermalPrintStyles = (
       @page {
         size: ${config.paperWidth}mm auto;
         margin: 0;
+        padding: 0;
       }
     `,
     bodyStyles: `
@@ -53,6 +54,8 @@ export const getThermalPrintStyles = (
       min-width: ${config.printableWidth}mm;
       margin: 0 auto;
       padding: ${config.spacing.padding}mm;
+      padding-left: 5mm;
+      padding-right: 2mm;
       box-sizing: border-box;
       font-family: Tahoma, Verdana, Segoe, sans-serif;
       font-size: 12px;
@@ -64,6 +67,7 @@ export const getThermalPrintStyles = (
       text-rendering: geometricPrecision;
       filter: contrast(200%);
       font-variant-numeric: tabular-nums;
+      overflow: hidden;
     `,
     typography: {
       header: `
@@ -146,19 +150,18 @@ export const generateThermalPrintCSS = (
     @media print {
       ${styles.pageConfig}
       
-      /* Force printer compatibility */
+      /* Force printer compatibility - CRITICAL: Reset browser margins */
       @page {
         size: ${config.paperWidth}mm auto;
-        margin: 0;
-        padding: 0;
+        margin: 0 !important;
+        padding: 0 !important;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
       }
       
-      /* Reset all elements for thermal printing */
+      /* Reset all elements for thermal printing - except padding for safe area */
       * {
         margin: 0 !important;
-        padding: 0 !important;
         box-shadow: none !important;
         color: #000 !important;
         background: transparent !important;
@@ -168,7 +171,7 @@ export const generateThermalPrintCSS = (
         filter: none !important;
       }
       
-      /* Optimize body for printing */
+      /* Optimize body for printing - CRITICAL: No margin/padding on body */
       body {
         ${styles.bodyStyles}
         -webkit-font-smoothing: antialiased !important;
@@ -176,11 +179,13 @@ export const generateThermalPrintCSS = (
         text-rendering: geometricPrecision !important;
         width: ${config.paperWidth}mm !important;
         max-width: ${config.paperWidth}mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
         display: flex !important;
         justify-content: center !important;
       }
       
-      /* Main ticket container */
+      /* Main ticket container - SAFE PRINT AREA with left/right margins */
       .thermal-ticket {
         ${styles.ticketContainer}
         page-break-inside: avoid;
@@ -190,6 +195,12 @@ export const generateThermalPrintCSS = (
         width: ${config.printableWidth}mm !important;
         max-width: ${config.printableWidth}mm !important;
         min-width: ${config.printableWidth}mm !important;
+        padding-left: 5mm !important;
+        padding-right: 2mm !important;
+        padding-top: 2mm !important;
+        padding-bottom: 2mm !important;
+        overflow: hidden !important;
+        box-sizing: border-box !important;
       }
       
       /* Typography classes */

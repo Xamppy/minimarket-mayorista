@@ -136,15 +136,15 @@ export interface ThermalPrinterPreset {
 export const THERMAL_PRINTER_PRESETS: Record<string, ThermalPrinterPreset> = {
   standard80mm: {
     name: 'Standard 80mm',
-    description: 'Standard 80mm thermal printer (most common)',
+    description: 'Standard 80mm thermal printer with safe margins (72mm printable area)',
     config: {
       paperWidth: 80,
-      printableWidth: 78,
+      printableWidth: 72, // Reduced from 78mm to account for 5mm+2mm safe margins
       fontSize: {
-        header: 16,
-        section: 14,
-        body: 13,
-        small: 11,
+        header: 15, // Slightly smaller for better fit
+        section: 13,
+        body: 12,
+        small: 10,
       },
       spacing: {
         sectionGap: 3,
