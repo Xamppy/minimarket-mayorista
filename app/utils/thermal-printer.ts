@@ -618,7 +618,12 @@ export const wrapText = (text: string, maxWidth: number): string[] => {
 
 // Utility function to format currency for thermal printing
 export const formatCurrency = (amount: number): string => {
-  return `$${amount.toFixed(2)}`;
+  return new Intl.NumberFormat('es-CL', {
+    style: 'currency',
+    currency: 'CLP',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
 };
 
 // Utility function to format date for thermal printing
