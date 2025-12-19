@@ -35,7 +35,7 @@ export async function GET(
       await client.connect();
 
       try {
-        // Obtener datos básicos de la venta
+        // Obtener datos básicos de la venta (incluyendo campos de descuento)
         const saleQuery = `
           SELECT 
             s.id,
@@ -43,6 +43,8 @@ export async function GET(
             s.total_amount,
             s.sale_date as created_at,
             s.ticket_number,
+            s.discount_type,
+            s.discount_value,
             u.email as seller_email
           FROM sales s
           LEFT JOIN users u ON s.user_id = u.id
@@ -85,6 +87,30 @@ export async function GET(
         
         const itemsResult = await client.query(itemsQuery, [sale_id]);
         
+        // Calcular el subtotal sumando los items
+        const subtotal = itemsResult.rows.reduce((sum: number, item: any) => {
+          return sum + (parseFloat(item.unit_price) * item.quantity);
+        }, 0);
+
+        // Construir objeto de descuento si existe
+        let discount = undefined;
+        if (sale.discount_type && sale.discount_value) {
+          const discountValue = parseFloat(sale.discount_value);
+          let discountAmount = 0;
+          
+          if (sale.discount_type === 'amount') {
+            discountAmount = discountValue;
+          } else if (sale.discount_type === 'percentage') {
+            discountAmount = subtotal * (discountValue / 100);
+          }
+          
+          discount = {
+            type: sale.discount_type as 'amount' | 'percentage',
+            value: discountValue,
+            amount: discountAmount
+          };
+        }
+        
         // Formatear los datos para que coincidan con la interfaz esperada
         const saleData = {
           id: sale.id.toString(),
@@ -93,6 +119,8 @@ export async function GET(
           created_at: sale.created_at,
           ticket_number: sale.ticket_number,
           seller_email: sale.seller_email || '',
+          subtotal: subtotal,
+          discount: discount,
           sale_items: itemsResult.rows.map((item: any) => ({
             id: item.id.toString(),
             quantity_sold: item.quantity,
