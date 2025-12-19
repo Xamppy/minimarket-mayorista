@@ -56,46 +56,52 @@ async function verifyAdminAuth() {
 async function getSalesReport(period: 'day' | 'week' | 'month') {
   const client = await pool.connect();
   try {
-    const now = new Date();
-    let reportStartDate: Date;
-
+    // Build date filter using PostgreSQL's CURRENT_DATE for timezone-safe filtering
+    let dateFilter: string;
     switch (period) {
       case 'day':
-        reportStartDate = new Date();
-        reportStartDate.setHours(0, 0, 0, 0);
+        dateFilter = "sale_date >= CURRENT_DATE";
         break;
       case 'week':
-        reportStartDate = new Date();
-        reportStartDate.setDate(now.getDate() - 7);
+        dateFilter = "sale_date >= CURRENT_DATE - INTERVAL '7 days'";
         break;
       case 'month':
-        reportStartDate = new Date();
-        reportStartDate.setDate(now.getDate() - 30);
+        dateFilter = "sale_date >= CURRENT_DATE - INTERVAL '30 days'";
         break;
       default:
-        reportStartDate = new Date();
-        reportStartDate.setHours(0, 0, 0, 0);
+        dateFilter = "sale_date >= CURRENT_DATE";
     }
 
+    // Debug logging
+    console.log(`[getSalesReport] Period: ${period}, Filter: ${dateFilter}`);
+
     const salesResult = await client.query(
-      'SELECT total_amount, sale_date FROM sales WHERE sale_date >= $1 ORDER BY sale_date DESC',
-      [reportStartDate.toISOString()]
+      `SELECT total_amount, sale_date FROM sales WHERE ${dateFilter} ORDER BY sale_date DESC`
     );
+
+    // Debug: Log raw query results
+    console.log(`[getSalesReport] Found ${salesResult.rows.length} sales`);
+    if (salesResult.rows.length > 0) {
+      console.log(`[getSalesReport] Sample data:`, salesResult.rows.slice(0, 3));
+    }
 
     const totalSales = salesResult.rows.reduce((sum, sale) => sum + parseFloat(sale.total_amount), 0);
     const totalTransactions = salesResult.rows.length;
+
+    console.log(`[getSalesReport] Total: $${totalSales}, Transactions: ${totalTransactions}`);
 
     return {
       totalSales,
       totalTransactions,
       period,
-      startDate: reportStartDate.toISOString(),
-      endDate: now.toISOString()
+      startDate: new Date().toISOString(),
+      endDate: new Date().toISOString()
     };
   } finally {
     client.release();
   }
 }
+
 
 // Función para obtener productos más vendidos
 async function getTopSellingProducts(limit: number = 5, period: 'day' | 'week' | 'month' = 'day') {
