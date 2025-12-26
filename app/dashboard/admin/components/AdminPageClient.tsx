@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import ProductsTable from './ProductsTable';
+import ProductToolbar from './ProductToolbar';
 
 interface ProductWithStock {
   id: string;
@@ -10,6 +11,7 @@ interface ProductWithStock {
   type_name: string;
   image_url: string | null;
   total_stock: number;
+  barcode?: string;
 }
 
 interface Brand {
@@ -33,47 +35,80 @@ export default function AdminPageClient({
   brands, 
   productTypes 
 }: AdminPageClientProps) {
-  const [products, setProducts] = useState<ProductWithStock[]>(initialProducts);
+  const [products] = useState<ProductWithStock[]>(initialProducts);
   const [loading, setLoading] = useState(false);
+  
+  // Filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
 
-  const fetchProducts = async () => {
-    setLoading(true);
-    try {
-      // Recargar la página para obtener datos actualizados
-      window.location.reload();
-    } catch (error) {
-      console.error('Error al actualizar productos:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Filtered products with search (name + barcode) and brand/type filters
+  const filteredProducts = useMemo(() => {
+    const query = searchQuery.toLowerCase().trim();
+    
+    return products.filter(p => {
+      // Search matches name OR barcode
+      const matchesSearch = query === '' || 
+        p.name.toLowerCase().includes(query) || 
+        p.barcode?.toLowerCase().includes(query);
+      
+      // Brand filter (empty = all brands)
+      const matchesBrand = selectedBrands.length === 0 || 
+        selectedBrands.includes(p.brand_name);
+      
+      // Type filter (empty = all types)
+      const matchesType = selectedTypes.length === 0 || 
+        selectedTypes.includes(p.type_name);
+      
+      return matchesSearch && matchesBrand && matchesType;
+    });
+  }, [products, searchQuery, selectedBrands, selectedTypes]);
 
   const handleProductsUpdated = () => {
-    fetchProducts();
+    setLoading(true);
+    window.location.reload();
   };
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-xl bg-white p-3">
-        <div className="mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">
-            Productos ({products.length})
-          </h2>
-        </div>
-        
+    <div className="space-y-4">
+      {/* Smart Toolbar */}
+      <ProductToolbar
+        brands={brands}
+        productTypes={productTypes}
+        searchQuery={searchQuery}
+        selectedBrands={selectedBrands}
+        selectedTypes={selectedTypes}
+        onSearchChange={setSearchQuery}
+        onBrandsChange={setSelectedBrands}
+        onTypesChange={setSelectedTypes}
+        totalProducts={products.length}
+        filteredCount={filteredProducts.length}
+      />
+
+      {/* Products Table */}
+      <div className="rounded-xl bg-white">
         {loading && (
           <div className="text-center py-4">
             <p className="text-gray-600">Actualizando productos...</p>
           </div>
         )}
         
-        {products.length > 0 ? (
+        {filteredProducts.length > 0 ? (
           <ProductsTable 
-            products={products}
+            products={filteredProducts}
             brands={brands}
             productTypes={productTypes}
             onProductsUpdated={handleProductsUpdated}
           />
+        ) : products.length > 0 ? (
+          <div className="text-center py-12 text-gray-500">
+            <svg className="mx-auto h-12 w-12 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <p className="font-medium">No se encontraron productos</p>
+            <p className="text-sm mt-1">Intenta con otros términos de búsqueda o filtros</p>
+          </div>
         ) : (
           <div className="text-center py-8 text-gray-500">
             <p>No hay productos registrados.</p>
