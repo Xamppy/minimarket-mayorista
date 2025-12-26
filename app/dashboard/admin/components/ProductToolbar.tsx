@@ -77,11 +77,11 @@ export default function ProductToolbar({
   const hasActiveFilters = activeFiltersCount > 0 || searchQuery.length > 0;
 
   return (
-    <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between mb-4">
-      {/* Left: Search + Filters */}
-      <div className="flex flex-1 gap-3 items-center w-full sm:w-auto">
-        {/* Search Input */}
-        <div className="relative flex-1 max-w-md">
+    <div className="flex flex-col gap-3 mb-4">
+      {/* Search + Filters Row */}
+      <div className="flex flex-col sm:flex-row gap-3 w-full">
+        {/* Search Input - Full width on mobile */}
+        <div className="relative flex-1">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
