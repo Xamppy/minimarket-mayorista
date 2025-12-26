@@ -92,7 +92,7 @@ export default function ProductToolbar({
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Buscar por nombre, código de barras..."
-            className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow"
+            className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow"
           />
           {searchQuery && (
             <button
@@ -144,13 +144,13 @@ export default function ProductToolbar({
                 </div>
               </div>
 
-              <div className="max-h-80 overflow-y-auto">
+              <div>
                 {/* Brands Section */}
                 <div className="p-4 border-b border-gray-100">
                   <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
                     Marcas ({brands.length})
                   </h4>
-                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                  <div className="space-y-1 max-h-24 overflow-y-auto pr-2">
                     {brands.map((brand) => (
                       <label
                         key={brand.id}
@@ -176,7 +176,7 @@ export default function ProductToolbar({
                   <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
                     Tipos ({productTypes.length})
                   </h4>
-                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                  <div className="space-y-1 max-h-24 overflow-y-auto pr-2">
                     {productTypes.map((type) => (
                       <label
                         key={type.id}
