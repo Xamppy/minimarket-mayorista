@@ -13,6 +13,7 @@ interface Product {
   type_name?: string;
   total_stock: number;
   image_url: string | null;
+  min_price?: number;
 }
 
 interface ProductCatalogProps {
@@ -22,6 +23,16 @@ interface ProductCatalogProps {
   brandFilter: string;
   onAddToCart?: (product: Product, stockEntry: any, quantity?: number) => void;
 }
+
+// Formato de moneda chilena sin decimales
+const formatCurrency = (amount: number): string => {
+  return new Intl.NumberFormat('es-CL', {
+    style: 'currency',
+    currency: 'CLP',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(amount);
+};
 
 export default function ProductCatalog({ products, searchTerm, categoryFilter, brandFilter, onAddToCart }: ProductCatalogProps) {
   const router = useRouter();
@@ -168,45 +179,48 @@ export default function ProductCatalog({ products, searchTerm, categoryFilter, b
         
         {filteredProducts && filteredProducts.length > 0 ? (
           <>
-            {/* Vista Desktop: Grid */}
-            <div className="hidden md:grid md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {/* Vista Desktop: Grid de Alta Densidad */}
+            <div className="hidden md:grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
               {filteredProducts.map((product: Product) => (
-                <div key={product.id} className="bg-gray-50 rounded-lg p-4 border hover:shadow-md transition-shadow">
-                  <div className="aspect-square bg-gray-200 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
+                <div 
+                  key={product.id} 
+                  onClick={() => product.total_stock > 0 && handleSellProduct(product)}
+                  className={`bg-white rounded-lg shadow-sm border border-gray-200 p-3 flex flex-col items-center text-center h-full transition-all duration-150 ${
+                    product.total_stock > 0 
+                      ? 'cursor-pointer hover:shadow-lg hover:border-blue-500 hover:-translate-y-1 active:scale-95' 
+                      : 'opacity-60 cursor-not-allowed'
+                  }`}
+                >
+                  {/* Imagen Controlada */}
+                  <div className="h-24 w-full mb-2 flex items-center justify-center bg-gray-50 rounded-md overflow-hidden">
                     {product.image_url ? (
                       <img 
                         src={product.image_url} 
                         alt={product.name}
-                        className="w-full h-full object-cover"
+                        className="object-contain w-full h-full"
                       />
                     ) : (
-                      <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-10 h-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                       </svg>
                     )}
                   </div>
-                  <h4 className="font-medium text-black text-sm mb-1 line-clamp-2">{product.name}</h4>
-                  <p className="text-xs text-gray-600 mb-1">{product.brand_name}</p>
-                  {product.type_name && (
-                    <p className="text-xs text-gray-500 mb-2">{product.type_name}</p>
+                  {/* Info Compacta */}
+                  <h4 className="text-sm font-bold text-gray-800 line-clamp-2 leading-tight mb-1">{product.name}</h4>
+                  {product.min_price && product.min_price > 0 && (
+                    <p className="text-lg font-bold text-blue-600">{formatCurrency(product.min_price)}</p>
                   )}
-                  <div className="flex items-center justify-between">
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      product.total_stock > 0 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      Stock: {product.total_stock}
-                    </span>
-                    {product.total_stock > 0 && (
-                      <button 
-                        onClick={() => handleSellProduct(product)}
-                        className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700 transition-colors"
-                      >
-                        Agregar
-                      </button>
-                    )}
-                  </div>
+                  <p className="text-xs text-gray-500 truncate w-full">{product.brand_name}</p>
+                  {/* Badge de Stock Discreto */}
+                  <span className={`text-xs mt-auto pt-2 px-2 py-0.5 rounded-full ${
+                    product.total_stock > 10 
+                      ? 'bg-green-100 text-green-800' 
+                      : product.total_stock > 0 
+                      ? 'bg-orange-100 text-orange-800' 
+                      : 'bg-red-100 text-red-800'
+                  }`}>
+                    {product.total_stock > 0 ? `Stock: ${product.total_stock}` : 'Sin Stock'}
+                  </span>
                 </div>
               ))}
             </div>

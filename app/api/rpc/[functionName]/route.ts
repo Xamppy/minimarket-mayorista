@@ -60,7 +60,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           break;
           
         case 'get_products_with_stock':
-          const productsResult = await client.query('SELECT * FROM get_products_with_stock()');
+          const productsResult = await client.query(`
+            SELECT 
+              p.id,
+              p.name,
+              p.brand_name,
+              p.image_url,
+              pt.name as product_type_name,
+              COALESCE(SUM(se.current_quantity)::integer, 0) as stock_quantity,
+              COALESCE(MIN(se.sale_price_unit), p.unit_price, 0) as min_price
+            FROM products p
+            LEFT JOIN stock_entries se ON p.id = se.product_id AND se.current_quantity > 0
+            LEFT JOIN product_types pt ON p.product_type_id = pt.id
+            GROUP BY p.id, p.name, p.brand_name, p.image_url, pt.name, p.unit_price
+            ORDER BY p.created_at DESC
+          `);
           result = productsResult.rows || [];
           break;
           
