@@ -145,4 +145,4 @@ Variables necesarias en el archivo `.env` o configuración del servidor:
 | **`POSTGRES_SSL`** | `true` o `false`. Para habilitar SSL en conexión DB. |
 | **`JWT_SECRET`** | Clave secreta para firmar/verificar tokens JWT de sesión. |
 | **`NEXTAUTH_SECRET`** | (Si se usa NextAuth completo) Clave para encriptación de sesión. |
-| **`NEXTAUTH_URL`** | URL base de la aplicación (para redirecciones auth). |
+| **`NEXTAUTH_URL`** | URL base de la aplicación (para redirecciones auth). |.
