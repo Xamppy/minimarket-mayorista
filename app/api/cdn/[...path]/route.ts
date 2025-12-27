@@ -10,10 +10,10 @@ export async function GET(
   // Reconstruir la ruta del archivo (ej: products/imagen.jpg)
   const filePath = path.join(process.cwd(), "public", "uploads", ...resolvedParams.path);
 
-  console.log("📂 Intentando servir archivo desde:", filePath);
+  console.log("📂 [CDN] Intentando servir archivo desde:", filePath);
 
   if (!fs.existsSync(filePath)) {
-    console.error("❌ Archivo no encontrado:", filePath);
+    console.error("❌ [CDN] Archivo no encontrado:", filePath);
     return NextResponse.json({ error: "File not found" }, { status: 404 });
   }
 
@@ -23,11 +23,24 @@ export async function GET(
     
     // Mapeo simple de Content-Type
     let contentType = "application/octet-stream";
-    if (ext === ".jpg" || ext === ".jpeg") contentType = "image/jpeg";
-    if (ext === ".png") contentType = "image/png";
-    if (ext === ".webp") contentType = "image/webp";
-    if (ext === ".svg") contentType = "image/svg+xml";
-    if (ext === ".gif") contentType = "image/gif";
+    switch (ext) {
+      case ".jpg":
+      case ".jpeg":
+        contentType = "image/jpeg";
+        break;
+      case ".png":
+        contentType = "image/png";
+        break;
+      case ".webp":
+        contentType = "image/webp";
+        break;
+      case ".svg":
+        contentType = "image/svg+xml";
+        break;
+      case ".gif":
+        contentType = "image/gif";
+        break;
+    }
 
     return new NextResponse(fileBuffer, {
       headers: {
@@ -36,7 +49,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("🔥 Error leyendo archivo:", error);
+    console.error("🔥 [CDN] Error leyendo archivo:", error);
     return NextResponse.json({ error: "Error reading file" }, { status: 500 });
   }
 }
