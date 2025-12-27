@@ -18,6 +18,15 @@ interface ProductCardsProps {
   onSaleCompleted: () => void;
 }
 
+// Función auxiliar para redirigir URLs de /uploads a /api/cdn
+const getSafeImageUrl = (url: string | null): string | null => {
+  if (!url) return null;
+  if (url.startsWith('/uploads/')) {
+    return url.replace('/uploads/', '/api/cdn/');
+  }
+  return url;
+};
+
 export default function ProductCards({ products, onSaleCompleted }: ProductCardsProps) {
   const [modalState, setModalState] = useState<{
     isOpen: boolean;
@@ -197,7 +206,7 @@ export default function ProductCards({ products, onSaleCompleted }: ProductCards
             <div className="aspect-square bg-gray-50 flex items-center justify-center rounded-md md:rounded-none overflow-hidden">
               {product.image_url ? (
                 <img
-                  src={product.image_url}
+                  src={getSafeImageUrl(product.image_url) || ''}
                   alt={product.name}
                   className="w-full h-full object-contain rounded-md md:rounded-none"
                   onError={(e) => {
