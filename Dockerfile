@@ -58,7 +58,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 # Switch to non-root user
-USER nextjs
+# USER nextjs  # Desactivado para permitir escritura en volúmenes montados (Dokploy)
 
 # Expose port 3000
 EXPOSE 3000
