@@ -28,6 +28,14 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async rewrites() {
+    return [
+      {
+        source: '/uploads/:path*',       // Cuando el usuario pida /uploads/...
+        destination: '/api/media/:path*', // Next.js lo procesará con nuestra API de lectura
+      },
+    ];
+  },
 };
 
 export default nextConfig;
