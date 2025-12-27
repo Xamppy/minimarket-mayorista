@@ -22,7 +22,8 @@ interface ProductCardsProps {
 const getSafeImageUrl = (url: string | null): string | null => {
   if (!url) return null;
   if (url.startsWith('/uploads/')) {
-    return url.replace('/uploads/', '/api/cdn/');
+    const filePath = url.replace('/uploads/', '');
+    return `/api/serve-image?file=${encodeURIComponent(filePath)}`;
   }
   return url;
 };
