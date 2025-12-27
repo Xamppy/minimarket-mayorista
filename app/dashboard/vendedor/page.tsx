@@ -15,6 +15,7 @@ interface Product {
   brand_name: string;
   total_stock: number;
   type_name?: string;
+  min_price?: number;
 }
 
 interface ProductType {
@@ -94,7 +95,8 @@ export default async function VendedorDashboardPage({ searchParams }: PageProps)
       brand_name: product.brand_name || 'Sin marca',
       type_name: product.product_type_name || 'Sin tipo',
       image_url: product.image_url,
-      total_stock: parseInt(product.stock_quantity) || 0
+      total_stock: parseInt(product.stock_quantity) || 0,
+      min_price: parseFloat(product.min_price) || 0
     }));
 
     let filteredProducts = mappedProducts;
