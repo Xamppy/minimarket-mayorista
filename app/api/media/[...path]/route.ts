@@ -10,10 +10,25 @@ export async function GET(
   // Reconstruimos la ruta: /app/public/uploads/products/foto.webp
   const filePath = path.join(process.cwd(), "public", "uploads", ...resolvedParams.path);
 
-  console.log("📂 [MEDIA] Intentando servir:", filePath);
+  console.log("📂 [MEDIA] process.cwd():", process.cwd());
+  console.log("📂 [MEDIA] Params recibidos:", resolvedParams.path);
+  console.log("📂 [MEDIA] Ruta completa:", filePath);
 
   if (!fs.existsSync(filePath)) {
+    // Intentar listar el directorio padre para debug
+    const parentDir = path.dirname(filePath);
     console.error("❌ [MEDIA] Archivo no encontrado:", filePath);
+    console.log("📂 [MEDIA] Contenido del directorio padre:");
+    try {
+      if (fs.existsSync(parentDir)) {
+        const files = fs.readdirSync(parentDir);
+        console.log("   Archivos encontrados:", files);
+      } else {
+        console.log("   El directorio padre NO existe:", parentDir);
+      }
+    } catch (e) {
+      console.log("   Error listando directorio:", e);
+    }
     return new NextResponse("File not found", { status: 404 });
   }
 
