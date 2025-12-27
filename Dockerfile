@@ -25,7 +25,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 
 # Forzar reconstrucción de caché - Actualiza la fecha/hora si vuelve a fallar
-ENV CACHE_BUST="2025-12-27-v2"
+ENV CACHE_BUST="2025-12-27-v3"
 
 COPY . .
 
