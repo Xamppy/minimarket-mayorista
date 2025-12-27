@@ -54,7 +54,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const { id } = await params;
     
     try {
-      const body = await request.json();
+      const body = await req.json();
       const { name } = body;
       
       if (!name || typeof name !== 'string' || name.trim().length === 0) {
