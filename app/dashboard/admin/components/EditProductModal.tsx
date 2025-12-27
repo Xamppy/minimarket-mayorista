@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { addProduct } from '../actions';
+import ImageUpload from './ImageUpload';
+import { authenticatedFetch } from '../../../utils/auth/api';
 
 interface Brand {
   id: string;
@@ -44,6 +46,8 @@ export default function EditProductModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   if (!isOpen || !product) return null;
 
@@ -51,15 +55,54 @@ export default function EditProductModal({
   const selectedBrand = brands.find(brand => brand.name === product.brand_name);
   const selectedType = productTypes.find(type => type.name === product.type_name);
 
+  const handleImageSelect = (file: File | null, previewUrl: string | null) => {
+    setImageFile(file);
+    setImagePreview(previewUrl);
+  };
+
+  const uploadImage = async (file: File): Promise<string | null> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await authenticatedFetch('/api/upload', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Error al subir la imagen');
+    }
+
+    const data = await response.json();
+    return data.url;
+  };
+
   const handleSubmit = async (formData: FormData) => {
     setLoading(true);
     setError('');
     setSuccess('');
 
-    // Agregar el productId para indicar que es una actualización
-    formData.append('productId', product.id);
-
     try {
+      // Si hay una imagen nueva, subirla primero
+      let imageUrl = product.image_url;
+      if (imageFile) {
+        imageUrl = await uploadImage(imageFile);
+      } else if (imagePreview === null && product.image_url) {
+        // El usuario eliminó la imagen existente
+        imageUrl = null;
+      }
+
+      // Agregar la URL de imagen al FormData
+      if (imageUrl) {
+        formData.set('imageUrl', imageUrl);
+      } else {
+        formData.delete('imageUrl');
+      }
+
+      // Agregar el productId para indicar que es una actualización
+      formData.append('productId', product.id);
+
       await addProduct(formData);
       setSuccess('¡Producto actualizado exitosamente!');
       
@@ -82,6 +125,8 @@ export default function EditProductModal({
   const handleClose = () => {
     setError('');
     setSuccess('');
+    setImageFile(null);
+    setImagePreview(null);
     onClose();
   };
 
@@ -96,7 +141,7 @@ export default function EditProductModal({
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
       onClick={handleBackdropClick}
     >
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-black">
             Editar Producto
@@ -192,21 +237,12 @@ export default function EditProductModal({
             </select>
           </div>
 
-          {/* URL de la imagen */}
-          <div>
-            <label htmlFor="edit-imageUrl" className="block text-sm font-medium text-black mb-1">
-              URL de la Imagen (opcional)
-            </label>
-            <input
-              type="url"
-              id="edit-imageUrl"
-              name="imageUrl"
-              disabled={loading}
-              defaultValue={product.image_url || ''}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-black"
-              placeholder="https://ejemplo.com/imagen.jpg"
-            />
-          </div>
+          {/* Imagen del producto - Nuevo componente */}
+          <ImageUpload
+            currentImageUrl={imagePreview ?? product.image_url}
+            onImageSelect={handleImageSelect}
+            disabled={loading}
+          />
 
           {/* Stock Mínimo para Alerta */}
           <div>

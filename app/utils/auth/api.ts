@@ -7,8 +7,11 @@
  * @returns Promise with the fetch response
  */
 export const authenticatedFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
-  const headers = {
-    'Content-Type': 'application/json',
+  // No establecer Content-Type si el body es FormData (el navegador lo hace automáticamente con el boundary correcto)
+  const isFormData = options.body instanceof FormData;
+  
+  const headers: HeadersInit = {
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...options.headers,
   };
 

@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { addProduct } from '../actions';
+import ImageUpload from './ImageUpload';
+import { authenticatedFetch } from '../../../utils/auth/api';
 
 interface Brand {
   id: string;
@@ -25,6 +27,31 @@ export default function ProductForm({ brands, productTypes, onSuccess }: Product
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+
+  const handleImageSelect = (file: File | null, previewUrl: string | null) => {
+    setImageFile(file);
+    setImagePreview(previewUrl);
+  };
+
+  const uploadImage = async (file: File): Promise<string | null> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await authenticatedFetch('/api/upload', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Error al subir la imagen');
+    }
+
+    const data = await response.json();
+    return data.url;
+  };
 
   const handleSubmit = async (formData: FormData) => {
     setLoading(true);
@@ -32,6 +59,14 @@ export default function ProductForm({ brands, productTypes, onSuccess }: Product
     setSuccess('');
 
     try {
+      // Si hay una imagen, subirla primero
+      if (imageFile) {
+        const imageUrl = await uploadImage(imageFile);
+        if (imageUrl) {
+          formData.set('imageUrl', imageUrl);
+        }
+      }
+
       await addProduct(formData);
       setSuccess('¡Producto registrado en el catálogo!');
       
@@ -43,6 +78,10 @@ export default function ProductForm({ brands, productTypes, onSuccess }: Product
       if (form) {
         form.reset();
       }
+      
+      // Limpiar la imagen
+      setImageFile(null);
+      setImagePreview(null);
       
       // Llamar callback de éxito si existe (para cerrar modal)
       if (onSuccess) {
@@ -158,20 +197,12 @@ export default function ProductForm({ brands, productTypes, onSuccess }: Product
           </p>
         </div>
 
-        {/* URL de la imagen */}
-        <div>
-          <label htmlFor="imageUrl" className="block text-sm font-medium text-gray-700 mb-1">
-            URL de la Imagen (opcional)
-          </label>
-          <input
-            type="url"
-            id="imageUrl"
-            name="imageUrl"
-            disabled={loading}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 text-gray-900"
-            placeholder="https://ejemplo.com/imagen.jpg"
-          />
-        </div>
+        {/* Imagen del producto - Nuevo componente */}
+        <ImageUpload
+          currentImageUrl={imagePreview}
+          onImageSelect={handleImageSelect}
+          disabled={loading}
+        />
 
         {/* Mensajes de error y éxito */}
         {error && (
